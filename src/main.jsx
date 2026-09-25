@@ -528,7 +528,7 @@ function App() {
   function logout() { setMenuOpen(false); }
 
   if (route === 'reports') {
-    return <ReportsView report={report} period={reportPeriod} setPeriod={setReportPeriod} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
+    return <ReportsView goal={goal} report={report} period={reportPeriod} setPeriod={setReportPeriod} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
   }
   if (route === 'usage') {
     return <UsageView usage={usage} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
@@ -692,7 +692,7 @@ function Menu({ open, onClose, onNavigate, onLogout, username }) {
   );
 }
 
-function ReportsView({ report, period, setPeriod, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast }) {
+function ReportsView({ goal, report, period, setPeriod, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast }) {
   const [metric, setMetric] = useState('calories');
   const metricInfo = reportMetrics[metric];
   const maxValue = Math.max(...report.days.map((day) => day.nutrition[metric]), 1);
@@ -749,7 +749,7 @@ function ReportsView({ report, period, setPeriod, onNavigate, menuOpen, setMenuO
       </section>
 
       <section className="report-bottom-grid">
-        <div className="chart-card macro-card"><div className="card-heading"><h2>Daily average</h2><span>{loggedDays} logged {loggedDays === 1 ? 'day' : 'days'}</span></div><MacroBar label="Protein" value={average.proteins} color="green" max={averageMax} /><MacroBar label="Carbs" value={average.carbs} color="yellow" max={averageMax} /><MacroBar label="Fat" value={average.fats} color="coral" max={averageMax} /></div>
+        <div className="chart-card macro-card"><div className="card-heading"><h2>Daily average</h2><span>{loggedDays} logged {loggedDays === 1 ? 'day' : 'days'}</span></div><AverageCalories value={average.calories} goal={goal?.calories} /><MacroBar label="Protein" value={average.proteins} color="green" max={averageMax} /><MacroBar label="Carbs" value={average.carbs} color="yellow" max={averageMax} /><MacroBar label="Fat" value={average.fats} color="coral" max={averageMax} /></div>
         <div className="chart-card"><div className="card-heading"><h2>Active days</h2><span>{period === 'week' ? 'this week' : 'this month'}</span></div><div className="active-days">{report.days.map((day) => <span className={day.meals.length ? 'has-meal' : ''} title={`${day.date}: ${day.meals.length} meals`} key={day.date} />)}</div></div>
       </section>
     </main>
@@ -758,6 +758,18 @@ function ReportsView({ report, period, setPeriod, onNavigate, menuOpen, setMenuO
 
 function ReportStat({ label, value, suffix = '' }) {
   return <div className="report-stat"><span>{label}</span><strong>{value.toLocaleString()}<small>{suffix}</small></strong></div>;
+}
+
+function AverageCalories({ value, goal }) {
+  return (
+    <div className="average-calories">
+      <div>
+        <strong>{value ? Math.round(value).toLocaleString() : '—'}<small>kcal</small></strong>
+        {goal > 0 && <span>of {Math.round(goal).toLocaleString()} goal</span>}
+      </div>
+      {goal > 0 && <span className="progress-track"><i style={fillStyle(Math.min((value / goal) * 100, 100))} /></span>}
+    </div>
+  );
 }
 
 function MacroBar({ label, value, color, max }) {
