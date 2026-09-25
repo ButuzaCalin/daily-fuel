@@ -227,11 +227,12 @@ function sumNutrition(meals) {
   }), { ...emptyNutrition });
 }
 
+// Completed days only: the range ends yesterday, because today's log is still in progress.
 function reportDays(period) {
   const days = [];
   const count = period === 'month' ? 30 : 7;
   const today = new Date();
-  for (let index = count - 1; index >= 0; index -= 1) {
+  for (let index = count; index >= 1; index -= 1) {
     const date = new Date(today);
     date.setDate(today.getDate() - index);
     days.push(dateKey(date));
@@ -720,7 +721,7 @@ function ReportsView({ goal, report, period, setPeriod, onNavigate, menuOpen, se
       <Toast toast={toast} />
 
       <div className="reports-heading">
-        <div><p className="eyebrow">Overview</p><h1>Reports</h1></div>
+        <div><p className="eyebrow">Overview · up to yesterday</p><h1>Reports</h1></div>
         <div className="period-toggle" role="group" aria-label="Report period">
           <button className={period === 'week' ? 'active' : ''} type="button" onClick={() => setPeriod('week')}>7 days</button>
           <button className={period === 'month' ? 'active' : ''} type="button" onClick={() => setPeriod('month')}>30 days</button>
@@ -750,7 +751,7 @@ function ReportsView({ goal, report, period, setPeriod, onNavigate, menuOpen, se
 
       <section className="report-bottom-grid">
         <div className="chart-card macro-card"><div className="card-heading"><h2>Daily average</h2><span>{loggedDays} logged {loggedDays === 1 ? 'day' : 'days'}</span></div><AverageCalories value={average.calories} goal={goal?.calories} /><MacroBar label="Protein" value={average.proteins} color="green" max={averageMax} /><MacroBar label="Carbs" value={average.carbs} color="yellow" max={averageMax} /><MacroBar label="Fat" value={average.fats} color="coral" max={averageMax} /></div>
-        <div className="chart-card"><div className="card-heading"><h2>Active days</h2><span>{period === 'week' ? 'this week' : 'this month'}</span></div><div className="active-days">{report.days.map((day) => <span className={day.meals.length ? 'has-meal' : ''} title={`${day.date}: ${day.meals.length} meals`} key={day.date} />)}</div></div>
+        <div className="chart-card"><div className="card-heading"><h2>Active days</h2><span>{period === 'week' ? 'last 7 days' : 'last 30 days'}</span></div><div className="active-days">{report.days.map((day) => <span className={day.meals.length ? 'has-meal' : ''} title={`${day.date}: ${day.meals.length} meals`} key={day.date} />)}</div></div>
       </section>
     </main>
   );
