@@ -1,6 +1,6 @@
 import { StrictMode, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BarChart3, Clock, Cpu, Database, Home, LoaderCircle, Menu as MenuIcon, Pencil, Settings, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
+import { BarChart3, Clock, Cpu, Database, Home, LoaderCircle, Menu as MenuIcon, Pencil, RefreshCw, Settings, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
 import './styles.css';
 
 if ('serviceWorker' in navigator) {
@@ -214,6 +214,10 @@ ${JSON.stringify(meals.map((meal) => ({ id: meal.id, time: meal.time, descriptio
   return { nutritionById, usage: result.usageMetadata || result.usage || {} };
 }
 
+function hasNutrition(meal) {
+  return Object.values(meal.nutrition || {}).some((value) => Number(value) > 0);
+}
+
 function sumNutrition(meals) {
   return meals.reduce((sum, meal) => ({
     calories: sum.calories + (Number(meal.nutrition.calories) || 0),
@@ -342,6 +346,8 @@ function App() {
   }, [usage]);
 
   const total = useMemo(() => sumNutrition(meals), [meals]);
+  const pendingCount = meals.filter((meal) => !hasNutrition(meal)).length;
+  const dayEstimateLabel = !meals.length ? 'No meals to estimate' : pendingCount ? `Estimate ${pendingCount} ${pendingCount === 1 ? 'meal' : 'meals'} without values` : 'All meals already have values';
 
   const report = useMemo(() => {
     const days = reportDays(reportPeriod);
@@ -449,22 +455,24 @@ function App() {
     }
   }
 
+  // Estimates only meals that have no values yet; meals already estimated or filled in by hand are left alone.
   async function estimateDay() {
-    if (!meals.length || meals.some((meal) => meal.estimating)) return;
+    const pending = meals.filter((meal) => !hasNutrition(meal));
+    if (!pending.length || meals.some((meal) => meal.estimating)) return;
     if (!aiConfigured) return promptForKey();
     if (quotaExhausted()) return;
 
-    updateMealEstimation(meals, { estimating: true, error: '' });
+    updateMealEstimation(pending, { estimating: true, error: '' });
     try {
-      const result = useProxy ? await estimateViaProxy(meals, settings) : await estimateDayLocally(meals, settings);
+      const result = useProxy ? await estimateViaProxy(pending, settings) : await estimateDayLocally(pending, settings);
       setMealsByDate((current) => ({
         ...current,
-        [selectedDate]: (current[selectedDate] || []).map((meal) => ({ ...meal, nutrition: result.nutritionById[meal.id], estimating: false, error: '' })),
+        [selectedDate]: (current[selectedDate] || []).map((meal) => (result.nutritionById[meal.id] ? { ...meal, nutrition: result.nutritionById[meal.id], estimating: false, error: '' } : meal)),
       }));
       trackUsage(result.usage, result.model || manualModel);
       if (result.quota) setProxyQuota(result.quota);
     } catch (error) {
-      updateMealEstimation(meals, { estimating: false, error: error.message });
+      updateMealEstimation(pending, { estimating: false, error: error.message });
       if (error.quota) setProxyQuota(error.quota);
       notify(error.message);
     }
@@ -576,9 +584,9 @@ function App() {
                   <button className="meal-text" type="button" onClick={() => openEditMeal(meal)} title="Edit meal">{meal.text}</button>
                 </div>
                 <div className="meal-actions">
-                  <button className="estimate-button" type="button" onClick={() => estimateMeal(meal)} disabled={meal.estimating}>
-                    {meal.estimating ? <LoaderCircle className="ai-loading" aria-hidden="true" /> : <Sparkles className="ai-icon" aria-hidden="true" />}
-                    <span className="sr-only">{meal.estimating ? 'Estimating' : 'Estimate nutrition'}</span>
+                  <button className={`estimate-button${hasNutrition(meal) ? ' is-reestimate' : ''}`} type="button" onClick={() => estimateMeal(meal)} disabled={meal.estimating} title={hasNutrition(meal) ? 'Re-estimate with AI (replaces current values)' : 'Estimate with AI'}>
+                    {meal.estimating ? <LoaderCircle className="ai-loading" aria-hidden="true" /> : hasNutrition(meal) ? <RefreshCw className="ai-icon" aria-hidden="true" /> : <Sparkles className="ai-icon" aria-hidden="true" />}
+                    <span className="sr-only">{meal.estimating ? 'Estimating' : hasNutrition(meal) ? 'Re-estimate nutrition with AI' : 'Estimate nutrition with AI'}</span>
                   </button>
                   <button className="manual-button" type="button" onClick={() => openEditMeal(meal)} aria-label={`Edit ${meal.text}`} title="Edit meal"><Pencil /></button>
                 </div>
@@ -598,7 +606,7 @@ function App() {
           <div className="summary-heading">
             <p className="eyebrow">Daily total</p>
             <span className="summary-date">{selectedDate === dateKey(new Date()) ? 'Today' : formatDate(selectedDate)}</span>
-            <button className="estimate-button daily-estimate-button" type="button" onClick={estimateDay} disabled={!meals.length || meals.some((meal) => meal.estimating)} aria-label="Estimate all meals for this day" title="Estimate all meals for this day">
+            <button className="estimate-button daily-estimate-button" type="button" onClick={estimateDay} disabled={!pendingCount || meals.some((meal) => meal.estimating)} aria-label={dayEstimateLabel} title={dayEstimateLabel}>
               {meals.some((meal) => meal.estimating) ? <LoaderCircle className="ai-loading" aria-hidden="true" /> : <Sparkles className="ai-icon" aria-hidden="true" />}
             </button>
           </div>

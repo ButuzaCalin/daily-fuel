@@ -83,6 +83,8 @@ textarea::placeholder { color: #9aa09b; }
 .meal-text:active { transform: scale(.99); }
 .meal-actions { display: flex; flex-shrink: 0; gap: 8px; }
 .estimate-button { display: grid; width: 30px; height: 30px; place-items: center; border: 1px solid var(--green); border-radius: 5px; padding: 0; background: white; color: var(--green); font-size: 12px; }
+.estimate-button.is-reestimate { border-color: var(--line); color: var(--muted); }
+.estimate-button:disabled:not(:has(.ai-loading)) { cursor: not-allowed; opacity: .4; }
 .ai-icon { display: inline-block; min-width: 14px; font-size: 16px; line-height: 1; }
 .ai-icon { width: 16px; height: 16px; }
 .ai-loading { width: 16px; height: 16px; animation: spin .8s linear infinite; }
@@ -294,7 +296,8 @@ textarea::placeholder { color: #9aa09b; }
   .time-picker:hover { border-color: var(--green); background: #f8fbf8; }
   .add-button:hover { background: #285d3d; }
   .add-meal-fab:hover { background: #285d3d; transform: translateY(-2px); }
-  .estimate-button:hover { background: var(--green); color: white; }
+  .estimate-button:not(:disabled):hover { background: var(--green); color: white; }
+  .estimate-button.is-reestimate:not(:disabled):hover { border-color: var(--green); background: white; color: var(--green); }
   .manual-button:hover { border-color: var(--green); color: var(--green); }
   .remove-button:hover { border-color: #b34f43; background: #fff1ee; color: #8e3e34; }
   .settings-update .auth-submit:hover { background: #dcebe1; }
