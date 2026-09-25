@@ -33,6 +33,7 @@ async function updateApp() {
 document.addEventListener('gesturestart', (event) => event.preventDefault());
 
 const emptyNutrition ={ calories: 0, proteins: 0, carbs: 0, fats: 0 };
+const blankNutrition = { calories: '', proteins: '', carbs: '', fats: '' };
 const defaultSettings = { aiMode: 'manual', proxyUrl: '', proxyUsername: '', proxyKey: '', provider: 'google', googleKey: '', googleModel: 'gemini-3.5-flash-lite', openaiKey: '', openaiModel: 'gpt-4o-mini' };
 const aiModeLabels = { manual: 'Manual Config', proxy: 'Proxy Config' };
 
@@ -324,6 +325,7 @@ function App() {
   const [mealsByDate, setMealsByDate] = useState(() => clearEstimating(loadLocal('daily-fuel-meals', {})));
   const [mealText, setMealText] = useState('');
   const [mealTime, setMealTime] = useState(currentHour);
+  const [mealNutrition, setMealNutrition] = useState(blankNutrition);
   const [editMeal, setEditMeal] = useState(null);
   const [addMealOpen, setAddMealOpen] = useState(false);
   const [goal, setGoal] = useState(() => loadLocal('daily-fuel-goal', null));
@@ -423,10 +425,11 @@ function App() {
     event.preventDefault();
     if (!mealText.trim()) return;
     try {
-      const newMeal = { id: crypto.randomUUID(), time: mealTime, text: mealText.trim(), nutrition: { ...emptyNutrition }, estimating: false, error: '' };
+      const newMeal = { id: crypto.randomUUID(), time: mealTime, text: mealText.trim(), nutrition: cleanNutrition(mealNutrition), estimating: false, error: '' };
       setMealsByDate((current) => ({ ...current, [selectedDate]: sortMeals([...(current[selectedDate] || []), newMeal]) }));
       setNewMealId(newMeal.id);
       setMealText('');
+      setMealNutrition(blankNutrition);
       setAddMealOpen(false);
     } catch (error) {
       notify(error.message);
@@ -623,10 +626,11 @@ function App() {
       </div>
       <button className="add-meal-fab" type="button" onClick={() => setAddMealOpen(true)} aria-label="Add meal">+</button>
       <MealDialog
-        draft={addMealOpen ? { text: mealText, time: mealTime } : null}
+        draft={addMealOpen ? { text: mealText, time: mealTime, nutrition: mealNutrition } : null}
+        nutritionLabel="Nutrition (optional)"
         title="Add meal"
         submitLabel="Add meal"
-        onChange={(patch) => { if ('text' in patch) setMealText(patch.text); if ('time' in patch) setMealTime(patch.time); }}
+        onChange={(patch) => { if ('text' in patch) setMealText(patch.text); if ('time' in patch) setMealTime(patch.time); if (patch.nutrition) setMealNutrition((current) => ({ ...current, ...patch.nutrition })); }}
         onClose={() => setAddMealOpen(false)}
         onSubmit={addMeal}
       />
@@ -1044,7 +1048,7 @@ function Toast({ toast }) {
   );
 }
 
-function MealDialog({ draft, title, submitLabel, onChange, onClose, onSubmit }) {
+function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', onChange, onClose, onSubmit }) {
   const [shown, closing] = usePresence(draft, 150);
   const id = useId();
   useEscape(Boolean(draft), onClose);
@@ -1064,7 +1068,7 @@ function MealDialog({ draft, title, submitLabel, onChange, onClose, onSubmit }) 
           <label className="sr-only" htmlFor={`${id}-text`}>What did you eat?</label>
           <textarea id={`${id}-text`} value={shown.text} onChange={(event) => onChange({ text: event.target.value })} onKeyDown={submitOnShortcut} placeholder="What did you eat?" rows="4" autoFocus />
           {shown.nutrition && <fieldset className="meal-dialog-nutrition">
-            <legend>Nutrition</legend>
+            <legend>{nutritionLabel}</legend>
             <ManualInput label="Calories" value={shown.nutrition.calories} onChange={(value) => onChange({ nutrition: { calories: value } })} />
             <ManualInput label="Protein (g)" value={shown.nutrition.proteins} onChange={(value) => onChange({ nutrition: { proteins: value } })} />
             <ManualInput label="Carbs (g)" value={shown.nutrition.carbs} onChange={(value) => onChange({ nutrition: { carbs: value } })} />

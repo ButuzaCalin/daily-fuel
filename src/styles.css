@@ -325,7 +325,7 @@ textarea::placeholder { color: #9aa09b; }
   .topbar, .home-header { margin-top: -16px; }
   .topbar-note { display: none; }
   .content-grid { grid-template-columns: 1fr; gap: 28px; }
-  .summary-panel { position: static; }
+  .summary-panel { position: static; order: -1; }
   .reports-heading { align-items: start; flex-direction: column; }
   .report-bottom-grid { grid-template-columns: 1fr; }
   .chart-heading { align-items: flex-start; flex-direction: column; }
