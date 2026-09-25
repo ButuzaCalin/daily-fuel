@@ -221,6 +221,7 @@ textarea::placeholder { color: #9aa09b; }
 .macro-bar-row { display: grid; gap: 7px; }
 .macro-bar-row > div { display: flex; justify-content: space-between; font-size: 12px; }
 .macro-bar-row strong { font-weight: 600; }
+.macro-bar-row strong small { color: var(--muted); font-weight: 400; }
 .macro-track { display: block; height: 7px; overflow: hidden; border-radius: 5px; background: #edf0ed; }
 .macro-track-yellow i { background: #c99b24; }
 .macro-track-coral i { background: #c66b59; }

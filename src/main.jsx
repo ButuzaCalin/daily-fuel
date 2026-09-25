@@ -750,7 +750,7 @@ function ReportsView({ goal, report, period, setPeriod, onNavigate, menuOpen, se
       </section>
 
       <section className="report-bottom-grid">
-        <div className="chart-card macro-card"><div className="card-heading"><h2>Daily average</h2><span>{loggedDays} logged {loggedDays === 1 ? 'day' : 'days'}</span></div><AverageCalories value={average.calories} goal={goal?.calories} /><MacroBar label="Protein" value={average.proteins} color="green" max={averageMax} /><MacroBar label="Carbs" value={average.carbs} color="yellow" max={averageMax} /><MacroBar label="Fat" value={average.fats} color="coral" max={averageMax} /></div>
+        <div className="chart-card macro-card"><div className="card-heading"><h2>Daily average</h2><span>{loggedDays} logged {loggedDays === 1 ? 'day' : 'days'}</span></div><AverageCalories value={average.calories} goal={goal?.calories} /><MacroBar label="Protein" value={average.proteins} goal={goal?.proteins} color="green" max={averageMax} /><MacroBar label="Carbs" value={average.carbs} goal={goal?.carbs} color="yellow" max={averageMax} /><MacroBar label="Fat" value={average.fats} goal={goal?.fats} color="coral" max={averageMax} /></div>
         <div className="chart-card"><div className="card-heading"><h2>Active days</h2><span>{period === 'week' ? 'last 7 days' : 'last 30 days'}</span></div><div className="active-days">{report.days.map((day) => <span className={day.meals.length ? 'has-meal' : ''} title={`${day.date}: ${day.meals.length} meals`} key={day.date} />)}</div></div>
       </section>
     </main>
@@ -773,8 +773,10 @@ function AverageCalories({ value, goal }) {
   );
 }
 
-function MacroBar({ label, value, color, max }) {
-  return <div className="macro-bar-row"><div><span>{label}</span><strong>{value ? Math.round(value) : '—'}g</strong></div><span className={`macro-track macro-track-${color}`}><i style={fillStyle(Math.max((value / max) * 100, value ? 4 : 0))} /></span></div>;
+// With a goal the bar shows progress toward it; without one it compares the macros to each other.
+function MacroBar({ label, value, goal, color, max }) {
+  const percent = goal > 0 ? Math.min((value / goal) * 100, 100) : (value / max) * 100;
+  return <div className="macro-bar-row"><div><span>{label}</span><strong>{value ? Math.round(value) : '—'}{goal > 0 ? <small> / {Math.round(goal)}g</small> : 'g'}</strong></div><span className={`macro-track macro-track-${color}`}><i style={fillStyle(Math.max(percent, value ? 4 : 0))} /></span></div>;
 }
 
 function GoalView({ goal, setGoal, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
