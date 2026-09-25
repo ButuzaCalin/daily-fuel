@@ -336,6 +336,7 @@ textarea::placeholder { color: #9aa09b; }
   .date-display { width: 132px; }
   .toast { bottom: calc(92px + env(safe-area-inset-bottom)); }
   .date-control { padding-inline: 4px; }
+  .dialog-layer { align-items: start; padding-top: calc(16px + env(safe-area-inset-top)); }
   .add-meal-form { grid-template-columns: 1fr; }
   .meal-dialog-nutrition { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .add-button { grid-column: 1; width: 100%; }
