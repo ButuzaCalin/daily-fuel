@@ -1,6 +1,6 @@
 import { StrictMode, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BarChart3, Clock, Cpu, Database, Home, LoaderCircle, Menu as MenuIcon, Pencil, RefreshCw, Settings, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
+import { BarChart3, Clock, Cpu, Database, Home, LoaderCircle, Menu as MenuIcon, Pencil, Plus, RefreshCw, Settings, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
 import './styles.css';
 
 if ('serviceWorker' in navigator) {
@@ -627,7 +627,8 @@ function App() {
       <button className="add-meal-fab" type="button" onClick={() => setAddMealOpen(true)} aria-label="Add meal">+</button>
       <MealDialog
         draft={addMealOpen ? { text: mealText, time: mealTime, nutrition: mealNutrition } : null}
-        nutritionLabel="Nutrition (optional)"
+        nutritionLabel="Manual values"
+        collapsibleNutrition
         title="Add meal"
         submitLabel="Add meal"
         onChange={(patch) => { if ('text' in patch) setMealText(patch.text); if ('time' in patch) setMealTime(patch.time); if (patch.nutrition) setMealNutrition((current) => ({ ...current, ...patch.nutrition })); }}
@@ -1048,9 +1049,15 @@ function Toast({ toast }) {
   );
 }
 
-function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', onChange, onClose, onSubmit }) {
+function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', collapsibleNutrition = false, onChange, onClose, onSubmit }) {
   const [shown, closing] = usePresence(draft, 150);
   const id = useId();
+  const open = Boolean(draft);
+  const [nutritionOpen, setNutritionOpen] = useState(false);
+  // Each time the dialog opens, start collapsed unless the draft already has values.
+  useEffect(() => {
+    if (open) setNutritionOpen(!collapsibleNutrition || Object.values(draft.nutrition || {}).some((value) => value !== '' && Number(value) !== 0));
+  }, [open]);
   useEscape(Boolean(draft), onClose);
   if (!shown) return null;
   function submitOnShortcut(event) {
@@ -1067,7 +1074,8 @@ function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', o
           <div className="form-topline"><label>When</label><TimePicker value={shown.time} onChange={(time) => onChange({ time })} /></div>
           <label className="sr-only" htmlFor={`${id}-text`}>What did you eat?</label>
           <textarea id={`${id}-text`} value={shown.text} onChange={(event) => onChange({ text: event.target.value })} onKeyDown={submitOnShortcut} placeholder="What did you eat?" rows="4" autoFocus />
-          {shown.nutrition && <fieldset className="meal-dialog-nutrition">
+          {shown.nutrition && !nutritionOpen && <button className="manual-values-toggle" type="button" onClick={() => setNutritionOpen(true)}><Plus aria-hidden="true" />Add manual values</button>}
+          {shown.nutrition && nutritionOpen && <fieldset className="meal-dialog-nutrition">
             <legend>{nutritionLabel}</legend>
             <ManualInput label="Calories" value={shown.nutrition.calories} onChange={(value) => onChange({ nutrition: { calories: value } })} />
             <ManualInput label="Protein (g)" value={shown.nutrition.proteins} onChange={(value) => onChange({ nutrition: { proteins: value } })} />

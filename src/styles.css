@@ -273,6 +273,9 @@ textarea::placeholder { color: #9aa09b; }
 .add-meal-dialog .add-meal-form { margin: 20px 0 0; padding: 0; border: 0; }
 .add-meal-dialog .dialog-actions { grid-column: 1 / -1; }
 .meal-dialog-nutrition { display: grid; grid-column: 1 / -1; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.manual-values-toggle { display: inline-flex; grid-column: 1 / -1; justify-self: start; align-items: center; gap: 5px; border: 0; border-radius: 5px; padding: 4px 6px; margin: -4px 0 0 -6px; background: transparent; color: var(--green); font-size: 13px; font-weight: 600; }
+.manual-values-toggle svg { width: 15px; height: 15px; }
+.add-meal-dialog .meal-dialog-nutrition { animation: rise-in 200ms var(--ease-out); }
 .meal-dialog-nutrition legend { margin-bottom: 8px; padding: 0; color: var(--muted); font-size: 12px; }
 .meal-dialog-nutrition .manual-input { font-size: 11px; }
 .add-meal-dialog { max-height: calc(100dvh - 32px); overflow-y: auto; }
@@ -315,6 +318,7 @@ textarea::placeholder { color: #9aa09b; }
   .auth-submit:hover { background: #285d3d; }
   .dialog-heading button:hover { background: #edf0ed; color: var(--ink); }
   .dialog-actions .confirm-add:not(:disabled):hover { background: #285d3d; }
+  .manual-values-toggle:hover { background: #eef5f0; }
   .meal-text:hover { border-color: #b8d2bf; background: #f0f6f1; }
   .empty-add:hover { background: #eef5f0; }
   .toast-action:hover { background: rgb(255 255 255 / 12%); }
