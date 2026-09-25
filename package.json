@@ -1,0 +1,24 @@
+{
+  "name": "essential-food-track",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"node server.js\" \"vite\"",
+    "build": "vite build",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@vitejs/plugin-react": "latest",
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^13.0.3",
+    "concurrently": "latest",
+    "express": "latest",
+    "lucide-react": "^1.47.0",
+    "openai": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "vite": "latest"
+  }
+}

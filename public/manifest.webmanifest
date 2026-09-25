@@ -1,0 +1,18 @@
+{
+  "name": "Daily Fuel",
+  "short_name": "Daily Fuel",
+  "description": "A simple private food and nutrition journal.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f7f5",
+  "theme_color": "#34704d",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
