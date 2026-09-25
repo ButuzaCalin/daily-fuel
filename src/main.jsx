@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useMemo, useState } from 'react';
+import { StrictMode, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BarChart3, Clock, Cpu, Home, LoaderCircle, Menu as MenuIcon, Pencil, Settings, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
 import './styles.css';
@@ -227,6 +227,36 @@ function recordUsage(current, item) {
   return pruneUsage({ ...current, records: [item, ...(current.records || current.recent || [])] });
 }
 
+// Keeps an overlay mounted for `duration` ms after it closes so its exit animation can play.
+function usePresence(value, duration) {
+  const [rendered, setRendered] = useState(value);
+  const [closing, setClosing] = useState(false);
+  useEffect(() => {
+    if (value) {
+      setRendered(value);
+      setClosing(false);
+      return undefined;
+    }
+    if (!rendered) return undefined;
+    setClosing(true);
+    const timer = window.setTimeout(() => {
+      setRendered(null);
+      setClosing(false);
+    }, duration);
+    return () => window.clearTimeout(timer);
+  }, [value, duration]);
+  return [rendered, closing];
+}
+
+function useEscape(active, onEscape) {
+  useEffect(() => {
+    if (!active) return undefined;
+    const handleKeyDown = (event) => { if (event.key === 'Escape') onEscape(); };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [active, onEscape]);
+}
+
 function App() {
   const [selectedDate, setSelectedDate] = useState(dateKey(new Date()));
   const [mealsByDate, setMealsByDate] = useState(() => loadLocal('daily-fuel-meals', {}));
@@ -240,6 +270,8 @@ function App() {
   const [settings, setSettings] = useState(() => ({ ...defaultSettings, ...loadLocal('daily-fuel-settings', {}) }));
   const [usage, setUsage] = useState(() => pruneUsage(loadLocal('daily-fuel-usage', { records: [] })));
   const [toast, setToast] = useState(null);
+  const toastTimer = useRef(null);
+  const [newMealId, setNewMealId] = useState(null);
   const [route, setRoute] = useState(() => window.location.pathname === '/reports' ? 'reports' : window.location.pathname === '/usage' ? 'usage' : window.location.pathname === '/goal' ? 'goal' : window.location.pathname === '/settings' ? 'settings' : window.location.pathname === '/clear-data' ? 'clear-data' : 'home');
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportPeriod, setReportPeriod] = useState('week');
@@ -267,8 +299,9 @@ function App() {
   }, [mealsByDate, reportPeriod]);
 
   function notify(message, type = 'error') {
-    setToast({ message, type });
-    window.setTimeout(() => setToast(null), 4200);
+    window.clearTimeout(toastTimer.current);
+    setToast({ id: Date.now(), message, type });
+    toastTimer.current = window.setTimeout(() => setToast(null), 4200);
   }
 
   useEffect(() => {
@@ -291,6 +324,7 @@ function App() {
     try {
       const newMeal = { id: crypto.randomUUID(), time: mealTime, text: mealText.trim(), nutrition: { ...emptyNutrition }, estimating: false, error: '' };
       setMealsByDate((current) => ({ ...current, [selectedDate]: sortMeals([...(current[selectedDate] || []), newMeal]) }));
+      setNewMealId(newMeal.id);
       setMealText('');
       setAddMealOpen(false);
     } catch (error) {
@@ -432,7 +466,7 @@ function App() {
                 <p>No meals yet</p>
               </div>
             ) : meals.map((meal) => (
-              <article className="meal-card" key={meal.id}>
+              <article className={`meal-card${meal.id === newMealId ? ' is-new' : ''}`} data-estimating={meal.estimating || undefined} onAnimationEnd={(event) => { if (event.target === event.currentTarget) setNewMealId(null); }} key={meal.id}>
                 <div className="meal-time">{meal.time}</div>
                 <div className="meal-main">
                   <p>{meal.text}</p>
@@ -463,7 +497,7 @@ function App() {
           </div>
         </section>
 
-        <aside className="summary-panel">
+        <aside className="summary-panel" data-estimating={meals.some((meal) => meal.estimating) || undefined}>
           <div className="summary-heading">
             <p className="eyebrow">Daily total</p>
             <span className="summary-date">{selectedDate === dateKey(new Date()) ? 'Today' : formatDate(selectedDate)}</span>
@@ -486,6 +520,11 @@ function App() {
   );
 }
 
+// Progress fills slide via transform so value changes animate without layout work.
+function fillStyle(percent) {
+  return { transform: `translateX(${(Number.isFinite(percent) ? percent : 0) - 100}%)` };
+}
+
 function NutritionItem({ label, value, suffix = '' }) {
   return <span><strong>{value ? Math.round(value) : '—'}</strong> {suffix}<small>{label}</small></span>;
 }
@@ -495,17 +534,19 @@ function ManualInput({ label, value, onChange }) {
 }
 
 function Macro({ label, value, goal, color }) {
-  return <div className={`macro macro-${color}`}><span className="macro-bar" /><div className="macro-content"><div><strong>{value ? Math.round(value) : '—'}<small>g</small></strong><span>{label}{goal ? ` / ${Math.round(goal)}g` : ''}</span></div>{goal > 0 && <span className="progress-track"><i style={{ width: `${Math.min((value / goal) * 100, 100)}%` }} /></span>}</div></div>;
+  return <div className={`macro macro-${color}`}><span className="macro-bar" /><div className="macro-content"><div><strong>{value ? Math.round(value) : '—'}<small>g</small></strong><span>{label}{goal ? ` / ${Math.round(goal)}g` : ''}</span></div>{goal > 0 && <span className="progress-track"><i style={fillStyle(Math.min((value / goal) * 100, 100))} /></span>}</div></div>;
 }
 
 function GoalProgress({ value, goal, color }) {
-  return <div className={`goal-progress goal-progress-${color}`}><span className="progress-track"><i style={{ width: `${Math.min((value / goal) * 100, 100)}%` }} /></span></div>;
+  return <div className={`goal-progress goal-progress-${color}`}><span className="progress-track"><i style={fillStyle(Math.min((value / goal) * 100, 100))} /></span></div>;
 }
 
 function Menu({ open, onClose, onNavigate, onLogout, username }) {
-  if (!open) return null;
+  const [visible, closing] = usePresence(open, 200);
+  useEscape(open, onClose);
+  if (!visible) return null;
   return (
-    <div className="menu-layer" role="presentation" onClick={onClose}>
+    <div className="menu-layer" data-closing={closing || undefined} role="presentation" onClick={onClose}>
       <aside className="menu-panel" role="dialog" aria-label="Navigation" onClick={(event) => event.stopPropagation()}>
         <div className="menu-header"><strong>Daily Fuel</strong><button type="button" onClick={onClose} aria-label="Close menu"><X /></button></div>
         <p className="menu-user">{username}</p>
@@ -595,7 +636,7 @@ function ReportStat({ label, value, suffix = '' }) {
 }
 
 function MacroBar({ label, value, color, max }) {
-  return <div className="macro-bar-row"><div><span>{label}</span><strong>{value ? Math.round(value) : '—'}g</strong></div><span className={`macro-track macro-track-${color}`}><i style={{ width: `${Math.max((value / max) * 100, value ? 4 : 0)}%` }} /></span></div>;
+  return <div className="macro-bar-row"><div><span>{label}</span><strong>{value ? Math.round(value) : '—'}g</strong></div><span className={`macro-track macro-track-${color}`}><i style={fillStyle(Math.max((value / max) * 100, value ? 4 : 0))} /></span></div>;
 }
 
 function GoalView({ goal, setGoal, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
@@ -801,18 +842,21 @@ function AuthView({ onAuthenticated, onNotify }) {
 }
 
 function Toast({ toast }) {
-  if (!toast) return null;
-  return <div className={`toast toast-${toast.type}`} role="alert">{toast.message}</div>;
+  const [shown, closing] = usePresence(toast, 180);
+  if (!shown) return null;
+  return <div className={`toast toast-${shown.type}`} data-closing={closing || undefined} role="alert" key={shown.id}>{shown.message}</div>;
 }
 
 function DeleteDialog({ meal, onCancel, onConfirm }) {
-  if (!meal) return null;
+  const [shown, closing] = usePresence(meal, 150);
+  useEscape(Boolean(meal), onCancel);
+  if (!shown) return null;
   return (
-    <div className="dialog-layer" role="presentation">
+    <div className="dialog-layer" data-closing={closing || undefined} role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) onCancel(); }}>
       <section className="delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-title" aria-describedby="delete-description">
         <div className="dialog-icon"><X /></div>
         <h2 id="delete-title">Delete meal?</h2>
-        <p id="delete-description">{meal.text}</p>
+        <p id="delete-description">{shown.text}</p>
         <div className="dialog-actions"><button type="button" onClick={onCancel}>Cancel</button><button className="confirm-delete" type="button" onClick={onConfirm}>Delete</button></div>
       </section>
     </div>
@@ -820,9 +864,11 @@ function DeleteDialog({ meal, onCancel, onConfirm }) {
 }
 
 function AddMealDialog({ open, onClose, onSubmit, mealText, setMealText, mealTime, setMealTime }) {
-  if (!open) return null;
+  const [visible, closing] = usePresence(open, 150);
+  useEscape(open, onClose);
+  if (!visible) return null;
   return (
-    <div className="dialog-layer" role="presentation">
+    <div className="dialog-layer" data-closing={closing || undefined} role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section className="add-meal-dialog" role="dialog" aria-modal="true" aria-labelledby="add-meal-title">
         <div className="dialog-heading"><h2 id="add-meal-title">Add meal</h2><button type="button" onClick={onClose} aria-label="Close add meal dialog"><X /></button></div>
         <form className="add-meal-form" onSubmit={onSubmit}>
