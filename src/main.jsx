@@ -1,6 +1,7 @@
 import { StrictMode, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BarChart3, Clock, Cpu, Database, Home, LoaderCircle, Menu as MenuIcon, Pencil, Plus, RefreshCw, Settings, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
+import { BarChart3, ChevronLeft, ChevronRight, Clock, Cpu, Database, Home, LoaderCircle, Menu as MenuIcon, Pencil, Plus, RefreshCw, Settings, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
+import { calculateScore, dayProgress, dayStatus, DAY_COMPLETE_HOUR, macroLabels, objectiveKey, objectives, scoreLabel, scoringAvailable } from './score.js';
 import './styles.css';
 
 if ('serviceWorker' in navigator) {
@@ -320,6 +321,17 @@ function useEscape(active, onEscape) {
   }, [active, onEscape]);
 }
 
+// Re-renders once a minute so time-based UI (day completion) stays current.
+function useNow(active) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    if (!active) return undefined;
+    const timer = window.setInterval(() => setNow(new Date()), 60000);
+    return () => window.clearInterval(timer);
+  }, [active]);
+  return now;
+}
+
 function App() {
   const [selectedDate, setSelectedDate] = useState(dateKey(new Date()));
   const [mealsByDate, setMealsByDate] = useState(() => clearEstimating(loadLocal('daily-fuel-meals', {})));
@@ -337,6 +349,9 @@ function App() {
   const [route, setRoute] = useState(() => window.location.pathname === '/reports' ? 'reports' : window.location.pathname === '/usage' ? 'usage' : window.location.pathname === '/goal' ? 'goal' : window.location.pathname === '/settings' ? 'settings' : window.location.pathname === '/clear-data' ? 'clear-data' : 'home');
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportPeriod, setReportPeriod] = useState('week');
+  const [scoreOpen, setScoreOpen] = useState(false);
+  const scoring = scoringAvailable(goal);
+  const now = useNow(scoring);
   const meals = sortMeals(mealsByDate[selectedDate] || []);
 
   useEffect(() => saveLocal('daily-fuel-meals', mealsByDate), [mealsByDate]);
@@ -345,7 +360,7 @@ function App() {
   useEffect(() => {
     const pruned = pruneUsage(usage);
     saveLocal('daily-fuel-usage', pruned);
-    if (pruned.records.length !== usage.records.length) setUsage(pruned);
+    if (pruned.records.length !== usage.records?.length) setUsage(pruned);
   }, [usage]);
 
   const total = useMemo(() => sumNutrition(meals), [meals]);
@@ -532,7 +547,7 @@ function App() {
   function logout() { setMenuOpen(false); }
 
   if (route === 'reports') {
-    return <ReportsView goal={goal} report={report} period={reportPeriod} setPeriod={setReportPeriod} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
+    return <ReportsView goal={goal} mealsByDate={mealsByDate} onOpenDay={(date) => { setSelectedDate(date); navigate('home'); }} report={report} period={reportPeriod} setPeriod={setReportPeriod} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
   }
   if (route === 'usage') {
     return <UsageView usage={usage} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
@@ -621,6 +636,7 @@ function App() {
             <Macro label="Carbs" value={total.carbs} goal={goal?.carbs} color="yellow" />
             <Macro label="Fat" value={total.fats} goal={goal?.fats} color="coral" />
           </div>
+          {scoring && <DayScore total={total} goal={goal} meals={meals} status={dayStatus(selectedDate, dateKey(now), now)} onOpen={() => setScoreOpen(true)} />}
           {useProxy && <ProxyQuota quota={proxyQuota} />}
         </aside>
       </div>
@@ -635,6 +651,7 @@ function App() {
         onClose={() => setAddMealOpen(false)}
         onSubmit={addMeal}
       />
+      <ScoreDialog open={scoring && scoreOpen} total={total} goal={goal} meals={meals} pendingCount={pendingCount} status={dayStatus(selectedDate, dateKey(now), now)} now={now} onClose={() => setScoreOpen(false)} />
       <MealDialog draft={editMeal} title="Edit meal" submitLabel="Save" onChange={(patch) => setEditMeal((current) => ({ ...current, ...patch, nutrition: { ...current.nutrition, ...patch.nutrition } }))} onClose={() => setEditMeal(null)} onSubmit={saveMealEdit} />
     </main>
   );
@@ -668,6 +685,90 @@ function Macro({ label, value, goal, color }) {
   return <div className={`macro macro-${color}`}><span className="macro-bar" /><div className="macro-content"><div><strong>{value ? Math.round(value) : '—'}<small>g</small></strong><span>{label}{goal ? ` / ${Math.round(goal)}g` : ''}</span></div>{goal > 0 && <span className="progress-track"><i style={fillStyle(Math.min((value / goal) * 100, 100))} /></span>}</div></div>;
 }
 
+function DayScore({ total, goal, meals, status, onOpen }) {
+  if (status === 'future') return null;
+  const result = status === 'complete' && meals.length ? calculateScore(total, goal) : null;
+  const caption = result ? result.label : status === 'in-progress' ? 'Day in progress' : 'No meals logged';
+  return (
+    <button className={`day-score${result ? ` day-score-${scoreTone(result.score)}` : ''}`} type="button" onClick={onOpen} aria-label={`Daily macro score: ${result ? `${result.score} of 100, ${caption}` : caption}. Show details`}>
+      <span className="day-score-copy"><small>Macro score</small><span>{caption}</span></span>
+      <strong>{result ? result.score : '—'}<small> / 100</small></strong>
+    </button>
+  );
+}
+
+function scoreTone(score) {
+  return score >= 90 ? 'great' : score >= 75 ? 'good' : score >= 60 ? 'fair' : 'low';
+}
+
+function ScoreDialog({ open, total, goal, meals, pendingCount, status, now, onClose }) {
+  const [shown, closing] = usePresence(open ? { total, goal, meals, pendingCount, status, now } : null, 150);
+  const id = useId();
+  useEscape(open, onClose);
+  if (!shown) return null;
+  const objective = objectives[objectiveKey(shown.goal.objective)];
+  const result = shown.status === 'complete' && shown.meals.length ? calculateScore(shown.total, shown.goal) : null;
+  const progress = shown.status === 'in-progress' ? dayProgress(shown.total, shown.goal, shown.now) : null;
+  return (
+    <div className="dialog-layer" data-closing={closing || undefined} role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="add-meal-dialog score-dialog" role="dialog" aria-modal="true" aria-labelledby={`${id}-title`}>
+        <div className="dialog-heading"><h2 id={`${id}-title`}>Daily Macro Score</h2><button type="button" onClick={onClose} aria-label="Close"><X /></button></div>
+        {result ? (
+          <>
+            <div className={`score-hero day-score-${scoreTone(result.score)}`}><strong>{result.score}<small> / 100</small></strong><span>{result.label}</span></div>
+            <p className="score-summary">{result.summary}</p>
+            <table className="score-table">
+              <thead><tr><th>Macro</th><th>Eaten / goal</th><th>Score</th><th>Weight</th><th>Points</th></tr></thead>
+              <tbody>
+                {result.macros.map((macro) => (
+                  <tr key={macro.key}>
+                    <th scope="row">{macro.label}</th>
+                    <td>{Math.round(macro.value)} / {Math.round(macro.target)}g</td>
+                    <td>{Math.round(macro.score)}</td>
+                    <td>× {Math.round(macro.weight * 100)}%</td>
+                    <td>{macro.points.toFixed(1)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot><tr><th scope="row" colSpan="4">Total</th><td>{result.score}</td></tr></tfoot>
+            </table>
+          </>
+        ) : progress ? (
+          <>
+            <div className="score-hero"><strong>—<small> / 100</small></strong><span>Day in progress</span></div>
+            <p className="score-summary">The score is calculated once the day is complete (after {DAY_COMPLETE_HOUR}:00), so an unfinished day never counts against you.</p>
+            <div className="day-progress">
+              <div><span>Day progress</span><strong>{progress.status}</strong></div>
+              <p>{progress.message}</p>
+              {Object.entries(macroLabels).map(([key, label]) => (
+                <div className="day-progress-row" key={key}>
+                  <span>{label}</span>
+                  <span className="progress-track"><i style={fillStyle(Math.min(progress.pace[key] * 100, 100))} /><b style={{ left: `${progress.expected * 100}%` }} /></span>
+                  <span>{Math.round(shown.total[key] || 0)} / {Math.round(shown.goal[key])}g</span>
+                </div>
+              ))}
+              <small>Marker shows about {Math.round(progress.expected * 100)}% — where you'd typically be by now.</small>
+            </div>
+          </>
+        ) : (
+          <p className="score-summary">Log meals for this day to get a score.</p>
+        )}
+        {result && shown.pendingCount > 0 && <p className="score-note">{shown.pendingCount} {shown.pendingCount === 1 ? 'meal has' : 'meals have'} no values yet and {shown.pendingCount === 1 ? 'is' : 'are'} not counted.</p>}
+        <details className="score-method">
+          <summary>How it's calculated</summary>
+          <p>Each macro gets a 0–100 score, weighted for your objective (<strong>{objective.label}</strong>: protein {Math.round(objective.weights.proteins * 100)}%, carbs {Math.round(objective.weights.carbs * 100)}%, fat {Math.round(objective.weights.fats * 100)}%).</p>
+          <ul>
+            <li><strong>Protein</strong> is a minimum: reaching your goal scores 100 and going over isn't penalised. Below it the score eases down (90% → ~90, 75% → ~71, 50% → ~43).</li>
+            <li><strong>Carbs</strong> score best near your goal and drop smoothly the further you move away, with more room below the goal than above.</li>
+            <li><strong>Fat</strong> works the same way with a slightly tighter range.</li>
+          </ul>
+          <p>Calories aren't scored separately — they follow from the macros.</p>
+        </details>
+      </section>
+    </div>
+  );
+}
+
 function GoalProgress({ value, goal, color }) {
   return <div className={`goal-progress goal-progress-${color}`}><span className="progress-track"><i style={fillStyle(Math.min((value / goal) * 100, 100))} /></span></div>;
 }
@@ -698,7 +799,7 @@ function Menu({ open, onClose, onNavigate, onLogout, username }) {
   );
 }
 
-function ReportsView({ goal, report, period, setPeriod, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast }) {
+function ReportsView({ goal, mealsByDate, onOpenDay, report, period, setPeriod, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast }) {
   const [metric, setMetric] = useState('calories');
   const metricInfo = reportMetrics[metric];
   const maxValue = Math.max(...report.days.map((day) => day.nutrition[metric]), 1);
@@ -756,9 +857,51 @@ function ReportsView({ goal, report, period, setPeriod, onNavigate, menuOpen, se
 
       <section className="report-bottom-grid">
         <div className="chart-card macro-card"><div className="card-heading"><h2>Daily average</h2><span>{loggedDays} logged {loggedDays === 1 ? 'day' : 'days'}</span></div><AverageCalories value={average.calories} goal={goal?.calories} /><MacroBar label="Protein" value={average.proteins} goal={goal?.proteins} color="green" max={averageMax} /><MacroBar label="Carbs" value={average.carbs} goal={goal?.carbs} color="yellow" max={averageMax} /><MacroBar label="Fat" value={average.fats} goal={goal?.fats} color="coral" max={averageMax} /></div>
-        <div className="chart-card"><div className="card-heading"><h2>Active days</h2><span>{period === 'week' ? 'last 7 days' : 'last 30 days'}</span></div><div className="active-days">{report.days.map((day) => <span className={day.meals.length ? 'has-meal' : ''} title={`${day.date}: ${day.meals.length} meals`} key={day.date} />)}</div></div>
+        {scoringAvailable(goal) && <ScoreCalendar goal={goal} mealsByDate={mealsByDate} onOpenDay={onOpenDay} />}
       </section>
     </main>
+  );
+}
+
+// Month grid (Monday first) with each completed day's macro score; tapping a day opens it.
+function ScoreCalendar({ goal, mealsByDate, onOpenDay }) {
+  const now = new Date();
+  const todayKey = dateKey(now);
+  const [month, setMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
+  const isCurrentMonth = month.getFullYear() === now.getFullYear() && month.getMonth() === now.getMonth();
+  const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  const leading = (month.getDay() + 6) % 7;
+  const days = Array.from({ length: daysInMonth }, (_, index) => {
+    const date = dateKey(new Date(month.getFullYear(), month.getMonth(), index + 1));
+    const meals = mealsByDate[date] || [];
+    const scored = meals.length > 0 && dayStatus(date, todayKey, now) === 'complete';
+    return { date, day: index + 1, score: scored ? calculateScore(sumNutrition(meals), goal).score : null, isToday: date === todayKey };
+  });
+  const scores = days.filter((day) => day.score !== null).map((day) => day.score);
+  const average = scores.length ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) : null;
+  const shiftMonth = (amount) => setMonth(new Date(month.getFullYear(), month.getMonth() + amount, 1));
+  return (
+    <div className="chart-card score-calendar">
+      <div className="card-heading">
+        <h2>Macro score</h2>
+        <span>{average === null ? 'No scored days' : `avg ${average} · ${scores.length} ${scores.length === 1 ? 'day' : 'days'}`}</span>
+      </div>
+      <div className="calendar-nav">
+        <button type="button" onClick={() => shiftMonth(-1)} aria-label="Previous month"><ChevronLeft /></button>
+        <strong>{new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' }).format(month)}</strong>
+        <button type="button" onClick={() => shiftMonth(1)} disabled={isCurrentMonth} aria-label="Next month"><ChevronRight /></button>
+      </div>
+      <div className="calendar-grid">
+        {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, index) => <span className="calendar-weekday" key={index}>{label}</span>)}
+        {Array.from({ length: leading }, (_, index) => <span key={`blank-${index}`} />)}
+        {days.map((day) => (
+          <button className={`calendar-day${day.score !== null ? ` day-score-${scoreTone(day.score)}` : ''}${day.isToday ? ' is-today' : ''}`} type="button" disabled={day.date > todayKey} onClick={() => onOpenDay(day.date)} title={day.score !== null ? `${day.date}: ${day.score}/100 · ${scoreLabel(day.score)}` : day.date} key={day.date}>
+            <small>{day.day}</small>
+            <strong>{day.score ?? ''}</strong>
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -785,15 +928,17 @@ function MacroBar({ label, value, goal, color, max }) {
 }
 
 function GoalView({ goal, setGoal, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
-  const [draft, setDraft] = useState(goal || { calories: '', proteins: '', carbs: '', fats: '' });
+  const emptyGoal = { calories: '', proteins: '', carbs: '', fats: '', objective: 'lose', scoring: false };
+  const [draft, setDraft] = useState({ ...emptyGoal, ...goal, objective: objectiveKey(goal?.objective) });
+  const macrosSet = ['proteins', 'carbs', 'fats'].every((key) => Number(draft[key]) > 0);
 
-  useEffect(() => setDraft(goal || { calories: '', proteins: '', carbs: '', fats: '' }), [goal]);
+  useEffect(() => setDraft({ ...emptyGoal, ...goal, objective: objectiveKey(goal?.objective) }), [goal]);
 
   async function saveGoal(event) {
     event.preventDefault();
     try {
-      const saved = Object.fromEntries(Object.entries(draft).map(([key, value]) => [key, Math.max(0, Number(value) || 0)]));
-      setGoal(saved);
+      const saved = Object.fromEntries(['calories', 'proteins', 'carbs', 'fats'].map((key) => [key, Math.max(0, Number(draft[key]) || 0)]));
+      setGoal({ ...saved, objective: objectiveKey(draft.objective), scoring: Boolean(draft.scoring && macrosSet) });
       notify('Goal saved.', 'success');
     } catch (error) {
       notify(error.message);
@@ -815,6 +960,18 @@ function GoalView({ goal, setGoal, onNavigate, menuOpen, setMenuOpen, username, 
         <ManualInput label="Protein (g)" value={draft.proteins} onChange={(value) => setDraft((current) => ({ ...current, proteins: value }))} />
         <ManualInput label="Carbs (g)" value={draft.carbs} onChange={(value) => setDraft((current) => ({ ...current, carbs: value }))} />
         <ManualInput label="Fat (g)" value={draft.fats} onChange={(value) => setDraft((current) => ({ ...current, fats: value }))} />
+        <label className="scoring-toggle">
+          <input type="checkbox" role="switch" checked={Boolean(draft.scoring && macrosSet)} disabled={!macrosSet} onChange={(event) => setDraft((current) => ({ ...current, scoring: event.target.checked }))} />
+          <span><strong>Enable scoring</strong><small>{macrosSet ? 'Rate each completed day 0–100 on how well you hit your macros.' : 'Set protein, carbs and fat goals to enable scoring.'}</small></span>
+        </label>
+        {draft.scoring && macrosSet && (
+          <div className="goal-objective">
+            <span id="goal-objective-label">Objective</span>
+            <div className="objective-toggle" role="radiogroup" aria-labelledby="goal-objective-label">
+              {Object.entries(objectives).map(([key, objective]) => <button className={draft.objective === key ? 'active' : ''} type="button" role="radio" aria-checked={draft.objective === key} onClick={() => setDraft((current) => ({ ...current, objective: key }))} key={key}>{objective.label}</button>)}
+            </div>
+          </div>
+        )}
         <button className="auth-submit goal-save" type="submit">Save goal</button>
       </form>
     </main>
@@ -936,9 +1093,13 @@ function ClearDataView({ mealsByDate, setMealsByDate, goal, setGoal, settings, s
         })).filter((meal) => meal.text)];
       }));
       setMealsByDate(importedMeals);
-      setGoal(data.goal && typeof data.goal === 'object' ? data.goal : null);
+      setGoal(data.goal && typeof data.goal === 'object' ? {
+        ...Object.fromEntries(['calories', 'proteins', 'carbs', 'fats'].map((key) => [key, Math.max(0, Number(data.goal[key]) || 0)])),
+        objective: objectiveKey(data.goal.objective),
+        scoring: data.goal.scoring === true,
+      } : null);
       setSettings(exclusiveAiSettings({ ...defaultSettings, ...(data.settings || {}) }));
-      if (data.usage && typeof data.usage === 'object') setUsage(data.usage);
+      if (data.usage && typeof data.usage === 'object') setUsage(pruneUsage(data.usage));
       notify('Backup imported.', 'success');
     } catch (error) {
       notify(error.message || 'Could not import this backup.');
