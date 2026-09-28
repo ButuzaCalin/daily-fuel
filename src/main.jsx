@@ -847,11 +847,15 @@ function Menu({ open, onClose, onNavigate, onLogout, username, goal }) {
         <nav className="menu-links">
           <div className="menu-group">
             <button type="button" onClick={() => onNavigate('home', true)}><span className="menu-link-label"><span className="menu-icon"><Home /></span>Today</span><span aria-hidden="true">&rarr;</span></button>
-            <button type="button" onClick={() => onNavigate('goal')}><span className="menu-link-label"><span className="menu-icon"><Target /></span>Goal</span><span aria-hidden="true">&rarr;</span></button>
-            {scoringAvailable(goal) && <button type="button" onClick={() => onNavigate('scores')}><span className="menu-link-label"><span className="menu-icon"><Medal /></span>Scores</span><span aria-hidden="true">&rarr;</span></button>}
-            {goal?.weightTracking && <button type="button" onClick={() => onNavigate('weight')}><span className="menu-link-label"><span className="menu-icon"><Scale /></span>Weight</span><span aria-hidden="true">&rarr;</span></button>}
             <button type="button" onClick={() => onNavigate('reports')}><span className="menu-link-label"><span className="menu-icon"><BarChart3 /></span>Reports</span><span aria-hidden="true">&rarr;</span></button>
+            <button type="button" onClick={() => onNavigate('goal')}><span className="menu-link-label"><span className="menu-icon"><Target /></span>Goal</span><span aria-hidden="true">&rarr;</span></button>
           </div>
+          {(scoringAvailable(goal) || goal?.weightTracking) && (
+            <div className="menu-group menu-group-secondary">
+              {scoringAvailable(goal) && <button type="button" onClick={() => onNavigate('scores')}><span className="menu-link-label"><span className="menu-icon"><Medal /></span>Scores</span><span aria-hidden="true">&rarr;</span></button>}
+              {goal?.weightTracking && <button type="button" onClick={() => onNavigate('weight')}><span className="menu-link-label"><span className="menu-icon"><Scale /></span>Weight</span><span aria-hidden="true">&rarr;</span></button>}
+            </div>
+          )}
           <div className="menu-group menu-group-secondary">
             <button type="button" onClick={() => onNavigate('settings')}><span className="menu-link-label"><span className="menu-icon"><Settings /></span>Settings</span><span aria-hidden="true">&rarr;</span></button>
             <button type="button" onClick={() => onNavigate('usage')}><span className="menu-link-label"><span className="menu-icon"><Cpu /></span>Tokens</span><span aria-hidden="true">&rarr;</span></button>
@@ -1106,7 +1110,6 @@ function WeightView({ goal, mealsByDate, weights, setWeights, onNavigate, menuOp
   }
 
   const sinceLast = last ? averageMacros(last.date, shiftDate(todayKey, 1)) : null;
-  const sinceLastMax = sinceLast ? Math.max(sinceLast.average.proteins, sinceLast.average.carbs, sinceLast.average.fats, 1) : 1;
   const history = entries.map((entry, index) => {
     const previous = entries[index - 1];
     return { ...entry, change: previous ? entry.weight - previous.weight : null, macros: previous ? averageMacros(previous.date, entry.date) : null };
@@ -1147,15 +1150,13 @@ function WeightView({ goal, mealsByDate, weights, setWeights, onNavigate, menuOp
       </form>
 
       {last && (
-        <section className="chart-card weight-card macro-card">
-          <div className="card-heading"><h2>Average daily macros since last weigh-in</h2><span>{formatDate(last.date)} · {formatWeight(last.weight)} kg</span></div>
-          {sinceLast.days ? <>
-            <p className="weight-row-note">Over {sinceLast.days} logged {sinceLast.days === 1 ? 'day' : 'days'}</p>
-            <AverageCalories value={sinceLast.average.calories} goal={goal?.calories} />
-            <MacroBar label="Protein" value={sinceLast.average.proteins} goal={goal?.proteins} color="green" max={sinceLastMax} />
-            <MacroBar label="Carbs" value={sinceLast.average.carbs} goal={goal?.carbs} color="yellow" max={sinceLastMax} />
-            <MacroBar label="Fat" value={sinceLast.average.fats} goal={goal?.fats} color="coral" max={sinceLastMax} />
-          </> : <p className="usage-empty">No completed days logged since then yet.</p>}
+        <section className="chart-card weight-card">
+          <div className="card-heading"><h2>Average daily macros</h2><span>since {formatDate(last.date)}{sinceLast.days ? ` · ${sinceLast.days} ${sinceLast.days === 1 ? 'day' : 'days'}` : ''}</span></div>
+          {sinceLast.days ? (
+            <div className="weight-averages">
+              {Object.entries(reportMetrics).map(([key, metric]) => <div key={key}><span>{metric.label}</span><strong>{Math.round(sinceLast.average[key]).toLocaleString()}<small>{metric.suffix}</small></strong></div>)}
+            </div>
+          ) : <p className="usage-empty">No completed days logged since then yet.</p>}
         </section>
       )}
 
