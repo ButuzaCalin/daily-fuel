@@ -1254,22 +1254,35 @@ function MacroBar({ label, value, goal, color, max }) {
   return <div className="macro-bar-row"><div><span>{label}</span><strong>{value ? Math.round(value) : '—'}{goal > 0 ? <small> / {Math.round(goal)}g</small> : 'g'}</strong></div><span className={`macro-track macro-track-${color}`}><i style={fillStyle(Math.max(percent, value ? 4 : 0))} /></span></div>;
 }
 
+const goalTargetKeys = ['calories', 'proteins', 'carbs', 'fats'];
+
+// Scoring can only stay on while protein, carbs and fat all have targets.
+function normalizeGoal(value) {
+  const targets = Object.fromEntries(goalTargetKeys.map((key) => [key, Math.max(0, Number(value?.[key]) || 0)]));
+  const macrosSet = ['proteins', 'carbs', 'fats'].every((key) => targets[key] > 0);
+  return { ...targets, objective: objectiveKey(value?.objective), scoring: Boolean(value?.scoring && macrosSet), weightTracking: Boolean(value?.weightTracking) };
+}
+
+// Toggles apply instantly; target edits are held in a draft until saved from the save bar.
 function GoalView({ goal, setGoal, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
-  const emptyGoal = { calories: '', proteins: '', carbs: '', fats: '', objective: 'lose', scoring: false, weightTracking: false };
-  const [draft, setDraft] = useState({ ...emptyGoal, ...goal, objective: objectiveKey(goal?.objective) });
-  const macrosSet = ['proteins', 'carbs', 'fats'].every((key) => Number(draft[key]) > 0);
+  const current = normalizeGoal(goal);
+  const toDraft = (value) => Object.fromEntries(goalTargetKeys.map((key) => [key, value[key] ? String(value[key]) : '']));
+  const [draft, setDraft] = useState(() => toDraft(current));
+  const targets = normalizeGoal(draft);
+  const changed = goalTargetKeys.some((key) => targets[key] !== current[key]);
+  const macrosSaved = ['proteins', 'carbs', 'fats'].every((key) => current[key] > 0);
+  const scoringOn = scoringAvailable(current);
 
-  useEffect(() => setDraft({ ...emptyGoal, ...goal, objective: objectiveKey(goal?.objective) }), [goal]);
+  function updateGoal(patch) {
+    setGoal(normalizeGoal({ ...current, ...patch }));
+  }
 
-  async function saveGoal(event) {
+  function saveTargets(event) {
     event.preventDefault();
-    try {
-      const saved = Object.fromEntries(['calories', 'proteins', 'carbs', 'fats'].map((key) => [key, Math.max(0, Number(draft[key]) || 0)]));
-      setGoal({ ...saved, objective: objectiveKey(draft.objective), scoring: Boolean(draft.scoring && macrosSet), weightTracking: Boolean(draft.weightTracking) });
-      notify('Goal saved.', 'success');
-    } catch (error) {
-      notify(error.message);
-    }
+    const next = normalizeGoal({ ...current, ...Object.fromEntries(goalTargetKeys.map((key) => [key, targets[key]])) });
+    setGoal(next);
+    setDraft(toDraft(next));
+    notify(current.scoring && !next.scoring ? 'Targets saved. Scoring turned off.' : 'Targets saved.', 'success');
   }
 
   return (
@@ -1281,35 +1294,41 @@ function GoalView({ goal, setGoal, onNavigate, menuOpen, setMenuOpen, username, 
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} />
       <Toast toast={toast} />
       <div className="reports-heading"><div><p className="eyebrow">Daily target</p><h1>Goal</h1></div></div>
-      <form className="goal-sections" onSubmit={saveGoal}>
-        <section className="goal-form">
+      <div className="goal-sections">
+        <form className="goal-form" onSubmit={saveTargets}>
           <div className="goal-section-heading"><h2>Targets</h2><p>Set targets to see progress on your daily summary.</p></div>
           <ManualInput label="Calories (kcal)" value={draft.calories} onChange={(value) => setDraft((current) => ({ ...current, calories: value }))} />
           <ManualInput label="Protein (g)" value={draft.proteins} onChange={(value) => setDraft((current) => ({ ...current, proteins: value }))} />
           <ManualInput label="Carbs (g)" value={draft.carbs} onChange={(value) => setDraft((current) => ({ ...current, carbs: value }))} />
           <ManualInput label="Fat (g)" value={draft.fats} onChange={(value) => setDraft((current) => ({ ...current, fats: value }))} />
-        </section>
+          {changed && (
+            <div className="save-bar" role="region" aria-label="Unsaved changes">
+              <span>Unsaved changes</span>
+              <button className="save-bar-discard" type="button" onClick={() => setDraft(toDraft(current))}>Discard</button>
+              <button className="save-bar-save" type="submit">Save</button>
+            </div>
+          )}
+        </form>
         <section className="goal-form">
           <div className="goal-section-heading"><h2>Additional menus</h2><p>Turn on extra pages in the menu.</p></div>
           <label className="scoring-toggle">
-            <input type="checkbox" role="switch" checked={Boolean(draft.scoring && macrosSet)} disabled={!macrosSet} onChange={(event) => setDraft((current) => ({ ...current, scoring: event.target.checked }))} />
-            <span><strong>Scoring</strong><small>{macrosSet ? 'Rate each completed day 0–100 on how well you hit your macros.' : 'Set protein, carbs and fat goals to enable scoring.'}</small></span>
+            <input type="checkbox" role="switch" checked={scoringOn} disabled={!macrosSaved} onChange={(event) => updateGoal({ scoring: event.target.checked })} />
+            <span><strong>Scoring</strong><small>{macrosSaved ? 'Rate each completed day 0–100 on how well you hit your macros.' : 'Save protein, carbs and fat targets to enable scoring.'}</small></span>
           </label>
-          {draft.scoring && macrosSet && (
+          {scoringOn && (
             <div className="goal-objective">
               <span id="goal-objective-label">Objective</span>
               <div className="objective-toggle" role="radiogroup" aria-labelledby="goal-objective-label">
-                {Object.entries(objectives).map(([key, objective]) => <button className={draft.objective === key ? 'active' : ''} type="button" role="radio" aria-checked={draft.objective === key} onClick={() => setDraft((current) => ({ ...current, objective: key }))} key={key}>{objective.label}</button>)}
+                {Object.entries(objectives).map(([key, objective]) => <button className={current.objective === key ? 'active' : ''} type="button" role="radio" aria-checked={current.objective === key} onClick={() => updateGoal({ objective: key })} key={key}>{objective.label}</button>)}
               </div>
             </div>
           )}
           <label className="scoring-toggle">
-            <input type="checkbox" role="switch" checked={Boolean(draft.weightTracking)} onChange={(event) => setDraft((current) => ({ ...current, weightTracking: event.target.checked }))} />
+            <input type="checkbox" role="switch" checked={current.weightTracking} onChange={(event) => updateGoal({ weightTracking: event.target.checked })} />
             <span><strong>Weight track</strong><small>Log your weight and see your average daily macros between weigh-ins.</small></span>
           </label>
         </section>
-        <button className="auth-submit goal-save" type="submit">Save goal</button>
-      </form>
+      </div>
     </main>
   );
 }
@@ -1460,12 +1479,7 @@ function DataHandlingView({ mealsByDate, setMealsByDate, goal, setGoal, weights,
         })).filter((meal) => meal.text)];
       }));
       setMealsByDate(importedMeals);
-      setGoal(data.goal && typeof data.goal === 'object' ? {
-        ...Object.fromEntries(['calories', 'proteins', 'carbs', 'fats'].map((key) => [key, Math.max(0, Number(data.goal[key]) || 0)])),
-        objective: objectiveKey(data.goal.objective),
-        scoring: data.goal.scoring === true,
-        weightTracking: data.goal.weightTracking === true,
-      } : null);
+      setGoal(data.goal && typeof data.goal === 'object' ? normalizeGoal({ ...data.goal, scoring: data.goal.scoring === true, weightTracking: data.goal.weightTracking === true }) : null);
       if (Array.isArray(data.weights)) setWeights(data.weights.filter((entry) => /^\d{4}-\d{2}-\d{2}$/.test(entry?.date) && Number(entry.weight) > 0).map((entry) => ({ date: entry.date, weight: Number(entry.weight) })));
       setSettings(exclusiveAiSettings({ ...defaultSettings, ...(data.settings || {}) }));
       if (data.usage && typeof data.usage === 'object') setUsage(pruneUsage(data.usage));
