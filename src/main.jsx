@@ -48,7 +48,7 @@ function exclusiveAiSettings(settings) {
 }
 
 function isAiConfigured(settings) {
-  if (settings.aiMode === 'proxy') return Boolean(settings.proxyUrl && settings.proxyUsername);
+  if (settings.aiMode === 'proxy') return Boolean(settings.proxyUrl && settings.proxyUsername && settings.proxyKey);
   return Boolean(settings.provider === 'openai' ? settings.openaiKey : settings.googleKey);
 }
 
@@ -144,7 +144,7 @@ async function callProxy(settings, payload) {
   try {
     response = await fetch(settings.proxyUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(settings.proxyKey ? { Authorization: `Bearer ${settings.proxyKey}` } : {}) },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${settings.proxyKey}` },
       body: JSON.stringify({ username: settings.proxyUsername, ...payload }),
     });
   } catch {
@@ -1148,7 +1148,7 @@ function SettingsView({ goal, proxyQuota, settings, setSettings, onNavigate, men
   function saveSettings(event) {
     event.preventDefault();
     if (draft.aiMode === 'proxy') {
-      if (!draft.proxyUrl || !draft.proxyUsername) return notify('Enter the proxy URL and username.');
+      if (!draft.proxyUrl || !draft.proxyUsername || !draft.proxyKey) return notify('Enter the proxy URL, username and access key.');
       if (!/^https?:\/\//.test(draft.proxyUrl)) return notify('The proxy URL must start with https://');
     } else if (!isAiConfigured(draft)) {
       return notify(`Enter your ${draft.provider === 'openai' ? 'OpenAI' : 'Google'} API key.`);
@@ -1193,7 +1193,7 @@ function SettingsView({ goal, proxyQuota, settings, setSettings, onNavigate, men
           {proxyQuota && <ProxyQuota quota={proxyQuota} />}
           <label>Proxy URL<input type="url" inputMode="url" placeholder="https://…" value={draft.proxyUrl} onChange={(event) => update('proxyUrl', event.target.value.trim())} autoComplete="off" /></label>
           <label>Username<input value={draft.proxyUsername} onChange={(event) => update('proxyUsername', event.target.value)} autoComplete="username" autoCapitalize="none" /></label>
-          <label><span>Access key <span className="optional">(optional)</span></span><input type="password" value={draft.proxyKey} onChange={(event) => update('proxyKey', event.target.value)} autoComplete="off" /></label>
+          <label>Access key<input type="password" value={draft.proxyKey} onChange={(event) => update('proxyKey', event.target.value)} autoComplete="off" /></label>
         </> : <>
           <label>Provider<select value={draft.provider} onChange={(event) => update('provider', event.target.value)}><option value="google">Google AI</option><option value="openai">OpenAI</option></select></label>
           {draft.provider === 'google' ? <>

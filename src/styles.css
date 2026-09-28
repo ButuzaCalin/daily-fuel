@@ -156,7 +156,6 @@ textarea::placeholder { color: #9aa09b; }
 .ai-active-dot.is-on { background: var(--green); box-shadow: 0 0 0 3px rgb(52 112 77 / 15%); }
 .settings-warning { margin: 0; padding: 10px 12px; border: 1px solid #ecd9a6; border-radius: 6px; background: #fdf8ea; color: #7a5c12; font-size: 13px; line-height: 1.45; }
 .settings-hint { margin: -4px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
-.settings-form label .optional { color: #9aa09b; }
 .settings-form label { display: grid; gap: 7px; color: var(--muted); font-size: 12px; }
 .settings-form > label { min-width: 0; }
 .settings-form input, .settings-form select { width: 100%; min-width: 0; max-width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 11px; outline: 0; color: var(--ink); background: white; font-size: 14px; }

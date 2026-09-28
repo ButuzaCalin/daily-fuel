@@ -26,7 +26,7 @@ values ('florin', encode(sha256('choose-a-long-random-key'::bytea), 'hex'));
 update public.proxy_users set daily_limit = 20 where username = 'florin';
 ```
 
-Leaving `access_key_hash` null means anyone who knows the username can use that user's requests, so always set a key.
+The access key is required: `access_key_hash` can't be null, and the function rejects requests without a matching key.
 
 ## App settings
 
@@ -34,4 +34,4 @@ Settings → AI config → Proxy Config:
 
 - **Proxy URL**: `https://<your-project-ref>.supabase.co/functions/v1/estimate`
 - **Username**: the username from `proxy_users`
-- **Access key**: the plain key you hashed above
+- **Access key** (required): the plain key you hashed above
