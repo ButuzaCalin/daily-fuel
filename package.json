@@ -15,6 +15,7 @@
     "better-sqlite3": "^13.0.3",
     "concurrently": "latest",
     "express": "latest",
+    "html-to-image": "^1.11.13",
     "lucide-react": "^1.47.0",
     "openai": "latest",
     "react": "latest",

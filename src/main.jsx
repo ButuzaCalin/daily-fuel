@@ -1,6 +1,7 @@
 import { StrictMode, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BarChart3, ChevronLeft, ChevronRight, Clock, Cpu, Database, Home, LoaderCircle, Medal, Menu as MenuIcon, Pencil, Plus, RefreshCw, Settings, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
+import { BarChart3, ChevronLeft, ChevronRight, Clock, Cpu, Database, Home, LoaderCircle, Medal, Menu as MenuIcon, Pencil, Plus, RefreshCw, Settings, Share2, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
+import { toBlob } from 'html-to-image';
 import { calculateScore, dayProgress, dayStatus, DAY_COMPLETE_HOUR, macroLabels, objectiveKey, objectives, scoreLabel, scoringAvailable } from './score.js';
 import './styles.css';
 
@@ -577,7 +578,7 @@ function App() {
     return <ReportsView goal={goal} mealsByDate={mealsByDate} onOpenDay={(date) => { setSelectedDate(date); navigate('home'); }} report={report} period={reportPeriod} setPeriod={setReportPeriod} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
   }
   if (route === 'scores' && scoring) {
-    return <ScoresView goal={goal} mealsByDate={mealsByDate} onOpenDay={(date) => { setSelectedDate(date); navigate('home'); }} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
+    return <ScoresView goal={goal} mealsByDate={mealsByDate} onOpenDay={(date) => { setSelectedDate(date); navigate('home'); }} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
   }
   if (route === 'usage') {
     return <UsageView goal={goal} usage={usage} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
@@ -918,7 +919,7 @@ function ReportsView({ goal, mealsByDate, onOpenDay, report, period, setPeriod, 
   );
 }
 
-function ScoresView({ goal, mealsByDate, onOpenDay, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast }) {
+function ScoresView({ goal, mealsByDate, onOpenDay, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
   return (
     <main className="app-shell reports-page">
       <header className="topbar">
@@ -931,16 +932,18 @@ function ScoresView({ goal, mealsByDate, onOpenDay, onNavigate, menuOpen, setMen
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} />
       <Toast toast={toast} />
       <div className="reports-heading"><div><p className="eyebrow">Macro score history</p><h1>Scores</h1></div></div>
-      <ScoreCalendar goal={goal} mealsByDate={mealsByDate} onOpenDay={onOpenDay} />
+      <ScoreCalendar goal={goal} mealsByDate={mealsByDate} onOpenDay={onOpenDay} notify={notify} />
     </main>
   );
 }
 
 // Month grid (Monday first) with each completed day's macro score; tapping a day opens it.
-function ScoreCalendar({ goal, mealsByDate, onOpenDay }) {
+function ScoreCalendar({ goal, mealsByDate, onOpenDay, notify }) {
+  const posterRef = useRef(null);
   const now = new Date();
   const todayKey = dateKey(now);
   const [month, setMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
+  const [sharing, setSharing] = useState(false);
   const isCurrentMonth = month.getFullYear() === now.getFullYear() && month.getMonth() === now.getMonth();
   const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
   const leading = (month.getDay() + 6) % 7;
@@ -953,11 +956,42 @@ function ScoreCalendar({ goal, mealsByDate, onOpenDay }) {
   const scores = days.filter((day) => day.score !== null).map((day) => day.score);
   const average = scores.length ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) : null;
   const shiftMonth = (amount) => setMonth(new Date(month.getFullYear(), month.getMonth() + amount, 1));
+
+  async function shareCalendar() {
+    if (!posterRef.current || sharing) return;
+    setSharing(true);
+    try {
+      const blob = await toBlob(posterRef.current, { width: 1080, height: 1920, pixelRatio: 1 });
+      if (!blob) throw new Error('Could not create the calendar image.');
+      const filename = `daily-fuel-scores-${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}.png`;
+      const file = new File([blob], filename, { type: 'image/png' });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file] });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        notify('Calendar image downloaded.', 'success');
+      }
+    } catch (error) {
+      if (error.name !== 'AbortError') notify(error.message || 'Could not share the calendar image.');
+    } finally {
+      setSharing(false);
+    }
+  }
+
   return (
     <div className="chart-card score-calendar">
-      <div className="card-heading">
-        <h2>Macro score</h2>
-        <span>{average === null ? 'No scored days' : `avg ${average} · ${scores.length} ${scores.length === 1 ? 'day' : 'days'}`}</span>
+      <div className="share-poster-stage" aria-hidden="true"><SharePoster ref={posterRef} month={month} days={days} leading={leading} scores={scores} average={average} /></div>
+      <div className="card-heading scores-card-heading">
+        <div><h2>Macro score</h2><span>{average === null ? 'No scored days' : `avg ${average} · ${scores.length} ${scores.length === 1 ? 'day' : 'days'}`}</span></div>
+        <button className="calendar-share-button" type="button" onClick={shareCalendar} disabled={sharing} aria-label="Share scores calendar">
+          {sharing ? <LoaderCircle className="is-spinning" aria-hidden="true" /> : <Share2 aria-hidden="true" />}
+          {sharing ? 'Creating…' : 'Share'}
+        </button>
       </div>
       <div className="calendar-nav">
         <button type="button" onClick={() => shiftMonth(-1)} aria-label="Previous month"><ChevronLeft /></button>
@@ -974,6 +1008,59 @@ function ScoreCalendar({ goal, mealsByDate, onOpenDay }) {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+// Literal colors for the poster's SVG ring, which the image export can't style through CSS.
+const toneColors = { great: '#34704d', good: '#4f8a3c', fair: '#b58a1d', low: '#c66b59', none: '#747b76' };
+
+// Story-sized (1080×1920) image of a month's scores, rendered off-screen and captured by the share button.
+function SharePoster({ ref, month, days, leading, scores, average }) {
+  const tone = average === null ? 'none' : scoreTone(average);
+  const ring = 2 * Math.PI * 250;
+  const best = scores.length ? Math.max(...scores) : null;
+  const greatDays = scores.filter((score) => score >= 90).length;
+  let streak = 0;
+  let run = 0;
+  days.forEach((day) => { run = day.score !== null && day.score >= 75 ? run + 1 : 0; streak = Math.max(streak, run); });
+  return (
+    <div className={`share-poster day-score-${tone}`} ref={ref}>
+      <header className="poster-brand"><span className="brand-mark">DF</span><span>Daily Fuel</span></header>
+      <div className="poster-title"><p>Macro score</p><h2>{new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' }).format(month)}</h2></div>
+      <div className="poster-hero">
+        <svg viewBox="0 0 560 560" aria-hidden="true">
+          <circle cx="280" cy="280" r="250" fill="none" stroke={toneColors[tone]} strokeOpacity="0.16" strokeWidth="34" />
+          <circle cx="280" cy="280" r="250" fill="none" stroke={toneColors[tone]} strokeWidth="34" strokeLinecap="round" strokeDasharray={`${ring * (average ?? 0) / 100} ${ring}`} transform="rotate(-90 280 280)" />
+        </svg>
+        <div className="poster-average">
+          <small>Monthly average</small>
+          <strong>{average ?? '–'}</strong>
+          <span>{average === null ? 'No scored days' : scoreLabel(average)}</span>
+        </div>
+      </div>
+      <div className="poster-stats">
+        <div><strong>{scores.length}</strong><span>{scores.length === 1 ? 'day scored' : 'days scored'}</span></div>
+        <div><strong>{best ?? '–'}</strong><span>best day</span></div>
+        <div><strong>{greatDays}</strong><span>{greatDays === 1 ? 'great day' : 'great days'}</span></div>
+        <div><strong>{streak}</strong><span>best streak 75+</span></div>
+      </div>
+      <div className="poster-grid">
+        {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, index) => <span className="poster-weekday" key={index}>{label}</span>)}
+        {Array.from({ length: leading }, (_, index) => <span key={`blank-${index}`} />)}
+        {days.map((day) => (
+          <div className={`poster-day${day.score !== null ? ` day-score-${scoreTone(day.score)}` : ''}`} key={day.date}>
+            <small>{day.day}</small>
+            <strong>{day.score ?? ''}</strong>
+          </div>
+        ))}
+      </div>
+      <footer className="poster-legend">
+        <span className="day-score-great">90+ great</span>
+        <span className="day-score-good">75+ good</span>
+        <span className="day-score-fair">60+ fair</span>
+        <span className="day-score-low">below 60</span>
+      </footer>
     </div>
   );
 }
