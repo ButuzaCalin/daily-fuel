@@ -1375,10 +1375,19 @@ function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', c
   const id = useId();
   const open = Boolean(draft);
   const [nutritionOpen, setNutritionOpen] = useState(false);
+  const [entryMode, setEntryMode] = useState('total');
+  const [perValues, setPerValues] = useState(blankPerValues);
   // Each time the dialog opens, start collapsed unless the draft already has values.
   useEffect(() => {
     if (open) setNutritionOpen(!collapsibleNutrition || Object.values(draft.nutrition || {}).some((value) => value !== '' && Number(value) !== 0));
+    if (open) { setEntryMode('total'); setPerValues(blankPerValues); }
   }, [open]);
+  // Per-amount values are kept locally; the draft always holds the scaled totals.
+  function updatePer(patch) {
+    const next = { ...perValues, ...patch };
+    setPerValues(next);
+    onChange({ nutrition: scaleNutrition(next) });
+  }
   useEscape(Boolean(draft), onClose);
   if (!shown) return null;
   function submitOnShortcut(event) {
@@ -1397,17 +1406,43 @@ function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', c
           <textarea id={`${id}-text`} value={shown.text} onChange={(event) => onChange({ text: event.target.value })} onKeyDown={submitOnShortcut} placeholder="What did you eat?" rows="4" autoFocus />
           {shown.nutrition && !nutritionOpen && <button className="manual-values-toggle" type="button" onClick={() => setNutritionOpen(true)}><Plus aria-hidden="true" />Add manual values</button>}
           {shown.nutrition && nutritionOpen && <fieldset className="meal-dialog-nutrition">
-            <legend>{nutritionLabel}</legend>
-            <ManualInput label="Calories" value={shown.nutrition.calories} onChange={(value) => onChange({ nutrition: { calories: value } })} />
-            <ManualInput label="Protein (g)" value={shown.nutrition.proteins} onChange={(value) => onChange({ nutrition: { proteins: value } })} />
-            <ManualInput label="Carbs (g)" value={shown.nutrition.carbs} onChange={(value) => onChange({ nutrition: { carbs: value } })} />
-            <ManualInput label="Fat (g)" value={shown.nutrition.fats} onChange={(value) => onChange({ nutrition: { fats: value } })} />
+            <div className="nutrition-legend">
+              <legend>{nutritionLabel}</legend>
+              <div className="period-toggle" role="group" aria-label="Value type">
+                <button className={entryMode === 'total' ? 'active' : ''} type="button" onClick={() => setEntryMode('total')} aria-pressed={entryMode === 'total'}>Total</button>
+                <button className={entryMode === 'per' ? 'active' : ''} type="button" onClick={() => setEntryMode('per')} aria-pressed={entryMode === 'per'}>/100g</button>
+              </div>
+            </div>
+            {entryMode === 'total' ? <>
+              <ManualInput label="Calories" value={shown.nutrition.calories} onChange={(value) => onChange({ nutrition: { calories: value } })} />
+              <ManualInput label="Protein (g)" value={shown.nutrition.proteins} onChange={(value) => onChange({ nutrition: { proteins: value } })} />
+              <ManualInput label="Carbs (g)" value={shown.nutrition.carbs} onChange={(value) => onChange({ nutrition: { carbs: value } })} />
+              <ManualInput label="Fat (g)" value={shown.nutrition.fats} onChange={(value) => onChange({ nutrition: { fats: value } })} />
+            </> : <>
+              <div className="per-amounts">
+                <ManualInput label="Values per (g)" value={perValues.base} onChange={(value) => updatePer({ base: value })} />
+                <ManualInput label="Portion (g)" value={perValues.portion} onChange={(value) => updatePer({ portion: value })} />
+              </div>
+              <ManualInput label="Calories" value={perValues.calories} onChange={(value) => updatePer({ calories: value })} />
+              <ManualInput label="Protein (g)" value={perValues.proteins} onChange={(value) => updatePer({ proteins: value })} />
+              <ManualInput label="Carbs (g)" value={perValues.carbs} onChange={(value) => updatePer({ carbs: value })} />
+              <ManualInput label="Fat (g)" value={perValues.fats} onChange={(value) => updatePer({ fats: value })} />
+              <p className="per-total">Total: <strong>{shown.nutrition.calories || 0}</strong> kcal · {shown.nutrition.proteins || 0}g protein · {shown.nutrition.carbs || 0}g carbs · {shown.nutrition.fats || 0}g fat</p>
+            </>}
           </fieldset>}
           <div className="dialog-actions"><button type="button" onClick={onClose}>Cancel</button><button className="confirm-add" type="submit" disabled={!shown.text.trim()}>{submitLabel}</button></div>
         </form>
       </section>
     </div>
   );
+}
+
+const blankPerValues = { base: '100', portion: '', ...blankNutrition };
+
+function scaleNutrition({ base, portion, ...values }) {
+  const factor = Number(portion) / Number(base);
+  const valid = portion !== '' && Number(base) > 0 && Number.isFinite(factor);
+  return Object.fromEntries(Object.entries(values).map(([key, value]) => [key, valid && value !== '' ? String(Math.round(Number(value) * factor * 10) / 10) : '']));
 }
 
 function TimePicker({ value, onChange }) {

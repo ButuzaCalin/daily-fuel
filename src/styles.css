@@ -286,7 +286,12 @@ textarea::placeholder { color: #9aa09b; }
 .manual-values-toggle { display: inline-flex; grid-column: 1 / -1; justify-self: start; align-items: center; gap: 5px; border: 0; border-radius: 5px; padding: 4px 6px; margin: -4px 0 0 -6px; background: transparent; color: var(--green); font-size: 13px; font-weight: 600; }
 .manual-values-toggle svg { width: 15px; height: 15px; }
 .add-meal-dialog .meal-dialog-nutrition { animation: rise-in 200ms var(--ease-out); }
-.meal-dialog-nutrition legend { margin-bottom: 8px; padding: 0; color: var(--muted); font-size: 12px; }
+.meal-dialog-nutrition legend { padding: 0; color: var(--muted); font-size: 12px; }
+.nutrition-legend { display: flex; grid-column: 1 / -1; align-items: center; justify-content: space-between; gap: 8px; }
+.nutrition-legend .period-toggle button { padding: 5px 10px; }
+.per-amounts { display: grid; grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.per-total { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.per-total strong { color: var(--ink); }
 .meal-dialog-nutrition .manual-input { font-size: 11px; }
 .add-meal-dialog { max-height: calc(100dvh - 32px); overflow-y: auto; }
 .dialog-actions .confirm-add { background: var(--green); color: white; }
