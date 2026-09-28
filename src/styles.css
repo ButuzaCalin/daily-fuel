@@ -466,7 +466,10 @@ textarea::placeholder { color: #9aa09b; }
 .poster-legend span::before { width: 18px; height: 18px; border-radius: 50%; background: var(--score-color); content: ''; }
 
 /* Additional menus & weight tracking */
-.goal-section-heading { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 16px; }
+.goal-sections { display: grid; gap: 16px; width: min(100%, 560px); }
+.goal-sections .goal-form { width: 100%; }
+.goal-sections .goal-save { margin-top: 0; }
+.goal-section-heading { grid-column: 1 / -1; }
 .goal-section-heading h2 { font-size: 17px; }
 .goal-section-heading p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
 .goal-section-heading + .scoring-toggle { border-top: 0; padding-top: 0; }

@@ -1281,29 +1281,33 @@ function GoalView({ goal, setGoal, onNavigate, menuOpen, setMenuOpen, username, 
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} />
       <Toast toast={toast} />
       <div className="reports-heading"><div><p className="eyebrow">Daily target</p><h1>Goal</h1></div></div>
-      <form className="goal-form" onSubmit={saveGoal}>
-        <p className="goal-form-copy">Set targets to see progress on your daily summary.</p>
-        <ManualInput label="Calories (kcal)" value={draft.calories} onChange={(value) => setDraft((current) => ({ ...current, calories: value }))} />
-        <ManualInput label="Protein (g)" value={draft.proteins} onChange={(value) => setDraft((current) => ({ ...current, proteins: value }))} />
-        <ManualInput label="Carbs (g)" value={draft.carbs} onChange={(value) => setDraft((current) => ({ ...current, carbs: value }))} />
-        <ManualInput label="Fat (g)" value={draft.fats} onChange={(value) => setDraft((current) => ({ ...current, fats: value }))} />
-        <div className="goal-section-heading"><h2>Additional menus</h2><p>Turn on extra pages in the menu.</p></div>
-        <label className="scoring-toggle">
-          <input type="checkbox" role="switch" checked={Boolean(draft.scoring && macrosSet)} disabled={!macrosSet} onChange={(event) => setDraft((current) => ({ ...current, scoring: event.target.checked }))} />
-          <span><strong>Scoring</strong><small>{macrosSet ? 'Rate each completed day 0–100 on how well you hit your macros.' : 'Set protein, carbs and fat goals to enable scoring.'}</small></span>
-        </label>
-        {draft.scoring && macrosSet && (
-          <div className="goal-objective">
-            <span id="goal-objective-label">Objective</span>
-            <div className="objective-toggle" role="radiogroup" aria-labelledby="goal-objective-label">
-              {Object.entries(objectives).map(([key, objective]) => <button className={draft.objective === key ? 'active' : ''} type="button" role="radio" aria-checked={draft.objective === key} onClick={() => setDraft((current) => ({ ...current, objective: key }))} key={key}>{objective.label}</button>)}
+      <form className="goal-sections" onSubmit={saveGoal}>
+        <section className="goal-form">
+          <div className="goal-section-heading"><h2>Targets</h2><p>Set targets to see progress on your daily summary.</p></div>
+          <ManualInput label="Calories (kcal)" value={draft.calories} onChange={(value) => setDraft((current) => ({ ...current, calories: value }))} />
+          <ManualInput label="Protein (g)" value={draft.proteins} onChange={(value) => setDraft((current) => ({ ...current, proteins: value }))} />
+          <ManualInput label="Carbs (g)" value={draft.carbs} onChange={(value) => setDraft((current) => ({ ...current, carbs: value }))} />
+          <ManualInput label="Fat (g)" value={draft.fats} onChange={(value) => setDraft((current) => ({ ...current, fats: value }))} />
+        </section>
+        <section className="goal-form">
+          <div className="goal-section-heading"><h2>Additional menus</h2><p>Turn on extra pages in the menu.</p></div>
+          <label className="scoring-toggle">
+            <input type="checkbox" role="switch" checked={Boolean(draft.scoring && macrosSet)} disabled={!macrosSet} onChange={(event) => setDraft((current) => ({ ...current, scoring: event.target.checked }))} />
+            <span><strong>Scoring</strong><small>{macrosSet ? 'Rate each completed day 0–100 on how well you hit your macros.' : 'Set protein, carbs and fat goals to enable scoring.'}</small></span>
+          </label>
+          {draft.scoring && macrosSet && (
+            <div className="goal-objective">
+              <span id="goal-objective-label">Objective</span>
+              <div className="objective-toggle" role="radiogroup" aria-labelledby="goal-objective-label">
+                {Object.entries(objectives).map(([key, objective]) => <button className={draft.objective === key ? 'active' : ''} type="button" role="radio" aria-checked={draft.objective === key} onClick={() => setDraft((current) => ({ ...current, objective: key }))} key={key}>{objective.label}</button>)}
+              </div>
             </div>
-          </div>
-        )}
-        <label className="scoring-toggle">
-          <input type="checkbox" role="switch" checked={Boolean(draft.weightTracking)} onChange={(event) => setDraft((current) => ({ ...current, weightTracking: event.target.checked }))} />
-          <span><strong>Weight track</strong><small>Log your weight and see your average daily macros between weigh-ins.</small></span>
-        </label>
+          )}
+          <label className="scoring-toggle">
+            <input type="checkbox" role="switch" checked={Boolean(draft.weightTracking)} onChange={(event) => setDraft((current) => ({ ...current, weightTracking: event.target.checked }))} />
+            <span><strong>Weight track</strong><small>Log your weight and see your average daily macros between weigh-ins.</small></span>
+          </label>
+        </section>
         <button className="auth-submit goal-save" type="submit">Save goal</button>
       </form>
     </main>
