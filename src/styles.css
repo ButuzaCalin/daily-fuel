@@ -205,11 +205,18 @@ textarea::placeholder { color: #9aa09b; }
 .line-chart { display: grid; position: relative; height: 220px; grid-template-columns: 36px minmax(0, 1fr); }
 .chart-plot { position: relative; min-width: 0; height: 220px; }
 .line-chart svg { display: block; width: 100%; height: 180px; overflow: visible; }
-.chart-scale { display: flex; height: 180px; flex-direction: column; justify-content: space-between; color: var(--muted); font-size: 10px; line-height: 1; }
-.chart-axis { stroke: var(--line); stroke-width: .6; }
+.chart-scale { position: relative; height: 180px; color: var(--muted); font-size: 10px; line-height: 1; }
+.chart-scale span { position: absolute; right: 8px; transform: translateY(-50%); }
+.chart-axis { stroke: var(--muted); stroke-width: 1; opacity: .5; vector-effect: non-scaling-stroke; }
+.chart-grid { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.chart-grid-vertical { stroke-dasharray: 2 4; }
+.chart-goal { stroke: var(--ink); stroke-width: 1; stroke-dasharray: 5 4; opacity: .55; vector-effect: non-scaling-stroke; }
+.chart-goal-label { position: absolute; right: 0; transform: translateY(-120%); color: var(--ink); font-size: 10px; opacity: .7; pointer-events: none; }
 .chart-line { fill: none; stroke: var(--green); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; vector-effect: non-scaling-stroke; }
 .chart-dot { position: absolute; width: 8px; height: 8px; transform: translate(-50%, -50%); border: 2px solid white; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 1px var(--green); }
-.chart-labels { display: flex; justify-content: space-between; color: var(--muted); font-size: 10px; }
+.chart-labels { position: relative; height: 14px; margin-top: 8px; color: var(--muted); font-size: 10px; }
+.chart-labels span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.chart-labels span:first-child { transform: none; }
 .report-bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
 .macro-card { display: grid; gap: 18px; }
 .average-calories { display: grid; gap: 8px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }

@@ -251,6 +251,12 @@ function shortDate(value, period) {
     : { weekday: 'short' }).format(date);
 }
 
+function niceStep(value) {
+  const magnitude = 10 ** Math.floor(Math.log10(value));
+  const step = [1, 2, 2.5, 5, 10].find((factor) => factor * magnitude >= value);
+  return step * magnitude;
+}
+
 function chartNumber(value) {
   return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(1);
 }
@@ -804,12 +810,18 @@ function Menu({ open, onClose, onNavigate, onLogout, username }) {
 function ReportsView({ goal, mealsByDate, onOpenDay, report, period, setPeriod, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast }) {
   const [metric, setMetric] = useState('calories');
   const metricInfo = reportMetrics[metric];
-  const maxValue = Math.max(...report.days.map((day) => day.nutrition[metric]), 1);
+  const goalValue = goal?.[metric] || 0;
+  const chartStep = niceStep(Math.max(...report.days.map((day) => day.nutrition[metric]), goalValue, 1) / 4);
+  const maxValue = chartStep * 4;
+  const chartTicks = [4, 3, 2, 1, 0].map((index) => index * chartStep);
+  const chartY = (value) => 91 - (value / maxValue) * 82;
+  const chartX = (index) => (index / Math.max(report.days.length - 1, 1)) * 100;
+  const chartPx = (value) => `${(chartY(value) / 100) * 180}px`;
   const chartValue = (day) => day.nutrition[metric];
-  const chartPoints = report.days.map((day, index) => `${(index / Math.max(report.days.length - 1, 1)) * 100},${100 - (chartValue(day) / maxValue) * 82 - 9}`).join(' ');
+  const chartPoints = report.days.map((day, index) => `${chartX(index)},${chartY(chartValue(day))}`).join(' ');
   const chartDotPosition = (day, index) => ({
-    left: `${(index / Math.max(report.days.length - 1, 1)) * 100}%`,
-    top: `${((100 - (chartValue(day) / maxValue) * 82 - 9) / 100) * 180}px`,
+    left: `${chartX(index)}%`,
+    top: chartPx(chartValue(day)),
   });
   const labelStep = period === 'month' ? 5 : 1;
   const loggedDays = report.days.filter((day) => day.meals.length).length;
@@ -845,14 +857,17 @@ function ReportsView({ goal, mealsByDate, onOpenDay, report, period, setPeriod, 
       <section className="chart-card">
         <div className="card-heading chart-heading"><div><h2>{metricInfo.label}</h2><span>{metricInfo.suffix} / day</span></div><div className="metric-toggle" role="group" aria-label="Chart metric">{Object.entries(reportMetrics).map(([key, item]) => <button className={metric === key ? 'active' : ''} type="button" onClick={() => setMetric(key)} key={key}>{item.label}</button>)}</div></div>
         <div className="line-chart">
-          <div className="chart-scale" aria-hidden="true"><span>{chartNumber(maxValue)}</span><span>{chartNumber(maxValue / 2)}</span><span>0</span></div>
+          <div className="chart-scale" aria-hidden="true">{chartTicks.map((tick) => <span key={tick} style={{ top: chartPx(tick) }}>{chartNumber(tick)}</span>)}</div>
           <div className="chart-plot">
             <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label={`${metricInfo.label} per day line chart`}>
-              <line x1="0" y1="91" x2="100" y2="91" className="chart-axis" />
+              {report.days.map((day, index) => index % labelStep === 0 && <line key={day.date} x1={chartX(index)} y1="9" x2={chartX(index)} y2="91" className="chart-grid chart-grid-vertical" />)}
+              {chartTicks.map((tick) => <line key={tick} x1="0" y1={chartY(tick)} x2="100" y2={chartY(tick)} className={tick === 0 ? 'chart-axis' : 'chart-grid'} />)}
+              {goalValue > 0 && <line x1="0" y1={chartY(goalValue)} x2="100" y2={chartY(goalValue)} className="chart-goal" />}
               <polyline points={chartPoints} className="chart-line" />
             </svg>
+            {goalValue > 0 && <span className="chart-goal-label" style={{ top: chartPx(goalValue) }}>Goal {chartNumber(goalValue)}</span>}
             {report.days.map((day, index) => <span key={day.date} className="chart-dot" style={chartDotPosition(day, index)} />)}
-            <div className="chart-labels">{report.days.map((day, index) => index % labelStep === 0 && <span key={day.date}>{shortDate(day.date, period)}</span>)}</div>
+            <div className="chart-labels">{report.days.map((day, index) => index % labelStep === 0 && <span key={day.date} style={{ left: `${chartX(index)}%` }}>{shortDate(day.date, period)}</span>)}</div>
           </div>
         </div>
       </section>
