@@ -464,3 +464,35 @@ textarea::placeholder { color: #9aa09b; }
 .poster-legend { display: flex; justify-content: center; gap: 34px; margin-top: auto; color: var(--muted); font-size: 24px; }
 .poster-legend span { display: inline-flex; align-items: center; gap: 10px; }
 .poster-legend span::before { width: 18px; height: 18px; border-radius: 50%; background: var(--score-color); content: ''; }
+
+/* Additional menus & weight tracking */
+.goal-section-heading { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 16px; }
+.goal-section-heading h2 { font-size: 17px; }
+.goal-section-heading p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+.goal-section-heading + .scoring-toggle { border-top: 0; padding-top: 0; }
+.weight-form h2 { font-size: 18px; }
+.weight-form .auth-submit { margin-top: 0; }
+.weight-inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.weight-card { width: min(100%, 520px); margin-top: 16px; }
+.weight-list { display: grid; }
+.weight-row { display: grid; grid-template-columns: 1fr auto 30px; gap: 14px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); }
+.weight-row .remove-button { grid-column: 3; }
+.weight-row-main { display: grid; gap: 2px; font-size: 12px; }
+.weight-row-main > span { color: var(--muted); }
+.weight-row-main strong { font-size: 18px; font-variant-numeric: tabular-nums; }
+.weight-row-main strong small { color: var(--muted); font-size: 12px; font-weight: 400; }
+.weight-change { color: var(--muted); font-variant-numeric: tabular-nums; }
+.weight-row-note { color: var(--muted); font-size: 12px; }
+.weight-macros { display: grid; gap: 2px; justify-items: end; text-align: right; }
+.weight-macros strong { font-size: 16px; font-variant-numeric: tabular-nums; }
+.weight-macros strong small { color: var(--muted); font-size: 11px; font-weight: 400; }
+.weight-macros span { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.weight-card .weight-row-note + .average-calories { margin-top: 8px; }
+.storage-form { margin-bottom: 16px; }
+.storage-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.storage-heading h2 { font-size: 18px; }
+.storage-heading strong { font-size: 20px; font-variant-numeric: tabular-nums; }
+.storage-list { display: grid; }
+.storage-list div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.storage-list span { color: var(--muted); }
+.storage-list strong { font-variant-numeric: tabular-nums; font-weight: 600; }

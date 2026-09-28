@@ -1,6 +1,6 @@
 import { StrictMode, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BarChart3, ChevronLeft, ChevronRight, Clock, Cpu, Database, Home, LoaderCircle, Medal, Menu as MenuIcon, Pencil, Plus, RefreshCw, Settings, Share2, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
+import { BarChart3, ChevronLeft, ChevronRight, Clock, Cpu, Database, Home, LoaderCircle, Medal, Menu as MenuIcon, Pencil, Plus, RefreshCw, Scale, Settings, Share2, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
 import { toBlob } from 'html-to-image';
 import { calculateScore, dayProgress, dayStatus, DAY_COMPLETE_HOUR, macroLabels, objectiveKey, objectives, scoreLabel, scoringAvailable } from './score.js';
 import './styles.css';
@@ -232,6 +232,12 @@ function sumNutrition(meals) {
   }), { ...emptyNutrition });
 }
 
+// Macro score for a completed day with meals, otherwise null.
+function scoreForDay(date, mealsByDate, goal, todayKey, now) {
+  const meals = mealsByDate[date] || [];
+  return meals.length && dayStatus(date, todayKey, now) === 'complete' ? calculateScore(sumNutrition(meals), goal).score : null;
+}
+
 // Completed days only: the range ends yesterday, because today's log is still in progress.
 function reportDays(period) {
   const days = [];
@@ -276,6 +282,7 @@ const routePaths = {
   home: '/',
   reports: '/reports',
   scores: '/scores',
+  weight: '/weight',
   usage: '/usage',
   goal: '/goal',
   settings: '/settings',
@@ -363,6 +370,7 @@ function App() {
   const [editMeal, setEditMeal] = useState(null);
   const [addMealOpen, setAddMealOpen] = useState(false);
   const [goal, setGoal] = useState(() => loadLocal('daily-fuel-goal', null));
+  const [weights, setWeights] = useState(() => loadLocal('daily-fuel-weights', []));
   const [settings, setSettings] = useState(() => exclusiveAiSettings({ ...defaultSettings, ...loadLocal('daily-fuel-settings', {}) }));
   const [usage, setUsage] = useState(() => pruneUsage(loadLocal('daily-fuel-usage', { records: [] })));
   const [toast, setToast] = useState(null);
@@ -378,6 +386,7 @@ function App() {
 
   useEffect(() => saveLocal('daily-fuel-meals', mealsByDate), [mealsByDate]);
   useEffect(() => saveLocal('daily-fuel-goal', goal), [goal]);
+  useEffect(() => saveLocal('daily-fuel-weights', weights), [weights]);
   useEffect(() => saveLocal('daily-fuel-settings', settings), [settings]);
   useEffect(() => {
     const pruned = pruneUsage(usage);
@@ -450,11 +459,12 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  const weightTracking = Boolean(goal?.weightTracking);
   useEffect(() => {
-    if (route !== 'scores' || scoring) return;
+    if ((route !== 'scores' || scoring) && (route !== 'weight' || weightTracking)) return;
     window.history.replaceState({}, '', routePaths.goal);
     setRoute('goal');
-  }, [route, scoring]);
+  }, [route, scoring, weightTracking]);
 
   function navigate(nextRoute, resetToToday = false) {
     const path = routePaths[nextRoute] || '/';
@@ -580,6 +590,9 @@ function App() {
   if (route === 'scores' && scoring) {
     return <ScoresView goal={goal} mealsByDate={mealsByDate} onOpenDay={(date) => { setSelectedDate(date); navigate('home'); }} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
   }
+  if (route === 'weight' && weightTracking) {
+    return <WeightView goal={goal} mealsByDate={mealsByDate} weights={weights} setWeights={setWeights} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
+  }
   if (route === 'usage') {
     return <UsageView goal={goal} usage={usage} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
   }
@@ -590,7 +603,7 @@ function App() {
     return <SettingsView goal={goal} proxyQuota={useProxy ? proxyQuota : null} settings={settings} setSettings={setSettings} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
   }
   if (route === 'data-handling') {
-    return <DataHandlingView mealsByDate={mealsByDate} setMealsByDate={setMealsByDate} goal={goal} setGoal={setGoal} settings={settings} setSettings={setSettings} usage={usage} setUsage={setUsage} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
+    return <DataHandlingView mealsByDate={mealsByDate} setMealsByDate={setMealsByDate} goal={goal} setGoal={setGoal} weights={weights} setWeights={setWeights} settings={settings} setSettings={setSettings} usage={usage} setUsage={setUsage} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
   }
   if (route === 'not-found') {
     return (
@@ -836,6 +849,7 @@ function Menu({ open, onClose, onNavigate, onLogout, username, goal }) {
             <button type="button" onClick={() => onNavigate('home', true)}><span className="menu-link-label"><span className="menu-icon"><Home /></span>Today</span><span aria-hidden="true">&rarr;</span></button>
             <button type="button" onClick={() => onNavigate('goal')}><span className="menu-link-label"><span className="menu-icon"><Target /></span>Goal</span><span aria-hidden="true">&rarr;</span></button>
             {scoringAvailable(goal) && <button type="button" onClick={() => onNavigate('scores')}><span className="menu-link-label"><span className="menu-icon"><Medal /></span>Scores</span><span aria-hidden="true">&rarr;</span></button>}
+            {goal?.weightTracking && <button type="button" onClick={() => onNavigate('weight')}><span className="menu-link-label"><span className="menu-icon"><Scale /></span>Weight</span><span aria-hidden="true">&rarr;</span></button>}
             <button type="button" onClick={() => onNavigate('reports')}><span className="menu-link-label"><span className="menu-icon"><BarChart3 /></span>Reports</span><span aria-hidden="true">&rarr;</span></button>
           </div>
           <div className="menu-group menu-group-secondary">
@@ -949,9 +963,7 @@ function ScoreCalendar({ goal, mealsByDate, onOpenDay, notify }) {
   const leading = (month.getDay() + 6) % 7;
   const days = Array.from({ length: daysInMonth }, (_, index) => {
     const date = dateKey(new Date(month.getFullYear(), month.getMonth(), index + 1));
-    const meals = mealsByDate[date] || [];
-    const scored = meals.length > 0 && dayStatus(date, todayKey, now) === 'complete';
-    return { date, day: index + 1, score: scored ? calculateScore(sumNutrition(meals), goal).score : null, isToday: date === todayKey };
+    return { date, day: index + 1, score: scoreForDay(date, mealsByDate, goal, todayKey, now), isToday: date === todayKey };
   });
   const scores = days.filter((day) => day.score !== null).map((day) => day.score);
   const average = scores.length ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) : null;
@@ -1065,6 +1077,160 @@ function SharePoster({ ref, month, days, leading, scores, average }) {
   );
 }
 
+function formatWeight(value) {
+  return (Math.round(value * 10) / 10).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
+function formatWeightChange(value) {
+  const rounded = Math.round(value * 10) / 10;
+  return rounded === 0 ? '±0.0' : `${rounded > 0 ? '+' : '−'}${formatWeight(Math.abs(rounded))}`;
+}
+
+// A weigh-in covers the days from the previous weigh-in up to the day before it; only completed, logged days count.
+function WeightView({ goal, mealsByDate, weights, setWeights, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
+  const now = new Date();
+  const todayKey = dateKey(now);
+  const [date, setDate] = useState(todayKey);
+  const [weight, setWeight] = useState('');
+  const entries = [...weights].sort((first, second) => first.date.localeCompare(second.date));
+  const last = entries.at(-1);
+
+  function averageMacros(start, end) {
+    const days = [];
+    for (let day = start; day < end; day = shiftDate(day, 1)) {
+      const meals = mealsByDate[day] || [];
+      if (meals.length && dayStatus(day, todayKey, now) === 'complete') days.push(sumNutrition(meals));
+    }
+    const total = days.reduce((sum, nutrition) => Object.fromEntries(Object.keys(emptyNutrition).map((key) => [key, sum[key] + nutrition[key]])), { ...emptyNutrition });
+    return { average: Object.fromEntries(Object.keys(emptyNutrition).map((key) => [key, days.length ? total[key] / days.length : 0])), days: days.length };
+  }
+
+  const sinceLast = last ? averageMacros(last.date, shiftDate(todayKey, 1)) : null;
+  const sinceLastMax = sinceLast ? Math.max(sinceLast.average.proteins, sinceLast.average.carbs, sinceLast.average.fats, 1) : 1;
+  const history = entries.map((entry, index) => {
+    const previous = entries[index - 1];
+    return { ...entry, change: previous ? entry.weight - previous.weight : null, macros: previous ? averageMacros(previous.date, entry.date) : null };
+  }).reverse();
+
+  function logWeight(event) {
+    event.preventDefault();
+    const value = Math.round(Number(weight) * 10) / 10;
+    if (!(value > 0)) return notify('Enter your weight.');
+    if (!date || date > todayKey) return notify('Choose a date up to today.');
+    setWeights((current) => [...current.filter((entry) => entry.date !== date), { date, weight: value }]);
+    setWeight('');
+    notify('Weight logged.', 'success');
+  }
+
+  function removeWeight(entry) {
+    setWeights((current) => current.filter((item) => item.date !== entry.date));
+    notify('Weigh-in deleted.', 'info', { label: 'Undo', onClick: () => setWeights((current) => [...current.filter((item) => item.date !== entry.date), entry]) });
+  }
+
+  return (
+    <main className="app-shell reports-page weight-page">
+      <header className="topbar">
+        <button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button>
+        <button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home"><span className="brand-mark">DF</span><span>Daily Fuel</span></button>
+      </header>
+      <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} />
+      <Toast toast={toast} />
+      <div className="reports-heading"><div><p className="eyebrow">Weigh-ins</p><h1>Weight</h1></div></div>
+
+      <form className="settings-form weight-form" onSubmit={logWeight}>
+        <h2>Log weight</h2>
+        <div className="weight-inputs">
+          <label>Date<input type="date" value={date} max={todayKey} onChange={(event) => setDate(event.target.value)} /></label>
+          <label>Weight (kg)<input type="number" inputMode="decimal" min="0" step="any" value={weight} onChange={(event) => setWeight(event.target.value)} /></label>
+        </div>
+        <button className="auth-submit" type="submit">Log weight</button>
+      </form>
+
+      {last && (
+        <section className="chart-card weight-card macro-card">
+          <div className="card-heading"><h2>Average daily macros since last weigh-in</h2><span>{formatDate(last.date)} · {formatWeight(last.weight)} kg</span></div>
+          {sinceLast.days ? <>
+            <p className="weight-row-note">Over {sinceLast.days} logged {sinceLast.days === 1 ? 'day' : 'days'}</p>
+            <AverageCalories value={sinceLast.average.calories} goal={goal?.calories} />
+            <MacroBar label="Protein" value={sinceLast.average.proteins} goal={goal?.proteins} color="green" max={sinceLastMax} />
+            <MacroBar label="Carbs" value={sinceLast.average.carbs} goal={goal?.carbs} color="yellow" max={sinceLastMax} />
+            <MacroBar label="Fat" value={sinceLast.average.fats} goal={goal?.fats} color="coral" max={sinceLastMax} />
+          </> : <p className="usage-empty">No completed days logged since then yet.</p>}
+        </section>
+      )}
+
+      {entries.length >= 2 && (
+        <section className="chart-card weight-card">
+          <div className="card-heading"><h2>Trend</h2><span>{formatWeightChange(last.weight - entries[0].weight)} kg since {formatDate(entries[0].date)}</span></div>
+          <WeightChart entries={entries} />
+        </section>
+      )}
+
+      <section className="chart-card weight-card">
+        <div className="card-heading"><h2>History</h2><span>{entries.length} {entries.length === 1 ? 'weigh-in' : 'weigh-ins'}</span></div>
+        {history.length === 0 ? <p className="usage-empty">No weigh-ins yet.</p> : (
+          <div className="weight-list">
+            {history.map((entry) => (
+              <div className="weight-row" key={entry.date}>
+                <div className="weight-row-main">
+                  <span>{formatDate(entry.date)}</span>
+                  <strong>{formatWeight(entry.weight)}<small> kg</small></strong>
+                  {entry.change !== null && <small className="weight-change">{formatWeightChange(entry.change)} kg</small>}
+                </div>
+                {entry.change === null ? <small className="weight-row-note">First weigh-in</small> : <WeightMacros result={entry.macros} />}
+                <button className="remove-button" type="button" onClick={() => removeWeight(entry)} aria-label={`Delete weigh-in on ${formatDate(entry.date)}`} title="Delete weigh-in"><Trash2 /></button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </main>
+  );
+}
+
+// Line chart with x spaced by date (weigh-ins are irregular) and y fitted to the weight range instead of starting at 0.
+function WeightChart({ entries }) {
+  const values = entries.map((entry) => entry.weight);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const step = niceStep(Math.max(max - min, 0.4) / 3);
+  const low = Math.floor(min / step) * step;
+  const ticks = [4, 3, 2, 1, 0].map((index) => low + index * step);
+  const time = (date) => new Date(`${date}T12:00:00`).getTime();
+  const start = time(entries[0].date);
+  const span = Math.max(time(entries.at(-1).date) - start, 1);
+  const chartX = (date) => ((time(date) - start) / span) * 100;
+  const chartY = (value) => 91 - ((value - low) / (step * 4)) * 82;
+  const chartPx = (value) => `${(chartY(value) / 100) * 180}px`;
+  const labelDate = (value) => new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(new Date(value));
+  const labels = [0, 0.5, 1].map((share) => start + span * share);
+  return (
+    <div className="line-chart">
+      <div className="chart-scale" aria-hidden="true">{ticks.map((tick) => <span key={tick} style={{ top: chartPx(tick) }}>{chartNumber(Math.round(tick * 10) / 10)}</span>)}</div>
+      <div className="chart-plot">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Weight over time line chart">
+          {ticks.map((tick) => <line key={tick} x1="0" y1={chartY(tick)} x2="100" y2={chartY(tick)} className={tick === low ? 'chart-axis' : 'chart-grid'} />)}
+          <polyline points={entries.map((entry) => `${chartX(entry.date)},${chartY(entry.weight)}`).join(' ')} className="chart-line" />
+        </svg>
+        {entries.map((entry) => <span key={entry.date} className="chart-dot" style={{ left: `${chartX(entry.date)}%`, top: chartPx(entry.weight) }} title={`${formatDate(entry.date)}: ${formatWeight(entry.weight)} kg`} />)}
+        <div className="chart-labels">{labels.map((value, index) => <span key={index} style={{ left: `${index * 50}%`, transform: index === 2 ? 'translateX(-100%)' : undefined }}>{labelDate(value)}</span>)}</div>
+      </div>
+    </div>
+  );
+}
+
+function WeightMacros({ result }) {
+  if (!result?.days) return <small className="weight-row-note">No logged days</small>;
+  const { calories, proteins, carbs, fats } = result.average;
+  return (
+    <div className="weight-macros">
+      <strong>{Math.round(calories).toLocaleString()}<small> kcal/day</small></strong>
+      <span>P {Math.round(proteins)} · C {Math.round(carbs)} · F {Math.round(fats)}g</span>
+      <span>avg over {result.days} {result.days === 1 ? 'day' : 'days'}</span>
+    </div>
+  );
+}
+
 function ReportStat({ label, value, suffix = '' }) {
   return <div className="report-stat"><span>{label}</span><strong>{value.toLocaleString()}<small>{suffix}</small></strong></div>;
 }
@@ -1088,7 +1254,7 @@ function MacroBar({ label, value, goal, color, max }) {
 }
 
 function GoalView({ goal, setGoal, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
-  const emptyGoal = { calories: '', proteins: '', carbs: '', fats: '', objective: 'lose', scoring: false };
+  const emptyGoal = { calories: '', proteins: '', carbs: '', fats: '', objective: 'lose', scoring: false, weightTracking: false };
   const [draft, setDraft] = useState({ ...emptyGoal, ...goal, objective: objectiveKey(goal?.objective) });
   const macrosSet = ['proteins', 'carbs', 'fats'].every((key) => Number(draft[key]) > 0);
 
@@ -1098,7 +1264,7 @@ function GoalView({ goal, setGoal, onNavigate, menuOpen, setMenuOpen, username, 
     event.preventDefault();
     try {
       const saved = Object.fromEntries(['calories', 'proteins', 'carbs', 'fats'].map((key) => [key, Math.max(0, Number(draft[key]) || 0)]));
-      setGoal({ ...saved, objective: objectiveKey(draft.objective), scoring: Boolean(draft.scoring && macrosSet) });
+      setGoal({ ...saved, objective: objectiveKey(draft.objective), scoring: Boolean(draft.scoring && macrosSet), weightTracking: Boolean(draft.weightTracking) });
       notify('Goal saved.', 'success');
     } catch (error) {
       notify(error.message);
@@ -1120,9 +1286,10 @@ function GoalView({ goal, setGoal, onNavigate, menuOpen, setMenuOpen, username, 
         <ManualInput label="Protein (g)" value={draft.proteins} onChange={(value) => setDraft((current) => ({ ...current, proteins: value }))} />
         <ManualInput label="Carbs (g)" value={draft.carbs} onChange={(value) => setDraft((current) => ({ ...current, carbs: value }))} />
         <ManualInput label="Fat (g)" value={draft.fats} onChange={(value) => setDraft((current) => ({ ...current, fats: value }))} />
+        <div className="goal-section-heading"><h2>Additional menus</h2><p>Turn on extra pages in the menu.</p></div>
         <label className="scoring-toggle">
           <input type="checkbox" role="switch" checked={Boolean(draft.scoring && macrosSet)} disabled={!macrosSet} onChange={(event) => setDraft((current) => ({ ...current, scoring: event.target.checked }))} />
-          <span><strong>Enable scoring</strong><small>{macrosSet ? 'Rate each completed day 0–100 on how well you hit your macros.' : 'Set protein, carbs and fat goals to enable scoring.'}</small></span>
+          <span><strong>Scoring</strong><small>{macrosSet ? 'Rate each completed day 0–100 on how well you hit your macros.' : 'Set protein, carbs and fat goals to enable scoring.'}</small></span>
         </label>
         {draft.scoring && macrosSet && (
           <div className="goal-objective">
@@ -1132,6 +1299,10 @@ function GoalView({ goal, setGoal, onNavigate, menuOpen, setMenuOpen, username, 
             </div>
           </div>
         )}
+        <label className="scoring-toggle">
+          <input type="checkbox" role="switch" checked={Boolean(draft.weightTracking)} onChange={(event) => setDraft((current) => ({ ...current, weightTracking: event.target.checked }))} />
+          <span><strong>Weight track</strong><small>Log your weight and see your average daily macros between weigh-ins.</small></span>
+        </label>
         <button className="auth-submit goal-save" type="submit">Save goal</button>
       </form>
     </main>
@@ -1211,17 +1382,48 @@ function SettingsView({ goal, proxyQuota, settings, setSettings, onNavigate, men
   );
 }
 
-function DataHandlingView({ mealsByDate, setMealsByDate, goal, setGoal, settings, setSettings, usage, setUsage, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+}
+
+// Sizes come from current state (what saveLocal writes), since localStorage is only updated after render.
+// Browsers store strings as UTF-16, so each character takes 2 bytes.
+function storageUsage(stored) {
+  const entry = (key, text) => (key.length + (text?.length || 0)) * 2;
+  const items = Object.entries(stored).map(([key, { label, value }]) => ({ key, label, bytes: entry(key, JSON.stringify(value)) }));
+  let other = 0;
+  try {
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (!stored[key]) other += entry(key, localStorage.getItem(key));
+    }
+  } catch {
+    other = 0;
+  }
+  if (other) items.push({ key: 'other', label: 'Other', bytes: other });
+  return { items, total: items.reduce((sum, item) => sum + item.bytes, 0) };
+}
+
+function DataHandlingView({ mealsByDate, setMealsByDate, goal, setGoal, weights, setWeights, settings, setSettings, usage, setUsage, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
   const today = dateKey(new Date());
   const [start, setStart] = useState(today);
   const [end, setEnd] = useState(today);
+  const storage = storageUsage({
+    'daily-fuel-meals': { label: 'Meals', value: mealsByDate },
+    'daily-fuel-weights': { label: 'Weights', value: weights },
+    'daily-fuel-usage': { label: 'Token usage', value: usage },
+    'daily-fuel-settings': { label: 'Settings', value: settings },
+    'daily-fuel-goal': { label: 'Goal', value: goal },
+  });
 
   function exportData() {
     const backup = {
       app: 'daily-fuel',
       version: 1,
       exportedAt: new Date().toISOString(),
-      data: { mealsByDate, goal, settings, usage },
+      data: { mealsByDate, goal, weights, settings, usage },
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -1257,7 +1459,9 @@ function DataHandlingView({ mealsByDate, setMealsByDate, goal, setGoal, settings
         ...Object.fromEntries(['calories', 'proteins', 'carbs', 'fats'].map((key) => [key, Math.max(0, Number(data.goal[key]) || 0)])),
         objective: objectiveKey(data.goal.objective),
         scoring: data.goal.scoring === true,
+        weightTracking: data.goal.weightTracking === true,
       } : null);
+      if (Array.isArray(data.weights)) setWeights(data.weights.filter((entry) => /^\d{4}-\d{2}-\d{2}$/.test(entry?.date) && Number(entry.weight) > 0).map((entry) => ({ date: entry.date, weight: Number(entry.weight) })));
       setSettings(exclusiveAiSettings({ ...defaultSettings, ...(data.settings || {}) }));
       if (data.usage && typeof data.usage === 'object') setUsage(pruneUsage(data.usage));
       notify('Backup imported.', 'success');
@@ -1273,7 +1477,7 @@ function DataHandlingView({ mealsByDate, setMealsByDate, goal, setGoal, settings
     setMealsByDate(next);
     notify('Data cleared.', 'success');
   }
-  return <main className="app-shell settings-page"><header className="topbar"><button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button><button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home"><span className="brand-mark">DF</span><span>Daily Fuel</span></button></header><Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} /><Toast toast={toast} /><div className="reports-heading"><div><p className="eyebrow">On this device</p><h1>Data handling</h1></div></div><section className="settings-form migration-form"><div><h2>Migrations</h2><p>Save your data before updating the app, or restore it from a previous backup.</p></div><div className="migration-actions"><button className="auth-submit" type="button" onClick={exportData}>Export</button><label className="import-button">Import<input type="file" accept="application/json,.json" onChange={importData} /></label></div></section><form className="settings-form clear-form" onSubmit={clearRange}><h2>Clear data</h2><p>Delete meals within a date range.</p><label>From<input type="date" value={start} onChange={(event) => setStart(event.target.value)} /></label><label>To<input type="date" value={end} onChange={(event) => setEnd(event.target.value)} /></label><button className="clear-data-button" type="submit">Clear range</button></form></main>;
+  return <main className="app-shell settings-page"><header className="topbar"><button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button><button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home"><span className="brand-mark">DF</span><span>Daily Fuel</span></button></header><Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} /><Toast toast={toast} /><div className="reports-heading"><div><p className="eyebrow">On this device</p><h1>Data handling</h1></div></div><section className="settings-form storage-form"><div className="storage-heading"><h2>Storage</h2><strong>{formatBytes(storage.total)}</strong></div><div className="storage-list">{storage.items.map((item) => <div key={item.key}><span>{item.label}</span><strong>{formatBytes(item.bytes)}</strong></div>)}</div></section><section className="settings-form migration-form"><div><h2>Migrations</h2><p>Save your data before updating the app, or restore it from a previous backup.</p></div><div className="migration-actions"><button className="auth-submit" type="button" onClick={exportData}>Export</button><label className="import-button">Import<input type="file" accept="application/json,.json" onChange={importData} /></label></div></section><form className="settings-form clear-form" onSubmit={clearRange}><h2>Clear data</h2><p>Delete meals within a date range.</p><label>From<input type="date" value={start} onChange={(event) => setStart(event.target.value)} /></label><label>To<input type="date" value={end} onChange={(event) => setEnd(event.target.value)} /></label><button className="clear-data-button" type="submit">Clear range</button></form></main>;
 }
 
 function UsageView({ goal, usage, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast }) {
