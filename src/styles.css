@@ -31,6 +31,12 @@ input, select, textarea { transition: border-color 150ms ease, box-shadow 150ms 
 input:focus, select:focus, textarea:focus { box-shadow: var(--focus-ring); }
 .date-control input:focus, .time-picker input:focus, .import-button input:focus { box-shadow: none; }
 .app-shell { width: min(900px, calc(100% - 32px)); margin: 0 auto; padding: 24px 0 48px; }
+.not-found-content { display: grid; min-height: min(58vh, 520px); align-content: center; justify-items: start; gap: 12px; }
+.not-found-code { margin: 0; color: var(--green); font-size: 13px; font-weight: 700; }
+.not-found-content h1 { margin: 0; font-size: 36px; }
+.not-found-content > p:last-of-type { max-width: 420px; margin: 0; color: var(--muted); line-height: 1.5; }
+.not-found-content .auth-submit { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.not-found-content .auth-submit svg { width: 16px; height: 16px; }
 .topbar, .home-header { position: sticky; z-index: 3; top: 0; margin: -24px calc(50% - 50vw) 28px; padding: calc(10px + env(safe-area-inset-top)) calc(50vw - 50%) 10px; background: rgb(255 255 255 / 94%); border-bottom: 1px solid var(--line); box-shadow: 0 5px 16px rgb(34 42 37 / 5%); backdrop-filter: blur(8px); }
 .topbar { display: flex; align-items: center; gap: 12px; }
 .menu-button, .brand { border: 0; background: transparent; color: var(--ink); }

@@ -271,6 +271,18 @@ function currentHour() {
 }
 
 const usageRetentionMs = 7 * 24 * 60 * 60 * 1000;
+const routePaths = {
+  home: '/',
+  reports: '/reports',
+  usage: '/usage',
+  goal: '/goal',
+  settings: '/settings',
+  'data-handling': '/data-handling',
+};
+
+function routeFromPath(pathname) {
+  return Object.keys(routePaths).find((route) => routePaths[route] === pathname) || 'not-found';
+}
 
 function pruneUsage(value) {
   const cutoff = Date.now() - usageRetentionMs;
@@ -354,7 +366,7 @@ function App() {
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
   const [newMealId, setNewMealId] = useState(null);
-  const [route, setRoute] = useState(() => window.location.pathname === '/reports' ? 'reports' : window.location.pathname === '/usage' ? 'usage' : window.location.pathname === '/goal' ? 'goal' : window.location.pathname === '/settings' ? 'settings' : window.location.pathname === '/clear-data' ? 'clear-data' : 'home');
+  const [route, setRoute] = useState(() => routeFromPath(window.location.pathname));
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportPeriod, setReportPeriod] = useState('week');
   const [scoreOpen, setScoreOpen] = useState(false);
@@ -431,13 +443,13 @@ function App() {
   }
 
   useEffect(() => {
-    const handlePopState = () => setRoute(window.location.pathname === '/reports' ? 'reports' : window.location.pathname === '/usage' ? 'usage' : window.location.pathname === '/goal' ? 'goal' : window.location.pathname === '/settings' ? 'settings' : window.location.pathname === '/clear-data' ? 'clear-data' : 'home');
+    const handlePopState = () => setRoute(routeFromPath(window.location.pathname));
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   function navigate(nextRoute, resetToToday = false) {
-    const path = nextRoute === 'reports' ? '/reports' : nextRoute === 'usage' ? '/usage' : nextRoute === 'goal' ? '/goal' : nextRoute === 'settings' ? '/settings' : nextRoute === 'clear-data' ? '/clear-data' : '/';
+    const path = routePaths[nextRoute] || '/';
     window.history.pushState({}, '', path);
     if (resetToToday) setSelectedDate(dateKey(new Date()));
     setRoute(nextRoute);
@@ -566,8 +578,26 @@ function App() {
   if (route === 'settings') {
     return <SettingsView proxyQuota={useProxy ? proxyQuota : null} settings={settings} setSettings={setSettings} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
   }
-  if (route === 'clear-data') {
-    return <ClearDataView mealsByDate={mealsByDate} setMealsByDate={setMealsByDate} goal={goal} setGoal={setGoal} settings={settings} setSettings={setSettings} usage={usage} setUsage={setUsage} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
+  if (route === 'data-handling') {
+    return <DataHandlingView mealsByDate={mealsByDate} setMealsByDate={setMealsByDate} goal={goal} setGoal={setGoal} settings={settings} setSettings={setSettings} usage={usage} setUsage={setUsage} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
+  }
+  if (route === 'not-found') {
+    return (
+      <main className="app-shell not-found-page">
+        <header className="topbar">
+          <button className="brand" type="button" onClick={() => navigate('home')} aria-label="Daily Fuel home">
+            <span className="brand-mark">DF</span>
+            <span>Daily Fuel</span>
+          </button>
+        </header>
+        <section className="not-found-content">
+          <p className="not-found-code">404</p>
+          <h1>Page not found</h1>
+          <p>This page may have moved or the address may be incorrect.</p>
+          <button className="auth-submit" type="button" onClick={() => navigate('home')}><Home aria-hidden="true" />Back to today</button>
+        </section>
+      </main>
+    );
   }
 
   return (
@@ -799,7 +829,7 @@ function Menu({ open, onClose, onNavigate, onLogout, username }) {
           <div className="menu-group menu-group-secondary">
             <button type="button" onClick={() => onNavigate('settings')}><span className="menu-link-label"><span className="menu-icon"><Settings /></span>Settings</span><span aria-hidden="true">&rarr;</span></button>
             <button type="button" onClick={() => onNavigate('usage')}><span className="menu-link-label"><span className="menu-icon"><Cpu /></span>Tokens</span><span aria-hidden="true">&rarr;</span></button>
-            <button type="button" onClick={() => onNavigate('clear-data')}><span className="menu-link-label"><span className="menu-icon"><Database /></span>Data handling</span><span aria-hidden="true">&rarr;</span></button>
+            <button type="button" onClick={() => onNavigate('data-handling')}><span className="menu-link-label"><span className="menu-icon"><Database /></span>Data handling</span><span aria-hidden="true">&rarr;</span></button>
           </div>
         </nav>
       </aside>
@@ -1068,7 +1098,7 @@ function SettingsView({ proxyQuota, settings, setSettings, onNavigate, menuOpen,
   );
 }
 
-function ClearDataView({ mealsByDate, setMealsByDate, goal, setGoal, settings, setSettings, usage, setUsage, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
+function DataHandlingView({ mealsByDate, setMealsByDate, goal, setGoal, settings, setSettings, usage, setUsage, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
   const today = dateKey(new Date());
   const [start, setStart] = useState(today);
   const [end, setEnd] = useState(today);
