@@ -224,7 +224,7 @@ textarea::placeholder { color: #9aa09b; }
 .chart-labels span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
 .chart-labels span:first-child { transform: none; }
 .report-bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
-.macro-card { display: grid; gap: 18px; }
+.macro-card { display: grid; gap: 18px; margin-top: 12px; }
 .average-calories { display: grid; gap: 8px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
 .average-calories > div { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .average-calories strong { font-size: 28px; letter-spacing: -.03em; }

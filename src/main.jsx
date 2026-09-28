@@ -1,6 +1,6 @@
 import { StrictMode, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BarChart3, ChevronLeft, ChevronRight, Clock, Cpu, Database, Home, LoaderCircle, Menu as MenuIcon, Pencil, Plus, RefreshCw, Settings, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
+import { BarChart3, ChevronLeft, ChevronRight, Clock, Cpu, Database, Home, LoaderCircle, Medal, Menu as MenuIcon, Pencil, Plus, RefreshCw, Settings, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
 import { calculateScore, dayProgress, dayStatus, DAY_COMPLETE_HOUR, macroLabels, objectiveKey, objectives, scoreLabel, scoringAvailable } from './score.js';
 import './styles.css';
 
@@ -274,6 +274,7 @@ const usageRetentionMs = 7 * 24 * 60 * 60 * 1000;
 const routePaths = {
   home: '/',
   reports: '/reports',
+  scores: '/scores',
   usage: '/usage',
   goal: '/goal',
   settings: '/settings',
@@ -448,6 +449,12 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  useEffect(() => {
+    if (route !== 'scores' || scoring) return;
+    window.history.replaceState({}, '', routePaths.goal);
+    setRoute('goal');
+  }, [route, scoring]);
+
   function navigate(nextRoute, resetToToday = false) {
     const path = routePaths[nextRoute] || '/';
     window.history.pushState({}, '', path);
@@ -569,14 +576,17 @@ function App() {
   if (route === 'reports') {
     return <ReportsView goal={goal} mealsByDate={mealsByDate} onOpenDay={(date) => { setSelectedDate(date); navigate('home'); }} report={report} period={reportPeriod} setPeriod={setReportPeriod} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
   }
+  if (route === 'scores' && scoring) {
+    return <ScoresView goal={goal} mealsByDate={mealsByDate} onOpenDay={(date) => { setSelectedDate(date); navigate('home'); }} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
+  }
   if (route === 'usage') {
-    return <UsageView usage={usage} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
+    return <UsageView goal={goal} usage={usage} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
   }
   if (route === 'goal') {
     return <GoalView goal={goal} setGoal={setGoal} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
   }
   if (route === 'settings') {
-    return <SettingsView proxyQuota={useProxy ? proxyQuota : null} settings={settings} setSettings={setSettings} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
+    return <SettingsView goal={goal} proxyQuota={useProxy ? proxyQuota : null} settings={settings} setSettings={setSettings} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
   }
   if (route === 'data-handling') {
     return <DataHandlingView mealsByDate={mealsByDate} setMealsByDate={setMealsByDate} goal={goal} setGoal={setGoal} settings={settings} setSettings={setSettings} usage={usage} setUsage={setUsage} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
@@ -618,7 +628,7 @@ function App() {
           <button className="arrow-button" type="button" onClick={() => setSelectedDate(shiftDate(selectedDate, 1))} aria-label="Next day">&rarr;</button>
         </section>
       </header>
-      <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={navigate} onLogout={logout} username="Local device" />
+      <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={navigate} onLogout={logout} username="Local device" goal={goal} />
       <Toast toast={toast} />
 
       <div className="content-grid">
@@ -811,7 +821,7 @@ function GoalProgress({ value, goal, color }) {
   return <div className={`goal-progress goal-progress-${color}`}><span className="progress-track"><i style={fillStyle(Math.min((value / goal) * 100, 100))} /></span></div>;
 }
 
-function Menu({ open, onClose, onNavigate, onLogout, username }) {
+function Menu({ open, onClose, onNavigate, onLogout, username, goal }) {
   const [visible, closing] = usePresence(open, 200);
   useEscape(open, onClose);
   if (!visible) return null;
@@ -824,6 +834,7 @@ function Menu({ open, onClose, onNavigate, onLogout, username }) {
           <div className="menu-group">
             <button type="button" onClick={() => onNavigate('home', true)}><span className="menu-link-label"><span className="menu-icon"><Home /></span>Today</span><span aria-hidden="true">&rarr;</span></button>
             <button type="button" onClick={() => onNavigate('goal')}><span className="menu-link-label"><span className="menu-icon"><Target /></span>Goal</span><span aria-hidden="true">&rarr;</span></button>
+            {scoringAvailable(goal) && <button type="button" onClick={() => onNavigate('scores')}><span className="menu-link-label"><span className="menu-icon"><Medal /></span>Scores</span><span aria-hidden="true">&rarr;</span></button>}
             <button type="button" onClick={() => onNavigate('reports')}><span className="menu-link-label"><span className="menu-icon"><BarChart3 /></span>Reports</span><span aria-hidden="true">&rarr;</span></button>
           </div>
           <div className="menu-group menu-group-secondary">
@@ -867,7 +878,7 @@ function ReportsView({ goal, mealsByDate, onOpenDay, report, period, setPeriod, 
           <span>Daily Fuel</span>
         </button>
       </header>
-      <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} />
+      <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} />
       <Toast toast={toast} />
 
       <div className="reports-heading">
@@ -902,10 +913,25 @@ function ReportsView({ goal, mealsByDate, onOpenDay, report, period, setPeriod, 
         </div>
       </section>
 
-      <section className="report-bottom-grid">
-        <div className="chart-card macro-card"><div className="card-heading"><h2>Daily average</h2><span>{loggedDays} logged {loggedDays === 1 ? 'day' : 'days'}</span></div><AverageCalories value={average.calories} goal={goal?.calories} /><MacroBar label="Protein" value={average.proteins} goal={goal?.proteins} color="green" max={averageMax} /><MacroBar label="Carbs" value={average.carbs} goal={goal?.carbs} color="yellow" max={averageMax} /><MacroBar label="Fat" value={average.fats} goal={goal?.fats} color="coral" max={averageMax} /></div>
-        {scoringAvailable(goal) && <ScoreCalendar goal={goal} mealsByDate={mealsByDate} onOpenDay={onOpenDay} />}
-      </section>
+      <section className="chart-card macro-card"><div className="card-heading"><h2>Daily average</h2><span>{loggedDays} logged {loggedDays === 1 ? 'day' : 'days'}</span></div><AverageCalories value={average.calories} goal={goal?.calories} /><MacroBar label="Protein" value={average.proteins} goal={goal?.proteins} color="green" max={averageMax} /><MacroBar label="Carbs" value={average.carbs} goal={goal?.carbs} color="yellow" max={averageMax} /><MacroBar label="Fat" value={average.fats} goal={goal?.fats} color="coral" max={averageMax} /></section>
+    </main>
+  );
+}
+
+function ScoresView({ goal, mealsByDate, onOpenDay, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast }) {
+  return (
+    <main className="app-shell reports-page">
+      <header className="topbar">
+        <button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button>
+        <button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home">
+          <span className="brand-mark">DF</span>
+          <span>Daily Fuel</span>
+        </button>
+      </header>
+      <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} />
+      <Toast toast={toast} />
+      <div className="reports-heading"><div><p className="eyebrow">Macro score history</p><h1>Scores</h1></div></div>
+      <ScoreCalendar goal={goal} mealsByDate={mealsByDate} onOpenDay={onOpenDay} />
     </main>
   );
 }
@@ -998,7 +1024,7 @@ function GoalView({ goal, setGoal, onNavigate, menuOpen, setMenuOpen, username, 
         <button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button>
         <button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home"><span className="brand-mark">DF</span><span>Daily Fuel</span></button>
       </header>
-      <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} />
+      <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} />
       <Toast toast={toast} />
       <div className="reports-heading"><div><p className="eyebrow">Daily target</p><h1>Goal</h1></div></div>
       <form className="goal-form" onSubmit={saveGoal}>
@@ -1025,7 +1051,7 @@ function GoalView({ goal, setGoal, onNavigate, menuOpen, setMenuOpen, username, 
   );
 }
 
-function SettingsView({ proxyQuota, settings, setSettings, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
+function SettingsView({ goal, proxyQuota, settings, setSettings, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
   const [draft, setDraft] = useState(settings);
   const [updating, setUpdating] = useState(false);
   function update(key, value) { setDraft((current) => ({ ...current, [key]: value })); }
@@ -1058,7 +1084,7 @@ function SettingsView({ proxyQuota, settings, setSettings, onNavigate, menuOpen,
   return (
     <main className="app-shell settings-page">
       <header className="topbar"><button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button><button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home"><span className="brand-mark">DF</span><span>Daily Fuel</span></button></header>
-      <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} />
+      <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} />
       <Toast toast={toast} />
       <div className="reports-heading"><div><p className="eyebrow">On this device</p><h1>Settings</h1></div></div>
       <form className="settings-form" onSubmit={saveSettings}>
@@ -1160,10 +1186,10 @@ function DataHandlingView({ mealsByDate, setMealsByDate, goal, setGoal, settings
     setMealsByDate(next);
     notify('Data cleared.', 'success');
   }
-  return <main className="app-shell settings-page"><header className="topbar"><button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button><button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home"><span className="brand-mark">DF</span><span>Daily Fuel</span></button></header><Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} /><Toast toast={toast} /><div className="reports-heading"><div><p className="eyebrow">On this device</p><h1>Data handling</h1></div></div><section className="settings-form migration-form"><div><h2>Migrations</h2><p>Save your data before updating the app, or restore it from a previous backup.</p></div><div className="migration-actions"><button className="auth-submit" type="button" onClick={exportData}>Export</button><label className="import-button">Import<input type="file" accept="application/json,.json" onChange={importData} /></label></div></section><form className="settings-form clear-form" onSubmit={clearRange}><h2>Clear data</h2><p>Delete meals within a date range.</p><label>From<input type="date" value={start} onChange={(event) => setStart(event.target.value)} /></label><label>To<input type="date" value={end} onChange={(event) => setEnd(event.target.value)} /></label><button className="clear-data-button" type="submit">Clear range</button></form></main>;
+  return <main className="app-shell settings-page"><header className="topbar"><button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button><button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home"><span className="brand-mark">DF</span><span>Daily Fuel</span></button></header><Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} /><Toast toast={toast} /><div className="reports-heading"><div><p className="eyebrow">On this device</p><h1>Data handling</h1></div></div><section className="settings-form migration-form"><div><h2>Migrations</h2><p>Save your data before updating the app, or restore it from a previous backup.</p></div><div className="migration-actions"><button className="auth-submit" type="button" onClick={exportData}>Export</button><label className="import-button">Import<input type="file" accept="application/json,.json" onChange={importData} /></label></div></section><form className="settings-form clear-form" onSubmit={clearRange}><h2>Clear data</h2><p>Delete meals within a date range.</p><label>From<input type="date" value={start} onChange={(event) => setStart(event.target.value)} /></label><label>To<input type="date" value={end} onChange={(event) => setEnd(event.target.value)} /></label><button className="clear-data-button" type="submit">Clear range</button></form></main>;
 }
 
-function UsageView({ usage, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast }) {
+function UsageView({ goal, usage, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast }) {
 
   const daily = usage?.daily || [];
   const maxDaily = Math.max(...daily.map((day) => day.tokens), 1);
@@ -1177,7 +1203,7 @@ function UsageView({ usage, onNavigate, menuOpen, setMenuOpen, username, onLogou
           <span>Daily Fuel</span>
         </button>
       </header>
-      <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} />
+      <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} />
       <Toast toast={toast} />
 
       <div className="reports-heading"><div><p className="eyebrow">AI requests</p><h1>Token usage</h1></div></div>
