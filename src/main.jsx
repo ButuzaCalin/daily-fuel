@@ -36,6 +36,7 @@ document.addEventListener('gesturestart', (event) => event.preventDefault());
 
 const emptyNutrition ={ calories: 0, proteins: 0, carbs: 0, fats: 0 };
 const blankNutrition = { calories: '', proteins: '', carbs: '', fats: '' };
+const mealTextMaxLength = 300;
 const defaultSettings = { aiMode: 'manual', proxyUrl: '', proxyUsername: '', proxyKey: '', provider: 'google', googleKey: '', googleModel: 'gemini-3.5-flash-lite', openaiKey: '', openaiModel: 'gpt-4o-mini' };
 const aiModeLabels = { manual: 'Manual Config', proxy: 'Proxy Config' };
 
@@ -1626,7 +1627,7 @@ function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', c
         <form className="add-meal-form" onSubmit={onSubmit}>
           <div className="form-topline"><label>When</label><TimePicker value={shown.time} onChange={(time) => onChange({ time })} /></div>
           <label className="sr-only" htmlFor={`${id}-text`}>What did you eat?</label>
-          <textarea id={`${id}-text`} value={shown.text} onChange={(event) => onChange({ text: event.target.value })} onKeyDown={submitOnShortcut} placeholder="What did you eat?" rows="4" autoFocus />
+          <textarea id={`${id}-text`} value={shown.text} onChange={(event) => onChange({ text: event.target.value })} onKeyDown={submitOnShortcut} placeholder="Log a single item or a whole meal" maxLength={mealTextMaxLength} rows="4" autoFocus />
           {shown.nutrition && !nutritionOpen && <button className="manual-values-toggle" type="button" onClick={() => setNutritionOpen(true)}><Plus aria-hidden="true" />Add manual values</button>}
           {shown.nutrition && nutritionOpen && <fieldset className="meal-dialog-nutrition">
             <div className="nutrition-legend">
