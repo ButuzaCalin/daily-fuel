@@ -1,6 +1,6 @@
 import { StrictMode, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BarChart3, ChevronLeft, ChevronRight, Clock, Cpu, Database, Home, LoaderCircle, Medal, Menu as MenuIcon, Pencil, Plus, RefreshCw, Scale, Settings, Share2, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
+import { BarChart3, ChevronDown, ChevronLeft, ChevronRight, Clock, Cpu, Database, History, Home, LoaderCircle, Medal, Menu as MenuIcon, Pencil, Plus, RefreshCw, Scale, Settings, Share2, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
 import { toBlob } from 'html-to-image';
 import { calculateScore, dayProgress, dayStatus, DAY_COMPLETE_HOUR, macroLabels, objectiveKey, objectives, scoreLabel, scoringAvailable } from './score.js';
 import './styles.css';
@@ -220,6 +220,36 @@ ${JSON.stringify(meals.map((meal) => ({ id: meal.id, time: meal.time, descriptio
   return { nutritionById, usage: result.usageMetadata || result.usage || {} };
 }
 
+// Unique previously logged meals, most recent first, for searching and re-adding.
+function pastMeals(mealsByDate) {
+  const seen = new Map();
+  Object.keys(mealsByDate).sort().reverse().forEach((date) => {
+    sortMeals(mealsByDate[date] || []).reverse().forEach((meal) => {
+      const key = meal.text.trim().toLowerCase();
+      if (!key) return;
+      if (seen.has(key)) seen.get(key).count += 1;
+      else seen.set(key, { text: meal.text.trim(), nutrition: cleanNutrition(meal.nutrition), date, time: meal.time, count: 1 });
+    });
+  });
+  return [...seen.values()];
+}
+
+function matchMeals(meals, query, limit = 5) {
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (query.trim().length < 2) return [];
+  return meals.filter((meal) => {
+    const text = meal.text.toLowerCase();
+    return text !== query.trim().toLowerCase() && words.every((word) => text.includes(word));
+  }).slice(0, limit);
+}
+
+function loggedLabel(date) {
+  const today = dateKey(new Date());
+  if (date === today) return 'Today';
+  if (date === shiftDate(today, -1)) return 'Yesterday';
+  return formatDate(date);
+}
+
 function hasNutrition(meal) {
   return Object.values(meal.nutrition || {}).some((value) => Number(value) > 0);
 }
@@ -384,6 +414,7 @@ function App() {
   const scoring = scoringAvailable(goal);
   const now = useNow(scoring);
   const meals = sortMeals(mealsByDate[selectedDate] || []);
+  const previousMeals = useMemo(() => pastMeals(mealsByDate), [mealsByDate]);
 
   useEffect(() => saveLocal('daily-fuel-meals', mealsByDate), [mealsByDate]);
   useEffect(() => saveLocal('daily-fuel-goal', goal), [goal]);
@@ -708,6 +739,7 @@ function App() {
         draft={addMealOpen ? { text: mealText, time: mealTime, nutrition: mealNutrition } : null}
         nutritionLabel="Manual values"
         collapsibleNutrition
+        suggestions={previousMeals}
         title="Add meal"
         submitLabel="Add meal"
         onChange={(patch) => { if ('text' in patch) setMealText(patch.text); if ('time' in patch) setMealTime(patch.time); if (patch.nutrition) setMealNutrition((current) => ({ ...current, ...patch.nutrition })); }}
@@ -1594,17 +1626,21 @@ function Toast({ toast }) {
   );
 }
 
-function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', collapsibleNutrition = false, onChange, onClose, onSubmit }) {
+function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', collapsibleNutrition = false, suggestions, onChange, onClose, onSubmit }) {
   const [shown, closing] = usePresence(draft, 150);
   const id = useId();
   const open = Boolean(draft);
   const [nutritionOpen, setNutritionOpen] = useState(false);
   const [entryMode, setEntryMode] = useState('total');
   const [perValues, setPerValues] = useState(blankPerValues);
+  // What the draft looked like before a previous meal was picked, so the pick can be undone.
+  const [beforePick, setBeforePick] = useState(null);
+  const [suggestionsCollapsed, setSuggestionsCollapsed] = useState(() => loadLocal('daily-fuel-suggestions-collapsed', false));
+  useEffect(() => saveLocal('daily-fuel-suggestions-collapsed', suggestionsCollapsed), [suggestionsCollapsed]);
   // Each time the dialog opens, start collapsed unless the draft already has values.
   useEffect(() => {
     if (open) setNutritionOpen(!collapsibleNutrition || Object.values(draft.nutrition || {}).some((value) => value !== '' && Number(value) !== 0));
-    if (open) { setEntryMode('total'); setPerValues(blankPerValues); }
+    if (open) { setEntryMode('total'); setPerValues(blankPerValues); setBeforePick(null); }
   }, [open]);
   // Per-amount values are kept locally; the draft always holds the scaled totals.
   function updatePer(patch) {
@@ -1614,6 +1650,20 @@ function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', c
   }
   useEscape(Boolean(draft), onClose);
   if (!shown) return null;
+  const matches = suggestions ? matchMeals(suggestions, shown.text) : [];
+  function pickSuggestion(meal) {
+    setBeforePick({ text: shown.text, nutrition: shown.nutrition, nutritionOpen, entryMode, perValues });
+    onChange({ text: meal.text, nutrition: Object.fromEntries(Object.entries(meal.nutrition).map(([key, value]) => [key, value ? String(value) : ''])) });
+    setEntryMode('total');
+    if (hasNutrition(meal)) setNutritionOpen(true);
+  }
+  function undoPick() {
+    onChange({ text: beforePick.text, nutrition: beforePick.nutrition });
+    setNutritionOpen(beforePick.nutritionOpen);
+    setEntryMode(beforePick.entryMode);
+    setPerValues(beforePick.perValues);
+    setBeforePick(null);
+  }
   function submitOnShortcut(event) {
     if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
       event.preventDefault();
@@ -1627,7 +1677,23 @@ function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', c
         <form className="add-meal-form" onSubmit={onSubmit}>
           <div className="form-topline"><label>When</label><TimePicker value={shown.time} onChange={(time) => onChange({ time })} /></div>
           <label className="sr-only" htmlFor={`${id}-text`}>What did you eat?</label>
-          <textarea id={`${id}-text`} value={shown.text} onChange={(event) => onChange({ text: event.target.value })} onKeyDown={submitOnShortcut} placeholder="Log a single item or a whole meal" maxLength={mealTextMaxLength} rows="4" autoFocus />
+          <textarea id={`${id}-text`} value={shown.text} onChange={(event) => { setBeforePick(null); onChange({ text: event.target.value }); }} onKeyDown={submitOnShortcut} placeholder="Log a single item or a whole meal" maxLength={mealTextMaxLength} rows="4" autoFocus />
+          {beforePick && <div className="suggestion-undo"><span>Filled from a previous meal</span><button type="button" onClick={undoPick}><Undo2 aria-hidden="true" />Undo</button></div>}
+          {!beforePick && matches.length > 0 && <div className="meal-suggestions" role="group" aria-label="Previously logged meals">
+            <button className="suggestions-toggle" type="button" onClick={() => setSuggestionsCollapsed((current) => !current)} aria-expanded={!suggestionsCollapsed}>
+              Previously logged ({matches.length})<ChevronDown aria-hidden="true" data-collapsed={suggestionsCollapsed || undefined} />
+            </button>
+            {!suggestionsCollapsed && matches.map((meal) => (
+              <button type="button" key={meal.text} onClick={() => pickSuggestion(meal)} title="Add again">
+                <History aria-hidden="true" />
+                <span className="suggestion-main">
+                  <span>{meal.text}</span>
+                  <small>{loggedLabel(meal.date)} · {meal.time}{meal.count > 1 && ` · ${meal.count}× logged`}</small>
+                </span>
+                {hasNutrition(meal) && <small>{Math.round(meal.nutrition.calories)} kcal</small>}
+              </button>
+            ))}
+          </div>}
           {shown.nutrition && !nutritionOpen && <button className="manual-values-toggle" type="button" onClick={() => setNutritionOpen(true)}><Plus aria-hidden="true" />Add manual values</button>}
           {shown.nutrition && nutritionOpen && <fieldset className="meal-dialog-nutrition">
             <div className="nutrition-legend">
