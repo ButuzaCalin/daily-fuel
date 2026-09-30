@@ -434,8 +434,20 @@ textarea::placeholder { color: #9aa09b; }
 .scoring-toggle span { display: grid; gap: 3px; font-size: 14px; }
 .scoring-toggle small { color: var(--muted); font-size: 12px; }
 .goal-objective { display: grid; grid-column: 1 / -1; gap: 6px; color: var(--muted); font-size: 12px; }
-.objective-toggle { display: grid; grid-template-columns: repeat(3, 1fr); padding: 3px; border: 1px solid var(--line); border-radius: 7px; background: #f7f9f7; }
-.objective-toggle button { border: 0; border-radius: 5px; padding: 9px 6px; background: transparent; color: var(--muted); font-size: 13px; }
+.goal-objective-label { display: flex; align-items: center; gap: 4px; }
+.goal-objective-label button { display: grid; width: 26px; height: 26px; place-items: center; margin: -6px 0; border: 0; border-radius: 50%; padding: 0; background: transparent; color: var(--muted); }
+.goal-objective-label svg { width: 15px; height: 15px; }
+.objective-info > p { margin: 12px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.objective-info ul { display: grid; gap: 8px; margin: 14px 0 0; padding: 0; list-style: none; }
+.objective-info li button { display: grid; width: 100%; gap: 4px; border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: white; color: var(--ink); text-align: left; }
+.objective-info li button.active { border-color: var(--green); background: #f3faf4; }
+.objective-info li strong { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; }
+.objective-info li strong small { color: var(--green); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.objective-info li span { font-size: 13px; line-height: 1.45; }
+.objective-info li button > small { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+@media (hover: hover) and (pointer: fine) { .goal-objective-label button:hover { background: #edf0ed; color: var(--ink); } .objective-info li button:not(.active):hover { border-color: #b8d2bf; } }
+.objective-toggle { display: flex; flex-wrap: wrap; padding: 3px; border: 1px solid var(--line); border-radius: 7px; background: #f7f9f7; }
+.objective-toggle button { flex: 1 1 auto; border: 0; border-radius: 5px; padding: 9px 6px; background: transparent; color: var(--muted); font-size: 13px; }
 .objective-toggle button.active { background: var(--ink); color: white; }
 @media (hover: hover) and (pointer: fine) { .day-score:hover { background: #eef5f0; } }
 @media (max-width: 430px) { .score-table { font-size: 12px; } .score-table th, .score-table td { padding: 7px 2px; } }

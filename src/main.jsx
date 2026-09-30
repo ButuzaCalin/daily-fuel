@@ -1,8 +1,8 @@
 import { StrictMode, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BarChart3, ChevronDown, ChevronLeft, ChevronRight, Clock, Cpu, Database, Eraser, History, Home, LoaderCircle, Medal, Menu as MenuIcon, Pencil, Plus, RefreshCw, Scale, Settings, Share2, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
+import { BarChart3, ChevronDown, ChevronLeft, ChevronRight, Clock, Cpu, Database, Eraser, History, Home, Info, LoaderCircle, Medal, Menu as MenuIcon, Pencil, Plus, RefreshCw, Scale, Settings, Share2, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
 import { toBlob } from 'html-to-image';
-import { calculateScore, dayProgress, dayStatus, DAY_COMPLETE_HOUR, macroLabels, objectiveKey, objectives, scoreLabel, scoringAvailable } from './score.js';
+import { calculateScore, dayProgress, dayStatus, DAY_COMPLETE_HOUR, macroLabels, metrics, objectiveKey, objectives, scoreLabel, scoringAvailable } from './score.js';
 import './styles.css';
 
 if ('serviceWorker' in navigator) {
@@ -263,7 +263,7 @@ function sumNutrition(meals) {
   }), { ...emptyNutrition });
 }
 
-// Macro score for a completed day with meals, otherwise null.
+// Final score for a completed day with logged values, otherwise null.
 function scoreForDay(date, mealsByDate, goal, todayKey, now) {
   const meals = mealsByDate[date] || [];
   return meals.length && dayStatus(date, todayKey, now) === 'complete' ? calculateScore(sumNutrition(meals), goal).score : null;
@@ -797,20 +797,22 @@ function Macro({ label, value, goal, color }) {
   return <div className={`macro macro-${color}`}><span className="macro-bar" /><div className="macro-content"><div><strong>{value ? Math.round(value) : '—'}<small>g</small></strong><span>{label}{goal ? ` / ${Math.round(goal)}g` : ''}</span></div>{goal > 0 && <span className="progress-track"><i style={fillStyle(Math.min((value / goal) * 100, 100))} /></span>}</div></div>;
 }
 
+// Unfinished days show a current score from the food logged so far; only complete days get a final one.
 function DayScore({ total, goal, meals, status, onOpen }) {
   if (status === 'future') return null;
-  const result = status === 'complete' && meals.length ? calculateScore(total, goal) : null;
-  const caption = result ? result.label : status === 'in-progress' ? 'Day in progress' : 'No meals logged';
+  const score = meals.length ? calculateScore(total, goal).score : null;
+  const final = status === 'complete' && score !== null;
+  const caption = final ? scoreLabel(score) : score !== null ? 'Based on food logged so far' : meals.length ? 'No values yet' : 'No meals logged';
   return (
-    <button className={`day-score${result ? ` day-score-${scoreTone(result.score)}` : ''}`} type="button" onClick={onOpen} aria-label={`Daily macro score: ${result ? `${result.score} of 100, ${caption}` : caption}. Show details`}>
-      <span className="day-score-copy"><small>Macro score</small><span>{caption}</span></span>
-      <strong>{result ? result.score : '—'}<small> / 100</small></strong>
+    <button className={`day-score${final ? ` day-score-${scoreTone(score)}` : ''}`} type="button" onClick={onOpen} aria-label={`${final ? 'Daily' : 'Current'} score: ${score !== null ? `${score} of 100, ${caption}` : caption}. Show details`}>
+      <span className="day-score-copy"><small>{final || status === 'complete' ? 'Daily score' : 'Current score'}</small><span>{caption}</span></span>
+      <strong>{score ?? '—'}<small> / 100</small></strong>
     </button>
   );
 }
 
 function scoreTone(score) {
-  return score >= 90 ? 'great' : score >= 75 ? 'good' : score >= 60 ? 'fair' : 'low';
+  return score >= 90 ? 'great' : score >= 70 ? 'good' : score >= 60 ? 'fair' : 'low';
 }
 
 function ScoreDialog({ open, total, goal, meals, pendingCount, status, now, onClose }) {
@@ -819,62 +821,64 @@ function ScoreDialog({ open, total, goal, meals, pendingCount, status, now, onCl
   useEscape(open, onClose);
   if (!shown) return null;
   const objective = objectives[objectiveKey(shown.goal.objective)];
-  const result = shown.status === 'complete' && shown.meals.length ? calculateScore(shown.total, shown.goal) : null;
+  const result = shown.meals.length && shown.status !== 'future' ? calculateScore(shown.total, shown.goal) : null;
+  const scored = result?.score != null;
+  const final = scored && shown.status === 'complete';
   const progress = shown.status === 'in-progress' ? dayProgress(shown.total, shown.goal, shown.now) : null;
+  const weighted = result ? result.metrics.filter((metric) => metric.scored) : [];
   return (
     <div className="dialog-layer" data-closing={closing || undefined} role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section className="add-meal-dialog score-dialog" role="dialog" aria-modal="true" aria-labelledby={`${id}-title`}>
-        <div className="dialog-heading"><h2 id={`${id}-title`}>Daily Macro Score</h2><button type="button" onClick={onClose} aria-label="Close"><X /></button></div>
-        {result ? (
+        <div className="dialog-heading"><h2 id={`${id}-title`}>{final || shown.status === 'complete' ? 'Daily Score' : 'Current Score'}</h2><button type="button" onClick={onClose} aria-label="Close"><X /></button></div>
+        {scored ? (
           <>
-            <div className={`score-hero day-score-${scoreTone(result.score)}`}><strong>{result.score}<small> / 100</small></strong><span>{result.label}</span></div>
-            <p className="score-summary">{result.summary}</p>
+            <div className={`score-hero${final ? ` day-score-${scoreTone(result.score)}` : ''}`}><strong>{result.score}<small> / 100</small></strong><span>{final ? result.label : 'So far'}</span></div>
+            {final
+              ? <p className="score-summary">{result.summary}</p>
+              : <p className="score-summary">Based on today's logged food so far. The final score is set once the day is complete (after {DAY_COMPLETE_HOUR}:00).</p>}
             <table className="score-table">
-              <thead><tr><th>Macro</th><th>Eaten / goal</th><th>Score</th><th>Weight</th><th>Points</th></tr></thead>
+              <thead><tr><th>Target</th><th>Eaten / target</th><th>Score</th><th>Weight</th><th>Points</th></tr></thead>
               <tbody>
-                {result.macros.map((macro) => (
-                  <tr key={macro.key}>
-                    <th scope="row">{macro.label}</th>
-                    <td>{Math.round(macro.value)} / {Math.round(macro.target)}g</td>
-                    <td>{Math.round(macro.score)}</td>
-                    <td>× {Math.round(macro.weight * 100)}%</td>
-                    <td>{macro.points.toFixed(1)}</td>
+                {weighted.map((metric) => (
+                  <tr key={metric.key}>
+                    <th scope="row">{metric.label}</th>
+                    <td>{Math.round(metric.value)} / {Math.round(metric.target)}{metric.unit === 'kcal' ? '' : 'g'}</td>
+                    <td>{Math.round(metric.score)}</td>
+                    <td>× {Math.round(metric.weight * 100)}%</td>
+                    <td>{metric.points.toFixed(1)}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot><tr><th scope="row" colSpan="4">Total</th><td>{result.score}</td></tr></tfoot>
             </table>
           </>
-        ) : progress ? (
-          <>
-            <div className="score-hero"><strong>—<small> / 100</small></strong><span>Day in progress</span></div>
-            <p className="score-summary">The score is calculated once the day is complete (after {DAY_COMPLETE_HOUR}:00), so an unfinished day never counts against you.</p>
-            <div className="day-progress">
-              <div><span>Day progress</span><strong>{progress.status}</strong></div>
-              <p>{progress.message}</p>
-              {Object.entries(macroLabels).map(([key, label]) => (
-                <div className="day-progress-row" key={key}>
-                  <span>{label}</span>
-                  <span className="progress-track"><i style={fillStyle(Math.min(progress.pace[key] * 100, 100))} /><b style={{ left: `${progress.expected * 100}%` }} /></span>
-                  <span>{Math.round(shown.total[key] || 0)} / {Math.round(shown.goal[key])}g</span>
-                </div>
-              ))}
-              <small>Marker shows about {Math.round(progress.expected * 100)}% — where you'd typically be by now.</small>
-            </div>
-          </>
         ) : (
-          <p className="score-summary">Log meals for this day to get a score.</p>
+          <p className="score-summary">{shown.meals.length ? 'Add or estimate values for your meals to get a score.' : 'Log meals for this day to get a score.'}</p>
         )}
-        {result && shown.pendingCount > 0 && <p className="score-note">{shown.pendingCount} {shown.pendingCount === 1 ? 'meal has' : 'meals have'} no values yet and {shown.pendingCount === 1 ? 'is' : 'are'} not counted.</p>}
+        {progress && scored && (
+          <div className="day-progress">
+            <div><span>Day progress</span><strong>{progress.status}</strong></div>
+            <p>{progress.message}</p>
+            {Object.entries(macroLabels).filter(([key]) => progress.pace[key] !== null).map(([key, label]) => (
+              <div className="day-progress-row" key={key}>
+                <span>{label}</span>
+                <span className="progress-track"><i style={fillStyle(Math.min(progress.pace[key] * 100, 100))} /><b style={{ left: `${progress.expected * 100}%` }} /></span>
+                <span>{Math.round(shown.total[key] || 0)} / {Math.round(shown.goal[key])}g</span>
+              </div>
+            ))}
+            <small>Marker shows about {Math.round(progress.expected * 100)}% — where you'd typically be by now.</small>
+          </div>
+        )}
+        {scored && shown.pendingCount > 0 && <p className="score-note">{shown.pendingCount} {shown.pendingCount === 1 ? 'meal has' : 'meals have'} no values yet and {shown.pendingCount === 1 ? 'is' : 'are'} not counted.</p>}
         <details className="score-method">
           <summary>How it's calculated</summary>
-          <p>Each macro gets a 0–100 score, weighted for your objective (<strong>{objective.label}</strong>: protein {Math.round(objective.weights.proteins * 100)}%, carbs {Math.round(objective.weights.carbs * 100)}%, fat {Math.round(objective.weights.fats * 100)}%).</p>
+          <p>Each target you've set gets a 0–100 score for how closely you followed it, weighted for your objective (<strong>{objective.label}</strong>: {metrics.map((metric) => `${metric.label.toLowerCase()} ${Math.round(objective.weights[metric.key] * 100)}%`).join(', ')}).</p>
           <ul>
-            <li><strong>Protein</strong> is a minimum: reaching your goal scores 100 and going over isn't penalised. Below it the score eases down (90% → ~90, 75% → ~71, 50% → ~43).</li>
-            <li><strong>Carbs</strong> score best near your goal and drop smoothly the further you move away, with more room below the goal than above.</li>
-            <li><strong>Fat</strong> works the same way with a slightly tighter range.</li>
+            <li><strong>Calories</strong>: {objective.calorieNote}</li>
+            <li><strong>Protein</strong> eases down the further you fall below your target (90% → ~90, 75% → ~65); going a little over isn't penalised.</li>
+            <li><strong>Carbs</strong> and <strong>fat</strong> have some room either side of your target before the score drops.</li>
           </ul>
-          <p>Calories aren't scored separately — they follow from the macros.</p>
+          <p>When one macro explains most of a calorie difference, part of its penalty is forgiven so the same food isn't counted twice. Targets you haven't set aren't scored, and their weight goes to the others.</p>
         </details>
       </section>
     </div>
@@ -999,13 +1003,13 @@ function ScoresView({ goal, mealsByDate, onOpenDay, onNavigate, menuOpen, setMen
       </header>
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} />
       <Toast toast={toast} />
-      <div className="reports-heading"><div><p className="eyebrow">Macro score history</p><h1>Scores</h1></div></div>
+      <div className="reports-heading"><div><p className="eyebrow">Daily score history</p><h1>Scores</h1></div></div>
       <ScoreCalendar goal={goal} mealsByDate={mealsByDate} onOpenDay={onOpenDay} notify={notify} />
     </main>
   );
 }
 
-// Month grid (Monday first) with each completed day's macro score; tapping a day opens it.
+// Month grid (Monday first) with each completed day's score; tapping a day opens it.
 function ScoreCalendar({ goal, mealsByDate, onOpenDay, notify }) {
   const posterRef = useRef(null);
   const now = new Date();
@@ -1053,7 +1057,7 @@ function ScoreCalendar({ goal, mealsByDate, onOpenDay, notify }) {
     <div className="chart-card score-calendar">
       <div className="share-poster-stage" aria-hidden="true"><SharePoster ref={posterRef} month={month} days={days} leading={leading} scores={scores} average={average} /></div>
       <div className="card-heading scores-card-heading">
-        <div><h2>Macro score</h2><span>{average === null ? 'No scored days' : `avg ${average} · ${scores.length} ${scores.length === 1 ? 'day' : 'days'}`}</span></div>
+        <div><h2>Daily score</h2><span>{average === null ? 'No scored days' : `avg ${average} · ${scores.length} ${scores.length === 1 ? 'day' : 'days'}`}</span></div>
         <button className="calendar-share-button" type="button" onClick={shareCalendar} disabled={sharing} aria-label="Share scores calendar">
           {sharing ? <LoaderCircle className="is-spinning" aria-hidden="true" /> : <Share2 aria-hidden="true" />}
           {sharing ? 'Creating…' : 'Share'}
@@ -1093,7 +1097,7 @@ function SharePoster({ ref, month, days, leading, scores, average }) {
   return (
     <div className={`share-poster day-score-${tone}`} ref={ref}>
       <header className="poster-brand"><span className="brand-mark">DF</span><span>Daily Fuel</span></header>
-      <div className="poster-title"><p>Macro score</p><h2>{new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' }).format(month)}</h2></div>
+      <div className="poster-title"><p>Daily score</p><h2>{new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' }).format(month)}</h2></div>
       <div className="poster-hero">
         <svg viewBox="0 0 560 560" aria-hidden="true">
           <circle cx="280" cy="280" r="250" fill="none" stroke={toneColors[tone]} strokeOpacity="0.16" strokeWidth="34" />
@@ -1309,8 +1313,8 @@ const goalTargetKeys = ['calories', 'proteins', 'carbs', 'fats'];
 // Scoring can only stay on while protein, carbs and fat all have targets.
 function normalizeGoal(value) {
   const targets = Object.fromEntries(goalTargetKeys.map((key) => [key, Math.max(0, Number(value?.[key]) || 0)]));
-  const macrosSet = ['proteins', 'carbs', 'fats'].every((key) => targets[key] > 0);
-  return { ...targets, objective: objectiveKey(value?.objective), scoring: Boolean(value?.scoring && macrosSet), weightTracking: Boolean(value?.weightTracking) };
+  const anyTarget = goalTargetKeys.some((key) => targets[key] > 0);
+  return { ...targets, objective: objectiveKey(value?.objective), scoring: Boolean(value?.scoring && anyTarget), weightTracking: Boolean(value?.weightTracking) };
 }
 
 // Toggles apply instantly; target edits are held in a draft until saved from the save bar.
@@ -1320,8 +1324,9 @@ function GoalView({ goal, setGoal, onNavigate, menuOpen, setMenuOpen, username, 
   const [draft, setDraft] = useState(() => toDraft(current));
   const targets = normalizeGoal(draft);
   const changed = goalTargetKeys.some((key) => targets[key] !== current[key]);
-  const macrosSaved = ['proteins', 'carbs', 'fats'].every((key) => current[key] > 0);
+  const targetSaved = goalTargetKeys.some((key) => current[key] > 0);
   const scoringOn = scoringAvailable(current);
+  const [objectiveInfoOpen, setObjectiveInfoOpen] = useState(false);
 
   function updateGoal(patch) {
     setGoal(normalizeGoal({ ...current, ...patch }));
@@ -1362,12 +1367,12 @@ function GoalView({ goal, setGoal, onNavigate, menuOpen, setMenuOpen, username, 
         <section className="goal-form">
           <div className="goal-section-heading"><h2>Additional menus</h2><p>Turn on extra pages in the menu.</p></div>
           <label className="scoring-toggle">
-            <input type="checkbox" role="switch" checked={scoringOn} disabled={!macrosSaved} onChange={(event) => updateGoal({ scoring: event.target.checked })} />
-            <span><strong>Scoring</strong><small>{macrosSaved ? 'Rate each completed day 0–100 on how well you hit your macros.' : 'Save protein, carbs and fat targets to enable scoring.'}</small></span>
+            <input type="checkbox" role="switch" checked={scoringOn} disabled={!targetSaved} onChange={(event) => updateGoal({ scoring: event.target.checked })} />
+            <span><strong>Scoring</strong><small>{targetSaved ? 'Rate each day 0–100 on how closely you followed your targets.' : 'Save at least one target to enable scoring.'}</small></span>
           </label>
           {scoringOn && (
             <div className="goal-objective">
-              <span id="goal-objective-label">Objective</span>
+              <div className="goal-objective-label"><span id="goal-objective-label">Objective</span><button type="button" onClick={() => setObjectiveInfoOpen(true)} aria-label="What do the objectives mean?" title="What do the objectives mean?"><Info aria-hidden="true" /></button></div>
               <div className="objective-toggle" role="radiogroup" aria-labelledby="goal-objective-label">
                 {Object.entries(objectives).map(([key, objective]) => <button className={current.objective === key ? 'active' : ''} type="button" role="radio" aria-checked={current.objective === key} onClick={() => updateGoal({ objective: key })} key={key}>{objective.label}</button>)}
               </div>
@@ -1378,8 +1383,36 @@ function GoalView({ goal, setGoal, onNavigate, menuOpen, setMenuOpen, username, 
             <span><strong>Weight track</strong><small>Log your weight and see your average daily macros between weigh-ins.</small></span>
           </label>
         </section>
+        <ObjectiveInfoDialog open={objectiveInfoOpen} selected={current.objective} onSelect={(objective) => { updateGoal({ objective }); setObjectiveInfoOpen(false); }} onClose={() => setObjectiveInfoOpen(false)} />
       </div>
     </main>
+  );
+}
+
+// Explains every objective; picking one here selects it.
+function ObjectiveInfoDialog({ open, selected, onSelect, onClose }) {
+  const [shown, closing] = usePresence(open || null, 150);
+  const id = useId();
+  useEscape(open, onClose);
+  if (!shown) return null;
+  return (
+    <div className="dialog-layer" data-closing={closing || undefined} role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="add-meal-dialog objective-info" role="dialog" aria-modal="true" aria-labelledby={`${id}-title`}>
+        <div className="dialog-heading"><h2 id={`${id}-title`}>Objectives</h2><button type="button" onClick={onClose} aria-label="Close"><X /></button></div>
+        <p>Your targets stay the same. The objective only changes how going over or under them affects your score.</p>
+        <ul>
+          {Object.entries(objectives).map(([key, objective]) => (
+            <li key={key}>
+              <button className={selected === key ? 'active' : ''} type="button" onClick={() => onSelect(key)} aria-pressed={selected === key}>
+                <strong>{objective.label}{selected === key && <small>Selected</small>}</strong>
+                <span>{objective.description}</span>
+                <small>{metrics.map((metric) => `${metric.label} ${Math.round(objective.weights[metric.key] * 100)}%`).join(' · ')}</small>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
   );
 }
 
