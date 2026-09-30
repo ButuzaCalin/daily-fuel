@@ -94,7 +94,7 @@ function loadLocal(key, fallback) {
 }
 
 function clearEstimating(mealsByDate) {
-  return Object.fromEntries(Object.entries(mealsByDate).map(([date, meals]) => [date, meals.map((meal) => (meal.estimating ? { ...meal, estimating: false } : meal))]));
+  return Object.fromEntries(Object.entries(mealsByDate).map(([date, meals]) => [date, Array.isArray(meals) ? meals.map((meal) => (meal?.estimating ? { ...meal, estimating: false } : meal)) : []]));
 }
 
 function saveLocal(key, value) {
@@ -224,7 +224,9 @@ ${JSON.stringify(meals.map((meal) => ({ id: meal.id, time: meal.time, descriptio
 function pastMeals(mealsByDate) {
   const seen = new Map();
   Object.keys(mealsByDate).sort().reverse().forEach((date) => {
-    sortMeals(mealsByDate[date] || []).reverse().forEach((meal) => {
+    // Old or imported entries may be malformed; skip anything without text rather than crash on startup.
+    const dayMeals = Array.isArray(mealsByDate[date]) ? mealsByDate[date].filter((meal) => typeof meal?.text === 'string') : [];
+    [...dayMeals].sort((first, second) => String(second.time ?? '').localeCompare(String(first.time ?? ''))).forEach((meal) => {
       const key = meal.text.trim().toLowerCase();
       if (!key) return;
       if (seen.has(key)) seen.get(key).count += 1;
