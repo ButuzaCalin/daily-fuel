@@ -506,19 +506,34 @@ function App() {
     setMenuOpen(false);
   }
 
-  async function addMeal(event) {
+  // Keeps an unfinished draft when reopening, but a fresh one starts at the current hour.
+  function openAddMeal() {
+    if (!mealText.trim()) setMealTime(currentHour());
+    setAddMealOpen(true);
+  }
+
+  function insertMeal(text, nutrition) {
+    const newMeal = { id: crypto.randomUUID(), time: mealTime, text: text.trim(), nutrition: cleanNutrition(nutrition), estimating: false, error: '' };
+    setMealsByDate((current) => ({ ...current, [selectedDate]: sortMeals([...(current[selectedDate] || []), newMeal]) }));
+    setNewMealId(newMeal.id);
+    setMealText('');
+    setMealTime(currentHour());
+    setMealNutrition(blankNutrition);
+    setAddMealOpen(false);
+    return newMeal;
+  }
+
+  function addMeal(event) {
     event.preventDefault();
     if (!mealText.trim()) return;
-    try {
-      const newMeal = { id: crypto.randomUUID(), time: mealTime, text: mealText.trim(), nutrition: cleanNutrition(mealNutrition), estimating: false, error: '' };
-      setMealsByDate((current) => ({ ...current, [selectedDate]: sortMeals([...(current[selectedDate] || []), newMeal]) }));
-      setNewMealId(newMeal.id);
-      setMealText('');
-      setMealNutrition(blankNutrition);
-      setAddMealOpen(false);
-    } catch (error) {
-      notify(error.message);
-    }
+    insertMeal(mealText, mealNutrition);
+  }
+
+  // One-tap re-add from search; offers undo since it skips the form.
+  function addPastMeal(meal) {
+    const date = selectedDate;
+    const { id } = insertMeal(meal.text, meal.nutrition);
+    notify('Meal added.', 'info', { label: 'Undo', onClick: () => setMealsByDate((current) => ({ ...current, [date]: (current[date] || []).filter((item) => item.id !== id) })) });
   }
 
   async function estimateMeal(meal) {
@@ -688,7 +703,7 @@ function App() {
             {meals.length === 0 ? (
               <div className="empty-state">
                 <p>No meals logged {selectedDate === dateKey(new Date()) ? 'today' : 'on this day'}</p>
-                <button className="empty-add" type="button" onClick={() => setAddMealOpen(true)}>Add a meal</button>
+                <button className="empty-add" type="button" onClick={openAddMeal}>Add a meal</button>
               </div>
             ) : meals.map((meal) => (
               <article className={`meal-card${meal.id === newMealId ? ' is-new' : ''}`} data-estimating={meal.estimating || undefined} onAnimationEnd={(event) => { if (event.target === event.currentTarget) setNewMealId(null); }} key={meal.id}>
@@ -734,14 +749,15 @@ function App() {
           {useProxy && <ProxyQuota quota={proxyQuota} />}
         </aside>
       </div>
-      <button className="add-meal-fab" type="button" onClick={() => setAddMealOpen(true)} aria-label="Add meal">+</button>
+      <button className="add-meal-fab" type="button" onClick={openAddMeal} aria-label="Add meal">+</button>
       <MealDialog
         draft={addMealOpen ? { text: mealText, time: mealTime, nutrition: mealNutrition } : null}
         nutritionLabel="Manual values"
         collapsibleNutrition
         suggestions={previousMeals}
         clearable
-        title="Add meal"
+        onQuickAdd={addPastMeal}
+        title={selectedDate === dateKey(new Date()) ? 'Add meal' : `Add meal · ${loggedLabel(selectedDate)}`}
         submitLabel="Add meal"
         onChange={(patch) => { if ('text' in patch) setMealText(patch.text); if ('time' in patch) setMealTime(patch.time); if (patch.nutrition) setMealNutrition((current) => ({ ...current, ...patch.nutrition })); }}
         onClose={() => setAddMealOpen(false)}
@@ -1627,7 +1643,7 @@ function Toast({ toast }) {
   );
 }
 
-function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', collapsibleNutrition = false, suggestions, clearable = false, onChange, onClose, onSubmit }) {
+function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', collapsibleNutrition = false, suggestions, clearable = false, onQuickAdd, onChange, onClose, onSubmit }) {
   const [shown, closing] = usePresence(draft, 150);
   const id = useId();
   const open = Boolean(draft);
@@ -1693,14 +1709,17 @@ function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', c
               Previously logged ({matches.length})<ChevronDown aria-hidden="true" data-collapsed={suggestionsCollapsed || undefined} />
             </button>
             {!suggestionsCollapsed && matches.map((meal) => (
-              <button type="button" key={meal.text} onClick={() => pickSuggestion(meal)} title="Add again">
-                <History aria-hidden="true" />
-                <span className="suggestion-main">
-                  <span>{meal.text}</span>
-                  <small>{loggedLabel(meal.date)} · {meal.time}{meal.count > 1 && ` · ${meal.count}× logged`}</small>
-                </span>
-                {hasNutrition(meal) && <small>{Math.round(meal.nutrition.calories)} kcal</small>}
-              </button>
+              <div className="suggestion-row" key={meal.text}>
+                <button type="button" onClick={() => pickSuggestion(meal)} title="Fill the form to edit before adding">
+                  <History aria-hidden="true" />
+                  <span className="suggestion-main">
+                    <span>{meal.text}</span>
+                    <small>{loggedLabel(meal.date)} · {meal.time}{meal.count > 1 && ` · ${meal.count}× logged`}</small>
+                  </span>
+                  {hasNutrition(meal) && <small>{Math.round(meal.nutrition.calories)} kcal</small>}
+                </button>
+                {onQuickAdd && <button className="suggestion-add" type="button" onClick={() => onQuickAdd(meal)} aria-label={`Add ${meal.text} at ${shown.time}`} title={`Add now at ${shown.time}`}><Plus aria-hidden="true" /></button>}
+              </div>
             ))}
           </div>}
           {shown.nutrition && !nutritionOpen && <button className="manual-values-toggle" type="button" onClick={() => setNutritionOpen(true)}><Plus aria-hidden="true" />Add manual values</button>}
