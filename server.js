@@ -362,6 +362,8 @@ app.post('/api/estimate', requireAuth, async (req, res) => {
 
 const distPath = path.join(__dirname, 'dist');
 app.use(express.static(distPath));
+// A missing build file must 404; answering with index.html would get it cached as CSS/JS.
+app.use('/assets', (req, res) => res.status(404).end());
 app.get('/{*splat}', (req, res) => res.sendFile(path.join(distPath, 'index.html')));
 
 app.listen(port, () => console.log(`API server listening on http://localhost:${port}`));
