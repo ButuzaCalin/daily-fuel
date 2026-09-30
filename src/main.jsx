@@ -1,6 +1,6 @@
 import { StrictMode, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BarChart3, ChevronDown, ChevronLeft, ChevronRight, Clock, Cpu, Database, History, Home, LoaderCircle, Medal, Menu as MenuIcon, Pencil, Plus, RefreshCw, Scale, Settings, Share2, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
+import { BarChart3, ChevronDown, ChevronLeft, ChevronRight, Clock, Cpu, Database, Eraser, History, Home, LoaderCircle, Medal, Menu as MenuIcon, Pencil, Plus, RefreshCw, Scale, Settings, Share2, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
 import { toBlob } from 'html-to-image';
 import { calculateScore, dayProgress, dayStatus, DAY_COMPLETE_HOUR, macroLabels, objectiveKey, objectives, scoreLabel, scoringAvailable } from './score.js';
 import './styles.css';
@@ -740,6 +740,7 @@ function App() {
         nutritionLabel="Manual values"
         collapsibleNutrition
         suggestions={previousMeals}
+        clearable
         title="Add meal"
         submitLabel="Add meal"
         onChange={(patch) => { if ('text' in patch) setMealText(patch.text); if ('time' in patch) setMealTime(patch.time); if (patch.nutrition) setMealNutrition((current) => ({ ...current, ...patch.nutrition })); }}
@@ -1626,7 +1627,7 @@ function Toast({ toast }) {
   );
 }
 
-function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', collapsibleNutrition = false, suggestions, onChange, onClose, onSubmit }) {
+function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', collapsibleNutrition = false, suggestions, clearable = false, onChange, onClose, onSubmit }) {
   const [shown, closing] = usePresence(draft, 150);
   const id = useId();
   const open = Boolean(draft);
@@ -1656,6 +1657,14 @@ function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', c
     onChange({ text: meal.text, nutrition: Object.fromEntries(Object.entries(meal.nutrition).map(([key, value]) => [key, value ? String(value) : ''])) });
     setEntryMode('total');
     if (hasNutrition(meal)) setNutritionOpen(true);
+  }
+  const hasInput = shown.text.trim() || Object.values(shown.nutrition || {}).some((value) => value !== '') || Object.entries(perValues).some(([key, value]) => key !== 'base' && value !== '');
+  function clearForm() {
+    onChange({ text: '', time: currentHour(), nutrition: blankNutrition });
+    setPerValues(blankPerValues);
+    setEntryMode('total');
+    setNutritionOpen(!collapsibleNutrition);
+    setBeforePick(null);
   }
   function undoPick() {
     onChange({ text: beforePick.text, nutrition: beforePick.nutrition });
@@ -1720,7 +1729,7 @@ function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', c
               <p className="per-total">Total: <strong>{shown.nutrition.calories || 0}</strong> kcal · {shown.nutrition.proteins || 0}g protein · {shown.nutrition.carbs || 0}g carbs · {shown.nutrition.fats || 0}g fat</p>
             </>}
           </fieldset>}
-          <div className="dialog-actions"><button type="button" onClick={onClose}>Cancel</button><button className="confirm-add" type="submit" disabled={!shown.text.trim()}>{submitLabel}</button></div>
+          <div className="dialog-actions">{clearable && <button className="clear-form" type="button" onClick={clearForm} disabled={!hasInput}><Eraser aria-hidden="true" />Clear</button>}<button type="button" onClick={onClose}>Cancel</button><button className="confirm-add" type="submit" disabled={!shown.text.trim()}>{submitLabel}</button></div>
         </form>
       </section>
     </div>

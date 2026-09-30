@@ -308,6 +308,9 @@ textarea::placeholder { color: #9aa09b; }
 .dialog-actions .confirm-add { background: var(--green); color: white; }
 .dialog-actions .confirm-add:disabled { cursor: not-allowed; opacity: .45; }
 .dialog-actions { display: flex; justify-content: end; gap: 8px; }
+.dialog-actions .clear-form { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; background: transparent; color: var(--muted); }
+.dialog-actions .clear-form svg { width: 15px; height: 15px; }
+.dialog-actions .clear-form:disabled { cursor: not-allowed; opacity: .45; }
 .dialog-actions button { border: 0; border-radius: 6px; padding: 9px 13px; background: #edf0ed; color: var(--ink); font-size: 13px; }
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes fade-out { to { opacity: 0; } }
