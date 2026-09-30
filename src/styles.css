@@ -107,7 +107,7 @@ textarea::placeholder { color: #9aa09b; }
 .meal-nutrition small { font-size: 11px; }
 .error-text { display: block; margin-top: 6px; color: #b34f43; font-size: 11px; }
 .summary-panel { position: sticky; top: 86px; padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
-.summary-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.summary-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .summary-heading .eyebrow { margin: 0; }
 .summary-date { text-align: right; }
 .daily-estimate-button { margin-left: auto; }
@@ -393,18 +393,17 @@ textarea::placeholder { color: #9aa09b; }
 }
 
 /* Daily Macro Score */
-.day-score { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; background: #f7f9f7; color: var(--ink); text-align: left; }
-.day-score-copy { display: grid; gap: 2px; }
-.day-score-copy small { color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
-.day-score-copy span { font-size: 14px; font-weight: 600; }
-.day-score > strong, .score-hero strong { font-size: 26px; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
-.day-score strong small, .score-hero strong small { color: var(--muted); font-size: 12px; font-weight: 400; letter-spacing: 0; }
+.day-score { display: grid; min-width: 30px; height: 30px; place-items: center; margin-left: auto; border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; background: #f7f9f7; color: var(--muted); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.day-score svg { width: 15px; height: 15px; }
+.day-score + .daily-estimate-button { margin-left: 0; }
+.score-hero strong { letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.score-hero strong small { color: var(--muted); font-size: 12px; font-weight: 400; letter-spacing: 0; }
 .day-score-great { --score-color: var(--green); }
 .day-score-good { --score-color: #4f8a3c; }
 .day-score-fair { --score-color: #b58a1d; }
 .day-score-low { --score-color: #c66b59; }
-.day-score[class*="day-score-"] { border-left: 4px solid var(--score-color, var(--line)); }
-.day-score[class*="day-score-"] > strong, .score-hero[class*="day-score-"] strong { color: var(--score-color); }
+.day-score[class*="day-score-"] { border-color: color-mix(in srgb, var(--score-color) 45%, white); background: color-mix(in srgb, var(--score-color) 12%, white); color: var(--score-color); }
+.score-hero[class*="day-score-"] strong { color: var(--score-color); }
 .score-dialog { display: grid; gap: 16px; }
 .score-hero { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .score-hero strong { font-size: 40px; }
@@ -449,7 +448,7 @@ textarea::placeholder { color: #9aa09b; }
 .objective-toggle { display: flex; flex-wrap: wrap; padding: 3px; border: 1px solid var(--line); border-radius: 7px; background: #f7f9f7; }
 .objective-toggle button { flex: 1 1 auto; border: 0; border-radius: 5px; padding: 9px 6px; background: transparent; color: var(--muted); font-size: 13px; }
 .objective-toggle button.active { background: var(--ink); color: white; }
-@media (hover: hover) and (pointer: fine) { .day-score:hover { background: #eef5f0; } }
+@media (hover: hover) and (pointer: fine) { .day-score:not([class*="day-score-"]):hover { background: #eef5f0; } .day-score[class*="day-score-"]:hover { border-color: var(--score-color); } }
 @media (max-width: 430px) { .score-table { font-size: 12px; } .score-table th, .score-table td { padding: 7px 2px; } }
 .calendar-nav { display: flex; align-items: center; justify-content: space-between; margin: -6px 0 12px; font-size: 14px; }
 .scores-card-heading { align-items: center; }

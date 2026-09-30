@@ -736,6 +736,7 @@ function App() {
           <div className="summary-heading">
             <p className="eyebrow">Daily total</p>
             <span className="summary-date">{selectedDate === dateKey(new Date()) ? 'Today' : formatDate(selectedDate)}</span>
+            {scoring && <DayScore total={total} goal={goal} meals={meals} status={dayStatus(selectedDate, dateKey(now), now)} onOpen={() => setScoreOpen(true)} />}
             <button className="estimate-button daily-estimate-button" type="button" onClick={estimateDay} disabled={!pendingCount || meals.some((meal) => meal.estimating)} aria-label={dayEstimateLabel} title={dayEstimateLabel}>
               {meals.some((meal) => meal.estimating) ? <LoaderCircle className="ai-loading" aria-hidden="true" /> : <Sparkles className="ai-icon" aria-hidden="true" />}
             </button>
@@ -747,7 +748,6 @@ function App() {
             <Macro label="Carbs" value={total.carbs} goal={goal?.carbs} color="yellow" />
             <Macro label="Fat" value={total.fats} goal={goal?.fats} color="coral" />
           </div>
-          {scoring && <DayScore total={total} goal={goal} meals={meals} status={dayStatus(selectedDate, dateKey(now), now)} onOpen={() => setScoreOpen(true)} />}
           {useProxy && <ProxyQuota quota={proxyQuota} />}
         </aside>
       </div>
@@ -799,16 +799,14 @@ function Macro({ label, value, goal, color }) {
   return <div className={`macro macro-${color}`}><span className="macro-bar" /><div className="macro-content"><div><strong>{value ? Math.round(value) : '—'}<small>g</small></strong><span>{label}{goal ? ` / ${Math.round(goal)}g` : ''}</span></div>{goal > 0 && <span className="progress-track"><i style={fillStyle(Math.min((value / goal) * 100, 100))} /></span>}</div></div>;
 }
 
-// Unfinished days show a current score from the food logged so far; only complete days get a final one.
+// Small score badge next to the AI button; the score stays hidden until the day is complete.
 function DayScore({ total, goal, meals, status, onOpen }) {
   if (status === 'future') return null;
-  const score = meals.length ? calculateScore(total, goal).score : null;
-  const final = status === 'complete' && score !== null;
-  const caption = final ? scoreLabel(score) : score !== null ? 'Based on food logged so far' : meals.length ? 'No values yet' : 'No meals logged';
+  const score = status === 'complete' && meals.length ? calculateScore(total, goal).score : null;
+  const caption = score !== null ? `${score}/100 · ${scoreLabel(score)}` : status === 'in-progress' ? `Score ready at ${DAY_COMPLETE_HOUR}:00` : meals.length ? 'No values yet' : 'No meals logged';
   return (
-    <button className={`day-score${final ? ` day-score-${scoreTone(score)}` : ''}`} type="button" onClick={onOpen} aria-label={`${final ? 'Daily' : 'Current'} score: ${score !== null ? `${score} of 100, ${caption}` : caption}. Show details`}>
-      <span className="day-score-copy"><small>{final || status === 'complete' ? 'Daily score' : 'Current score'}</small><span>{caption}</span></span>
-      <strong>{score ?? '—'}<small> / 100</small></strong>
+    <button className={`day-score${score !== null ? ` day-score-${scoreTone(score)}` : ''}`} type="button" onClick={onOpen} aria-label={`Daily score: ${caption}. Show details`} title={caption}>
+      {score !== null ? score : status === 'in-progress' ? <Clock aria-hidden="true" /> : '—'}
     </button>
   );
 }
@@ -823,15 +821,16 @@ function ScoreDialog({ open, total, goal, meals, pendingCount, status, now, onCl
   useEscape(open, onClose);
   if (!shown) return null;
   const objective = objectives[objectiveKey(shown.goal.objective)];
-  const result = shown.meals.length && shown.status !== 'future' ? calculateScore(shown.total, shown.goal) : null;
+  const result = shown.meals.length && shown.status === 'complete' ? calculateScore(shown.total, shown.goal) : null;
   const scored = result?.score != null;
-  const final = scored && shown.status === 'complete';
+  const final = scored;
+  const hasValues = shown.meals.length > shown.pendingCount;
   const progress = shown.status === 'in-progress' ? dayProgress(shown.total, shown.goal, shown.now) : null;
   const weighted = result ? result.metrics.filter((metric) => metric.scored) : [];
   return (
     <div className="dialog-layer" data-closing={closing || undefined} role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section className="add-meal-dialog score-dialog" role="dialog" aria-modal="true" aria-labelledby={`${id}-title`}>
-        <div className="dialog-heading"><h2 id={`${id}-title`}>{final || shown.status === 'complete' ? 'Daily Score' : 'Current Score'}</h2><button type="button" onClick={onClose} aria-label="Close"><X /></button></div>
+        <div className="dialog-heading"><h2 id={`${id}-title`}>Daily Score</h2><button type="button" onClick={onClose} aria-label="Close"><X /></button></div>
         {scored ? (
           <>
             <div className={`score-hero${final ? ` day-score-${scoreTone(result.score)}` : ''}`}><strong>{result.score}<small> / 100</small></strong><span>{final ? result.label : 'So far'}</span></div>
@@ -854,10 +853,15 @@ function ScoreDialog({ open, total, goal, meals, pendingCount, status, now, onCl
               <tfoot><tr><th scope="row" colSpan="4">Total</th><td>{result.score}</td></tr></tfoot>
             </table>
           </>
+        ) : progress ? (
+          <>
+            <div className="score-hero"><strong>—<small> / 100</small></strong><span>Day in progress</span></div>
+            <p className="score-summary">Your score appears once the day is complete (after {DAY_COMPLETE_HOUR}:00).</p>
+          </>
         ) : (
           <p className="score-summary">{shown.meals.length ? 'Add or estimate values for your meals to get a score.' : 'Log meals for this day to get a score.'}</p>
         )}
-        {progress && scored && (
+        {progress && hasValues && (
           <div className="day-progress">
             <div><span>Day progress</span><strong>{progress.status}</strong></div>
             <p>{progress.message}</p>
