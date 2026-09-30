@@ -1684,7 +1684,7 @@ function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', c
       <section className="add-meal-dialog" role="dialog" aria-modal="true" aria-labelledby={`${id}-title`}>
         <div className="dialog-heading"><h2 id={`${id}-title`}>{title}</h2><button type="button" onClick={onClose} aria-label="Close"><X /></button></div>
         <form className="add-meal-form" onSubmit={onSubmit}>
-          <div className="form-topline"><label>When</label><TimePicker value={shown.time} onChange={(time) => onChange({ time })} /></div>
+          <div className="form-topline"><label>When</label><TimePicker value={shown.time} onChange={(time) => onChange({ time })} />{clearable && <button className="clear-meal-form" type="button" onClick={clearForm} disabled={!hasInput}><Eraser aria-hidden="true" />Clear</button>}</div>
           <label className="sr-only" htmlFor={`${id}-text`}>What did you eat?</label>
           <textarea id={`${id}-text`} value={shown.text} onChange={(event) => { setBeforePick(null); onChange({ text: event.target.value }); }} onKeyDown={submitOnShortcut} placeholder="Log a single item or a whole meal" maxLength={mealTextMaxLength} rows="4" autoFocus />
           {beforePick && <div className="suggestion-undo"><span>Filled from a previous meal</span><button type="button" onClick={undoPick}><Undo2 aria-hidden="true" />Undo</button></div>}
@@ -1729,7 +1729,7 @@ function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', c
               <p className="per-total">Total: <strong>{shown.nutrition.calories || 0}</strong> kcal · {shown.nutrition.proteins || 0}g protein · {shown.nutrition.carbs || 0}g carbs · {shown.nutrition.fats || 0}g fat</p>
             </>}
           </fieldset>}
-          <div className="dialog-actions">{clearable && <button className="clear-form" type="button" onClick={clearForm} disabled={!hasInput}><Eraser aria-hidden="true" />Clear</button>}<button type="button" onClick={onClose}>Cancel</button><button className="confirm-add" type="submit" disabled={!shown.text.trim()}>{submitLabel}</button></div>
+          <div className="dialog-actions"><button type="button" onClick={onClose}>Cancel</button><button className="confirm-add" type="submit" disabled={!shown.text.trim()}>{submitLabel}</button></div>
         </form>
       </section>
     </div>

@@ -308,9 +308,9 @@ textarea::placeholder { color: #9aa09b; }
 .dialog-actions .confirm-add { background: var(--green); color: white; }
 .dialog-actions .confirm-add:disabled { cursor: not-allowed; opacity: .45; }
 .dialog-actions { display: flex; justify-content: end; gap: 8px; }
-.dialog-actions .clear-form { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; background: transparent; color: var(--muted); }
-.dialog-actions .clear-form svg { width: 15px; height: 15px; }
-.dialog-actions .clear-form:disabled { cursor: not-allowed; opacity: .45; }
+.clear-meal-form { display: inline-flex; height: 40px; align-items: center; gap: 6px; margin-left: auto; border: 1px solid var(--line); border-radius: 7px; padding: 0 12px; background: white; color: var(--ink); font-size: 13px; }
+.clear-meal-form svg { width: 15px; height: 15px; color: var(--muted); }
+.clear-meal-form:disabled { cursor: not-allowed; opacity: .45; }
 .dialog-actions button { border: 0; border-radius: 6px; padding: 9px 13px; background: #edf0ed; color: var(--ink); font-size: 13px; }
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes fade-out { to { opacity: 0; } }
@@ -333,6 +333,8 @@ textarea::placeholder { color: #9aa09b; }
   .today-button:hover { background: #dce8df; }
   .date-control:hover { background: #f1f5f2; }
   .time-picker:hover { border-color: var(--green); background: #f8fbf8; }
+  .clear-meal-form:not(:disabled):hover { border-color: #b34f43; background: #fff1ee; color: #8e3e34; }
+  .clear-meal-form:not(:disabled):hover svg { color: currentColor; }
   .add-button:hover { background: #285d3d; }
   .add-meal-fab:hover { background: #285d3d; transform: translateY(-2px); }
   .estimate-button:not(:disabled):hover { background: var(--green); color: white; }
