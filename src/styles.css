@@ -435,9 +435,12 @@ textarea::placeholder { color: #9aa09b; }
 .calendar-weekday { color: var(--muted); font-size: 11px; text-align: center; }
 .calendar-day { display: grid; min-height: 52px; align-content: space-between; gap: 2px; border: 1px solid var(--line); border-radius: 6px; padding: 5px 6px; background: var(--surface); color: var(--ink); text-align: left; }
 .calendar-day small { color: var(--muted); font-size: 10px; }
+.calendar-day-date { display: flex; align-items: center; justify-content: space-between; }
+.calendar-pending-icon { width: 15px; height: 15px; color: currentColor; }
 .calendar-day strong { font-size: 15px; font-variant-numeric: tabular-nums; text-align: right; }
 .calendar-day:disabled { cursor: default; opacity: .4; }
 .calendar-day.is-today { border-color: var(--ink); }
+.calendar-day.is-in-progress { border-color: #c8ceca; background: #ecefed; color: var(--muted); }
 .calendar-day[class*="day-score-"] { border-color: transparent; background: color-mix(in srgb, var(--score-color) 14%, white); }
 .calendar-day[class*="day-score-"] strong { color: var(--score-color); }
 .calendar-day.is-today[class*="day-score-"] { border-color: var(--ink); }

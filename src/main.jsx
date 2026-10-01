@@ -1072,7 +1072,7 @@ function ScoresView({ goal, quota, mealsByDate, onOpenDay, onNavigate, menuOpen,
 // Month grid (Monday first) with each completed day's score; tapping a day opens it.
 function ScoreCalendar({ goal, mealsByDate, onOpenDay, notify }) {
   const posterRef = useRef(null);
-  const now = new Date();
+  const now = useNow(true);
   const todayKey = dateKey(now);
   const [month, setMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
   const [sharing, setSharing] = useState(false);
@@ -1081,7 +1081,7 @@ function ScoreCalendar({ goal, mealsByDate, onOpenDay, notify }) {
   const leading = (month.getDay() + 6) % 7;
   const days = Array.from({ length: daysInMonth }, (_, index) => {
     const date = dateKey(new Date(month.getFullYear(), month.getMonth(), index + 1));
-    return { date, day: index + 1, score: scoreForDay(date, mealsByDate, goal, todayKey, now), isToday: date === todayKey };
+    return { date, day: index + 1, score: scoreForDay(date, mealsByDate, goal, todayKey, now), isToday: date === todayKey, inProgress: dayStatus(date, todayKey, now) === 'in-progress' };
   });
   const scores = days.filter((day) => day.score !== null).map((day) => day.score);
   const average = scores.length ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) : null;
@@ -1132,9 +1132,9 @@ function ScoreCalendar({ goal, mealsByDate, onOpenDay, notify }) {
         {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, index) => <span className="calendar-weekday" key={index}>{label}</span>)}
         {Array.from({ length: leading }, (_, index) => <span key={`blank-${index}`} />)}
         {days.map((day) => (
-          <button className={`calendar-day${day.score !== null ? ` day-score-${scoreTone(day.score)}` : ''}${day.isToday ? ' is-today' : ''}`} type="button" disabled={day.date > todayKey} onClick={() => onOpenDay(day.date)} title={day.score !== null ? `${day.date}: ${day.score}/100 · ${scoreLabel(day.score)}` : day.date} key={day.date}>
-            <small>{day.day}</small>
-            <strong>{day.score ?? ''}</strong>
+          <button className={`calendar-day${day.score !== null ? ` day-score-${scoreTone(day.score)}` : ''}${day.isToday ? ' is-today' : ''}${day.inProgress ? ' is-in-progress' : ''}`} type="button" disabled={day.date > todayKey} onClick={() => onOpenDay(day.date)} title={day.inProgress ? `Today's score is available after ${DAY_COMPLETE_HOUR}:00` : day.score !== null ? `${day.date}: ${day.score}/100 · ${scoreLabel(day.score)}` : day.date} aria-label={day.inProgress ? `${day.date}: score available after ${DAY_COMPLETE_HOUR}:00` : undefined} key={day.date}>
+            <small className="calendar-day-date">{day.day}</small>
+            <strong>{day.inProgress ? <Clock className="calendar-pending-icon" aria-hidden="true" /> : day.score ?? ''}</strong>
           </button>
         ))}
       </div>
@@ -1421,7 +1421,7 @@ function GoalView({ goal, quota, setGoal, onEstimateGoal, onNavigate, menuOpen, 
       <div className="reports-heading"><div><p className="eyebrow">Daily target</p><h1>Goal</h1></div></div>
       <div className="goal-sections">
         <form className="goal-form" onSubmit={saveTargets}>
-          <div className="goal-section-heading goal-target-heading"><div><h2>Targets</h2><p>Set targets to see progress on your daily summary.</p></div><button className="goal-ai-button" type="button" onClick={() => setGoalWizardOpen(true)}><Sparkles aria-hidden="true" />Suggest with AI</button></div>
+          <div className="goal-section-heading goal-target-heading"><div><h2>Targets</h2><p>Set and save at least one target to activate scoring and see daily progress.</p></div><button className="goal-ai-button" type="button" onClick={() => setGoalWizardOpen(true)}><Sparkles aria-hidden="true" />Suggest with AI</button></div>
           <ManualInput label="Calories (kcal)" value={draft.calories} onChange={(value) => setDraft((current) => ({ ...current, calories: value }))} />
           <ManualInput label="Protein (g)" value={draft.proteins} onChange={(value) => setDraft((current) => ({ ...current, proteins: value }))} />
           <ManualInput label="Carbs (g)" value={draft.carbs} onChange={(value) => setDraft((current) => ({ ...current, carbs: value }))} />
@@ -1438,7 +1438,7 @@ function GoalView({ goal, quota, setGoal, onEstimateGoal, onNavigate, menuOpen, 
           <div className="goal-section-heading"><h2>Additional menus</h2><p>Turn on extra pages in the menu.</p></div>
           <label className="scoring-toggle">
             <input type="checkbox" role="switch" checked={scoringOn} disabled={!targetSaved} onChange={(event) => updateGoal({ scoring: event.target.checked })} />
-            <span><strong>Scoring</strong><small>{targetSaved ? 'Rate each day 0–100 on how closely you followed your targets.' : 'Save at least one target to enable scoring.'}</small></span>
+            <span><strong>Scoring</strong><small>{targetSaved ? 'Rate each day 0–100 on how closely you followed your targets.' : 'Set and save at least one target to enable scoring.'}</small></span>
           </label>
           {scoringOn && (
             <div className="goal-objective">
