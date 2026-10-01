@@ -138,8 +138,8 @@ function cleanNutrition(source) {
   }, {});
 }
 
-// Proxy contract (see supabase/functions/estimate): POST { username, meals: [{ id, time, text }] }
-// -> { meals: [{ id, calories, proteins, carbs, fats }], usage, model, quota }, or { username, action: 'quota' } -> { quota }.
+// Proxy contract (see supabase/functions/estimate): POST { username, meals: [...] } or { username, goalProfile };
+// both estimate requests use one quota slot. { username, action: 'quota' } reads the quota without using it.
 // The proxy owns the prompt and the provider key, so neither lives on the device.
 async function callProxy(settings, payload) {
   let response;
@@ -174,12 +174,17 @@ async function estimateViaProxy(meals, settings) {
   return { nutritionById, usage: result.usage || {}, model: result.model || 'proxy', quota: result.quota || null };
 }
 
+async function estimateGoalViaProxy(profile, settings) {
+  const result = await callProxy(settings, { goalProfile: profile });
+  if (!result.targets || goalTargetKeys.some((key) => !(Number(result.targets[key]) > 0))) throw new Error('The proxy returned invalid goal targets.');
+  return { targets: cleanNutrition(result.targets), usage: result.usage || {}, model: result.model || 'proxy', quota: result.quota || null };
+}
+
 function formatResetTime(value) {
   return new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-async function estimateLocally(meal, settings) {
-  const prompt = `The meal description may be in English or Romanian. Return only a JSON object with numeric keys: calories, proteins, carbs, fats. Estimate the total for the meal.\ncalories, proteins, carbs and fats in this meal:\n${meal}`;
+async function requestLocalAI(prompt, settings) {
   let response;
   if (settings.provider === 'openai') {
     response = await fetchOpenAI(settings, prompt);
@@ -193,32 +198,34 @@ async function estimateLocally(meal, settings) {
   const result = await response.json();
   if (!response.ok) throw new Error(result.error?.message || 'The AI estimate failed.');
   const content = settings.provider === 'openai' ? result.choices?.[0]?.message?.content : result.candidates?.[0]?.content?.parts?.[0]?.text;
-  return { nutrition: cleanNutrition(JSON.parse(content || '{}')), usage: result.usageMetadata || result.usage || {} };
+  return { data: JSON.parse(content || '{}'), usage: result.usageMetadata || result.usage || {} };
+}
+
+async function estimateLocally(meal, settings) {
+  const prompt = `The meal description may be in English or Romanian. Return only a JSON object with numeric keys: calories, proteins, carbs, fats. Estimate the total for the meal.\ncalories, proteins, carbs and fats in this meal:\n${meal}`;
+  const result = await requestLocalAI(prompt, settings);
+  return { nutrition: cleanNutrition(result.data), usage: result.usage };
 }
 
 async function estimateDayLocally(meals, settings) {
   const prompt = `The meal descriptions may be in English or Romanian. Return only a JSON object with a meals array containing one object for each meal, using the exact id provided. Each object must contain id, calories, proteins, carbs, and fats as numeric values. Estimate the total nutrition for each meal.
 meals:
 ${JSON.stringify(meals.map((meal) => ({ id: meal.id, time: meal.time, description: meal.text })))} `;
-  let response;
-  if (settings.provider === 'openai') {
-    response = await fetchOpenAI(settings, prompt);
-  } else {
-    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(settings.googleModel)}:generateContent?key=${encodeURIComponent(settings.googleKey)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0, responseMimeType: 'application/json' } }),
-    });
-  }
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.error?.message || 'The AI estimate failed.');
-  const content = settings.provider === 'openai' ? result.choices?.[0]?.message?.content : result.candidates?.[0]?.content?.parts?.[0]?.text;
-  const parsed = JSON.parse(content || '[]');
+  const result = await requestLocalAI(prompt, settings);
+  const parsed = result.data;
   const estimates = Array.isArray(parsed) ? parsed : parsed.meals;
   if (!Array.isArray(estimates)) throw new Error('The AI returned an invalid day estimate.');
   const nutritionById = Object.fromEntries(estimates.map((estimate) => [String(estimate.id), cleanNutrition(estimate)]));
   if (meals.some((meal) => !nutritionById[meal.id])) throw new Error('The AI did not return nutrition for every meal.');
-  return { nutritionById, usage: result.usageMetadata || result.usage || {} };
+  return { nutritionById, usage: result.usage };
+}
+
+async function estimateGoalLocally(profile, settings) {
+  const prompt = `Estimate daily nutrition targets for an adult. Return only a JSON object with numeric keys calories, proteins, carbs and fats. Values must be positive; calories are kcal and macros are grams. Use a sensible, sustainable estimate, not an extreme diet.\nProfile: ${JSON.stringify(profile)}`;
+  const result = await requestLocalAI(prompt, settings);
+  const targets = cleanNutrition(result.data);
+  if (goalTargetKeys.some((key) => !(targets[key] > 0))) throw new Error('The AI returned invalid goal targets.');
+  return { targets, usage: result.usage };
 }
 
 // Unique previously logged meals, most recent first, for searching and re-adding.
@@ -589,6 +596,24 @@ function App() {
     }
   }
 
+  async function estimateGoal(profile) {
+    if (!aiConfigured) {
+      promptForKey();
+      return null;
+    }
+    if (quotaExhausted()) return null;
+    try {
+      const result = useProxy ? await estimateGoalViaProxy(profile, settings) : await estimateGoalLocally(profile, settings);
+      trackUsage(result.usage, result.model || manualModel);
+      if (result.quota) setProxyQuota(result.quota);
+      return result.targets;
+    } catch (error) {
+      if (error.quota) setProxyQuota(error.quota);
+      notify(error.message);
+      return null;
+    }
+  }
+
   function updateMealEstimation(dayMeals, changes) {
     const ids = new Set(dayMeals.map((meal) => meal.id));
     setMealsByDate((current) => ({
@@ -639,25 +664,25 @@ function App() {
   function logout() { setMenuOpen(false); }
 
   if (route === 'reports') {
-    return <ReportsView goal={goal} mealsByDate={mealsByDate} onOpenDay={(date) => { setSelectedDate(date); navigate('home'); }} report={report} period={reportPeriod} setPeriod={setReportPeriod} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
+    return <ReportsView goal={goal} quota={useProxy ? proxyQuota : null} mealsByDate={mealsByDate} onOpenDay={(date) => { setSelectedDate(date); navigate('home'); }} report={report} period={reportPeriod} setPeriod={setReportPeriod} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
   }
   if (route === 'scores' && scoring) {
-    return <ScoresView goal={goal} mealsByDate={mealsByDate} onOpenDay={(date) => { setSelectedDate(date); navigate('home'); }} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
+    return <ScoresView goal={goal} quota={useProxy ? proxyQuota : null} mealsByDate={mealsByDate} onOpenDay={(date) => { setSelectedDate(date); navigate('home'); }} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
   }
   if (route === 'weight' && weightTracking) {
-    return <WeightView goal={goal} mealsByDate={mealsByDate} weights={weights} setWeights={setWeights} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
+    return <WeightView goal={goal} quota={useProxy ? proxyQuota : null} mealsByDate={mealsByDate} weights={weights} setWeights={setWeights} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
   }
   if (route === 'usage') {
-    return <UsageView goal={goal} usage={usage} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
+    return <UsageView goal={goal} quota={useProxy ? proxyQuota : null} usage={usage} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
   }
   if (route === 'goal') {
-    return <GoalView goal={goal} setGoal={setGoal} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
+    return <GoalView goal={goal} quota={useProxy ? proxyQuota : null} setGoal={setGoal} onEstimateGoal={estimateGoal} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
   }
   if (route === 'settings') {
     return <SettingsView goal={goal} proxyQuota={useProxy ? proxyQuota : null} settings={settings} setSettings={setSettings} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
   }
   if (route === 'data-handling') {
-    return <DataHandlingView mealsByDate={mealsByDate} setMealsByDate={setMealsByDate} goal={goal} setGoal={setGoal} weights={weights} setWeights={setWeights} settings={settings} setSettings={setSettings} usage={usage} setUsage={setUsage} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
+    return <DataHandlingView quota={useProxy ? proxyQuota : null} mealsByDate={mealsByDate} setMealsByDate={setMealsByDate} goal={goal} setGoal={setGoal} weights={weights} setWeights={setWeights} settings={settings} setSettings={setSettings} usage={usage} setUsage={setUsage} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
   }
   if (route === 'not-found') {
     return (
@@ -667,6 +692,7 @@ function App() {
             <span className="brand-mark">DF</span>
             <span>Daily Fuel</span>
           </button>
+          <HeaderQuota quota={useProxy ? proxyQuota : null} />
         </header>
         <section className="not-found-content">
           <p className="not-found-code">404</p>
@@ -695,6 +721,7 @@ function App() {
           </div>
           <button className="arrow-button" type="button" onClick={() => setSelectedDate(shiftDate(selectedDate, 1))} aria-label="Next day">&rarr;</button>
         </section>
+        <HeaderQuota quota={useProxy ? proxyQuota : null} />
       </header>
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={navigate} onLogout={logout} username="Local device" goal={goal} />
       <Toast toast={toast} />
@@ -753,7 +780,6 @@ function App() {
             <Macro label="Carbs" value={total.carbs} goal={goal?.carbs} color="yellow" />
             <Macro label="Fat" value={total.fats} goal={goal?.fats} color="coral" />
           </div>
-          {useProxy && <ProxyQuota quota={proxyQuota} />}
         </aside>
       </div>
       <button className="add-meal-fab" type="button" onClick={openAddMeal} aria-label="Add meal">+</button>
@@ -781,17 +807,17 @@ function fillStyle(percent) {
   return { transform: `translateX(${(Number.isFinite(percent) ? percent : 0) - 100}%)` };
 }
 
-function ProxyQuota({ quota }) {
+function HeaderQuota({ quota }) {
   if (!quota) return null;
   const empty = quota.remaining === 0;
+  const description = `${quota.remaining} of ${quota.limit} AI requests left today. Resets at ${formatResetTime(quota.resetsAt)}.`;
   return (
-    <p className={`ai-quota${empty ? ' is-empty' : ''}`}>
+    <div className={`header-ai-quota${empty ? ' is-empty' : ''}`} role="status" aria-label={description} title={description}>
       <Sparkles aria-hidden="true" />
-      <span>{empty ? `No AI requests left today · resets at ${formatResetTime(quota.resetsAt)}` : `${quota.remaining} of ${quota.limit} AI requests left today`}</span>
-    </p>
+      <strong>{quota.remaining}</strong><span className="header-quota-label">left</span>
+    </div>
   );
 }
-
 function NutritionItem({ label, value, suffix = '' }) {
   return <span><strong>{value ? Math.round(value) : '—'}</strong> {suffix}<small>{label}</small></span>;
 }
@@ -932,7 +958,7 @@ function Menu({ open, onClose, onNavigate, onLogout, username, goal }) {
   );
 }
 
-function ReportsView({ goal, mealsByDate, onOpenDay, report, period, setPeriod, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast }) {
+function ReportsView({ goal, quota, mealsByDate, onOpenDay, report, period, setPeriod, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast }) {
   const [metric, setMetric] = useState('calories');
   const metricInfo = reportMetrics[metric];
   const goalValue = goal?.[metric] || 0;
@@ -961,6 +987,7 @@ function ReportsView({ goal, mealsByDate, onOpenDay, report, period, setPeriod, 
           <span className="brand-mark">DF</span>
           <span>Daily Fuel</span>
         </button>
+        <HeaderQuota quota={quota} />
       </header>
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} />
       <Toast toast={toast} />
@@ -1002,7 +1029,7 @@ function ReportsView({ goal, mealsByDate, onOpenDay, report, period, setPeriod, 
   );
 }
 
-function ScoresView({ goal, mealsByDate, onOpenDay, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
+function ScoresView({ goal, quota, mealsByDate, onOpenDay, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
   return (
     <main className="app-shell reports-page">
       <header className="topbar">
@@ -1011,6 +1038,7 @@ function ScoresView({ goal, mealsByDate, onOpenDay, onNavigate, menuOpen, setMen
           <span className="brand-mark">DF</span>
           <span>Daily Fuel</span>
         </button>
+        <HeaderQuota quota={quota} />
       </header>
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} />
       <Toast toast={toast} />
@@ -1156,7 +1184,7 @@ function formatWeightChange(value) {
 }
 
 // A weigh-in covers the days from the previous weigh-in up to the day before it; only completed, logged days count.
-function WeightView({ goal, mealsByDate, weights, setWeights, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
+function WeightView({ goal, quota, mealsByDate, weights, setWeights, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
   const now = new Date();
   const todayKey = dateKey(now);
   const [date, setDate] = useState(todayKey);
@@ -1200,6 +1228,7 @@ function WeightView({ goal, mealsByDate, weights, setWeights, onNavigate, menuOp
       <header className="topbar">
         <button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button>
         <button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home"><span className="brand-mark">DF</span><span>Daily Fuel</span></button>
+        <HeaderQuota quota={quota} />
       </header>
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} />
       <Toast toast={toast} />
@@ -1328,16 +1357,18 @@ function normalizeGoal(value) {
   return { ...targets, objective: objectiveKey(value?.objective), scoring: Boolean(value?.scoring && anyTarget), weightTracking: Boolean(value?.weightTracking) };
 }
 
-// Toggles apply instantly; target edits are held in a draft until saved from the save bar.
-function GoalView({ goal, setGoal, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
+// Goal edits are held in a draft until saved from the save bar.
+function GoalView({ goal, quota, setGoal, onEstimateGoal, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
   const current = normalizeGoal(goal);
   const toDraft = (value) => Object.fromEntries(goalTargetKeys.map((key) => [key, value[key] ? String(value[key]) : '']));
   const [draft, setDraft] = useState(() => toDraft(current));
+  const [draftObjective, setDraftObjective] = useState(current.objective);
   const targets = normalizeGoal(draft);
-  const changed = goalTargetKeys.some((key) => targets[key] !== current[key]);
+  const changed = goalTargetKeys.some((key) => targets[key] !== current[key]) || draftObjective !== current.objective;
   const targetSaved = goalTargetKeys.some((key) => current[key] > 0);
   const scoringOn = scoringAvailable(current);
   const [objectiveInfoOpen, setObjectiveInfoOpen] = useState(false);
+  const [goalWizardOpen, setGoalWizardOpen] = useState(false);
 
   function updateGoal(patch) {
     setGoal(normalizeGoal({ ...current, ...patch }));
@@ -1345,10 +1376,16 @@ function GoalView({ goal, setGoal, onNavigate, menuOpen, setMenuOpen, username, 
 
   function saveTargets(event) {
     event.preventDefault();
-    const next = normalizeGoal({ ...current, ...Object.fromEntries(goalTargetKeys.map((key) => [key, targets[key]])) });
+    const next = normalizeGoal({ ...current, objective: draftObjective, ...Object.fromEntries(goalTargetKeys.map((key) => [key, targets[key]])) });
     setGoal(next);
     setDraft(toDraft(next));
+    setDraftObjective(next.objective);
     notify(current.scoring && !next.scoring ? 'Targets saved. Scoring turned off.' : 'Targets saved.', 'success');
+  }
+
+  function applyAiGoal(values, objective) {
+    setDraft(toDraft(values));
+    setDraftObjective(objective);
   }
 
   return (
@@ -1356,13 +1393,14 @@ function GoalView({ goal, setGoal, onNavigate, menuOpen, setMenuOpen, username, 
       <header className="topbar">
         <button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button>
         <button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home"><span className="brand-mark">DF</span><span>Daily Fuel</span></button>
+        <HeaderQuota quota={quota} />
       </header>
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} />
       <Toast toast={toast} />
       <div className="reports-heading"><div><p className="eyebrow">Daily target</p><h1>Goal</h1></div></div>
       <div className="goal-sections">
         <form className="goal-form" onSubmit={saveTargets}>
-          <div className="goal-section-heading"><h2>Targets</h2><p>Set targets to see progress on your daily summary.</p></div>
+          <div className="goal-section-heading goal-target-heading"><div><h2>Targets</h2><p>Set targets to see progress on your daily summary.</p></div><button className="goal-ai-button" type="button" onClick={() => setGoalWizardOpen(true)}><Sparkles aria-hidden="true" />Suggest with AI</button></div>
           <ManualInput label="Calories (kcal)" value={draft.calories} onChange={(value) => setDraft((current) => ({ ...current, calories: value }))} />
           <ManualInput label="Protein (g)" value={draft.proteins} onChange={(value) => setDraft((current) => ({ ...current, proteins: value }))} />
           <ManualInput label="Carbs (g)" value={draft.carbs} onChange={(value) => setDraft((current) => ({ ...current, carbs: value }))} />
@@ -1370,7 +1408,7 @@ function GoalView({ goal, setGoal, onNavigate, menuOpen, setMenuOpen, username, 
           {changed && (
             <div className="save-bar" role="region" aria-label="Unsaved changes">
               <span>Unsaved changes</span>
-              <button className="save-bar-discard" type="button" onClick={() => setDraft(toDraft(current))}>Discard</button>
+              <button className="save-bar-discard" type="button" onClick={() => { setDraft(toDraft(current)); setDraftObjective(current.objective); }}>Discard</button>
               <button className="save-bar-save" type="submit">Save</button>
             </div>
           )}
@@ -1385,7 +1423,7 @@ function GoalView({ goal, setGoal, onNavigate, menuOpen, setMenuOpen, username, 
             <div className="goal-objective">
               <div className="goal-objective-label"><span id="goal-objective-label">Objective</span><button type="button" onClick={() => setObjectiveInfoOpen(true)} aria-label="What do the objectives mean?" title="What do the objectives mean?"><Info aria-hidden="true" /></button></div>
               <div className="objective-toggle" role="radiogroup" aria-labelledby="goal-objective-label">
-                {Object.entries(objectives).map(([key, objective]) => <button className={current.objective === key ? 'active' : ''} type="button" role="radio" aria-checked={current.objective === key} onClick={() => updateGoal({ objective: key })} key={key}>{objective.label}</button>)}
+                {Object.entries(objectives).map(([key, objective]) => <button className={draftObjective === key ? 'active' : ''} type="button" role="radio" aria-checked={draftObjective === key} onClick={() => setDraftObjective(key)} key={key}>{objective.label}</button>)}
               </div>
             </div>
           )}
@@ -1394,9 +1432,82 @@ function GoalView({ goal, setGoal, onNavigate, menuOpen, setMenuOpen, username, 
             <span><strong>Weight track</strong><small>Log your weight and see your average daily macros between weigh-ins.</small></span>
           </label>
         </section>
-        <ObjectiveInfoDialog open={objectiveInfoOpen} selected={current.objective} onSelect={(objective) => { updateGoal({ objective }); setObjectiveInfoOpen(false); }} onClose={() => setObjectiveInfoOpen(false)} />
+        <ObjectiveInfoDialog open={objectiveInfoOpen} selected={draftObjective} onSelect={(objective) => { setDraftObjective(objective); setObjectiveInfoOpen(false); }} onClose={() => setObjectiveInfoOpen(false)} />
+        <GoalWizardDialog open={goalWizardOpen} selected={current.objective} onClose={() => setGoalWizardOpen(false)} onGenerate={onEstimateGoal} onApply={applyAiGoal} />
       </div>
     </main>
+  );
+}
+
+const goalActivityOptions = [
+  ['sedentary', 'Sedentary', 'Mostly sitting'],
+  ['light', 'Light', 'Some walking or light exercise'],
+  ['moderate', 'Moderate', 'Regular exercise'],
+  ['high', 'High', 'Hard training most days'],
+  ['very_high', 'Very high', 'Intense training or physical work'],
+];
+
+function GoalWizardDialog({ open, selected, onClose, onGenerate, onApply }) {
+  const [shown, closing] = usePresence(open || null, 150);
+  const [step, setStep] = useState(0);
+  const [profile, setProfile] = useState({ sex: '', age: '', height: '', activity: '', objective: selected });
+  const [generating, setGenerating] = useState(false);
+  useEscape(open && !generating, onClose);
+
+  useEffect(() => {
+    if (!open) return;
+    setStep(0);
+    setProfile({ sex: '', age: '', height: '', activity: '', objective: selected });
+  }, [open, selected]);
+
+  if (!shown) return null;
+
+  const valid = [
+    Boolean(profile.sex),
+    Number.isInteger(Number(profile.age)) && Number(profile.age) >= 18 && Number(profile.age) <= 100,
+    Number.isFinite(Number(profile.height)) && Number(profile.height) >= 100 && Number(profile.height) <= 250,
+    Boolean(profile.activity),
+    Boolean(profile.objective),
+  ][step];
+
+  async function submit(event) {
+    event.preventDefault();
+    if (!valid || generating) return;
+    if (step < 4) {
+      setStep((current) => current + 1);
+      return;
+    }
+    setGenerating(true);
+    const targets = await onGenerate({ ...profile, age: Number(profile.age), height: Number(profile.height) });
+    setGenerating(false);
+    if (!targets) return;
+    onApply(targets, profile.objective);
+    onClose();
+  }
+
+  const select = (key, value) => setProfile((current) => ({ ...current, [key]: value }));
+
+  return (
+    <div className="dialog-layer" data-closing={closing || undefined} role="presentation" onPointerDown={(event) => { if (!generating && event.target === event.currentTarget) onClose(); }}>
+      <section className="add-meal-dialog goal-wizard" role="dialog" aria-modal="true" aria-labelledby="goal-wizard-title">
+        <div className="dialog-heading"><div><p className="eyebrow">Personalized targets · step {step + 1} of 5</p><h2 id="goal-wizard-title">Build your daily goal</h2></div><button type="button" onClick={onClose} disabled={generating} aria-label="Close"><X /></button></div>
+        <div className="goal-wizard-progress" role="progressbar" aria-label="Wizard progress" aria-valuemin="1" aria-valuemax="5" aria-valuenow={step + 1}><i style={{ width: `${((step + 1) / 5) * 100}%` }} /></div>
+        <form onSubmit={submit}>
+          <div className="goal-wizard-question">
+            {step === 0 && <><h3>Which sex should the estimate use?</h3><div className="goal-wizard-options" role="radiogroup" aria-label="Sex">{[['female', 'Female'], ['male', 'Male']].map(([value, label]) => <button type="button" role="radio" aria-checked={profile.sex === value} className={profile.sex === value ? 'active' : ''} onClick={() => select('sex', value)} key={value}>{label}</button>)}</div></>}
+            {step === 1 && <><h3>How old are you?</h3><label className="goal-wizard-field">Age<input type="number" min="18" max="100" step="1" inputMode="numeric" value={profile.age} onChange={(event) => select('age', event.target.value)} placeholder="18–100" /></label></>}
+            {step === 2 && <><h3>How tall are you?</h3><label className="goal-wizard-field">Height (cm)<input type="number" min="100" max="250" step="1" inputMode="numeric" value={profile.height} onChange={(event) => select('height', event.target.value)} placeholder="100–250 cm" /></label></>}
+            {step === 3 && <><h3>How active are you most weeks?</h3><div className="goal-wizard-options goal-wizard-list" role="radiogroup" aria-label="Activity level">{goalActivityOptions.map(([value, label, description]) => <button type="button" role="radio" aria-checked={profile.activity === value} className={profile.activity === value ? 'active' : ''} onClick={() => select('activity', value)} key={value}><strong>{label}</strong><small>{description}</small></button>)}</div></>}
+            {step === 4 && <><h3>What is your main purpose?</h3><div className="goal-wizard-options goal-wizard-list" role="radiogroup" aria-label="Goal purpose">{Object.entries(objectives).map(([value, objective]) => <button type="button" role="radio" aria-checked={profile.objective === value} className={profile.objective === value ? 'active' : ''} onClick={() => select('objective', value)} key={value}><strong>{objective.label}</strong><small>{objective.description}</small></button>)}</div></>}
+          </div>
+          <p className="goal-wizard-note">For adults 18+. Estimates are informational, not medical advice.</p>
+          <div className="goal-wizard-actions">
+            {step > 0 && <button type="button" className="wizard-back" onClick={() => setStep((current) => current - 1)} disabled={generating}><ChevronLeft aria-hidden="true" />Back</button>}
+            <button type="submit" className="wizard-next" disabled={!valid || generating}>{generating ? <><LoaderCircle className="is-spinning" aria-hidden="true" />Thinking…</> : step === 4 ? <><Sparkles aria-hidden="true" />Generate targets</> : <>Continue<ChevronRight aria-hidden="true" /></>}</button>
+          </div>
+        </form>
+      </section>
+    </div>
   );
 }
 
@@ -1459,7 +1570,7 @@ function SettingsView({ goal, proxyQuota, settings, setSettings, onNavigate, men
   }
   return (
     <main className="app-shell settings-page">
-      <header className="topbar"><button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button><button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home"><span className="brand-mark">DF</span><span>Daily Fuel</span></button></header>
+      <header className="topbar"><button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button><button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home"><span className="brand-mark">DF</span><span>Daily Fuel</span></button><HeaderQuota quota={proxyQuota} /></header>
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} />
       <Toast toast={toast} />
       <div className="reports-heading"><div><p className="eyebrow">On this device</p><h1>Settings</h1></div></div>
@@ -1478,8 +1589,7 @@ function SettingsView({ goal, proxyQuota, settings, setSettings, onNavigate, men
         </div>
         {willReplace && <p className="settings-warning">Saving switches to {aiModeLabels[draftMode]} and removes your {aiModeLabels[activeMode]} details from this device.</p>}
         {draft.aiMode === 'proxy' ? <>
-          <p className="settings-hint">Estimates are sent to your own endpoint, which holds the AI key. Only meal descriptions and times are sent.</p>
-          {proxyQuota && <ProxyQuota quota={proxyQuota} />}
+          <p className="settings-hint">Estimates are sent to your own endpoint, which holds the AI key. Meal details or profile answers for goal suggestions are sent.</p>
           <label>Proxy URL<input type="url" inputMode="url" placeholder="https://…" value={draft.proxyUrl} onChange={(event) => update('proxyUrl', event.target.value.trim())} autoComplete="off" /></label>
           <label>Username<input value={draft.proxyUsername} onChange={(event) => update('proxyUsername', event.target.value)} autoComplete="username" autoCapitalize="none" /></label>
           <label>Access key<input type="password" value={draft.proxyKey} onChange={(event) => update('proxyKey', event.target.value)} autoComplete="off" /></label>
@@ -1524,7 +1634,7 @@ function storageUsage(stored) {
   return { items, total: items.reduce((sum, item) => sum + item.bytes, 0) };
 }
 
-function DataHandlingView({ mealsByDate, setMealsByDate, goal, setGoal, weights, setWeights, settings, setSettings, usage, setUsage, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
+function DataHandlingView({ quota, mealsByDate, setMealsByDate, goal, setGoal, weights, setWeights, settings, setSettings, usage, setUsage, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
   const today = dateKey(new Date());
   const [start, setStart] = useState(today);
   const [end, setEnd] = useState(today);
@@ -1590,10 +1700,10 @@ function DataHandlingView({ mealsByDate, setMealsByDate, goal, setGoal, weights,
     setMealsByDate(next);
     notify('Data cleared.', 'success');
   }
-  return <main className="app-shell settings-page"><header className="topbar"><button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button><button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home"><span className="brand-mark">DF</span><span>Daily Fuel</span></button></header><Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} /><Toast toast={toast} /><div className="reports-heading"><div><p className="eyebrow">On this device</p><h1>Data handling</h1></div></div><section className="settings-form storage-form"><div className="storage-heading"><h2>Storage</h2><strong>{formatBytes(storage.total)}</strong></div><div className="storage-list">{storage.items.map((item) => <div key={item.key}><span>{item.label}</span><strong>{formatBytes(item.bytes)}</strong></div>)}</div></section><section className="settings-form migration-form"><div><h2>Migrations</h2><p>Save your data before updating the app, or restore it from a previous backup.</p></div><div className="migration-actions"><button className="auth-submit" type="button" onClick={exportData}>Export</button><label className="import-button">Import<input type="file" accept="application/json,.json" onChange={importData} /></label></div></section><form className="settings-form clear-form" onSubmit={clearRange}><h2>Clear data</h2><p>Delete meals within a date range.</p><label>From<input type="date" value={start} onChange={(event) => setStart(event.target.value)} /></label><label>To<input type="date" value={end} onChange={(event) => setEnd(event.target.value)} /></label><button className="clear-data-button" type="submit">Clear range</button></form></main>;
+  return <main className="app-shell settings-page"><header className="topbar"><button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button><button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home"><span className="brand-mark">DF</span><span>Daily Fuel</span></button><HeaderQuota quota={quota} /></header><Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} /><Toast toast={toast} /><div className="reports-heading"><div><p className="eyebrow">On this device</p><h1>Data handling</h1></div></div><section className="settings-form storage-form"><div className="storage-heading"><h2>Storage</h2><strong>{formatBytes(storage.total)}</strong></div><div className="storage-list">{storage.items.map((item) => <div key={item.key}><span>{item.label}</span><strong>{formatBytes(item.bytes)}</strong></div>)}</div></section><section className="settings-form migration-form"><div><h2>Migrations</h2><p>Save your data before updating the app, or restore it from a previous backup.</p></div><div className="migration-actions"><button className="auth-submit" type="button" onClick={exportData}>Export</button><label className="import-button">Import<input type="file" accept="application/json,.json" onChange={importData} /></label></div></section><form className="settings-form clear-form" onSubmit={clearRange}><h2>Clear data</h2><p>Delete meals within a date range.</p><label>From<input type="date" value={start} onChange={(event) => setStart(event.target.value)} /></label><label>To<input type="date" value={end} onChange={(event) => setEnd(event.target.value)} /></label><button className="clear-data-button" type="submit">Clear range</button></form></main>;
 }
 
-function UsageView({ goal, usage, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast }) {
+function UsageView({ goal, quota, usage, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast }) {
 
   const daily = usage?.daily || [];
   const maxDaily = Math.max(...daily.map((day) => day.tokens), 1);
@@ -1606,6 +1716,7 @@ function UsageView({ goal, usage, onNavigate, menuOpen, setMenuOpen, username, o
           <span className="brand-mark">DF</span>
           <span>Daily Fuel</span>
         </button>
+        <HeaderQuota quota={quota} />
       </header>
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} />
       <Toast toast={toast} />

@@ -1,6 +1,6 @@
 # AI proxy (Supabase)
 
-An edge function that estimates meal nutrition with OpenAI, so the API key stays on the server. Each user gets 7 AI requests per day (resets at midnight UTC). A failed estimate doesn't count against the limit.
+An edge function that estimates meal nutrition and daily goal targets with OpenAI, so the API key stays on the server. Each user gets 7 AI requests per day (resets at midnight UTC). A failed estimate doesn't count against the limit.
 
 ## Setup
 
@@ -13,6 +13,8 @@ supabase functions deploy estimate --no-verify-jwt # the Authorization header ca
 ```
 
 `ALLOWED_ORIGIN` is the site allowed to call the function: scheme + host, no trailing slash. Separate several with commas, e.g. `https://dailyfuel.shop,https://www.dailyfuel.shop,http://localhost:5173`.
+
+The app sends meal estimates as `{ username, meals: [...] }` and goal suggestions as `{ username, goalProfile: { sex, age, height, activity, objective } }`. Each call uses one daily request, regardless of the number of returned values. Quota checks use `{ username, action: "quota" }` and do not consume a request.
 
 ## Add a user
 
