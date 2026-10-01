@@ -90,7 +90,7 @@ export function BarcodeScanner({ onProduct, onClose }) {
         {!cameraError && <button type="button" onClick={() => { setMessage(''); setPhase('scanning'); }}><RefreshCw aria-hidden="true" />Scan again</button>}
       </div>}
       <div className="barcode-manual">
-        <input value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))} onKeyDown={(event) => { if (event.key === 'Enter') submitCode(event); }} inputMode="numeric" maxLength={14} placeholder="Or type the barcode number" aria-label="Barcode number" />
+        <input value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))} onKeyDown={(event) => { if (event.key === 'Enter') submitCode(event); }} inputMode="numeric" maxLength={14} placeholder="Or type the number" aria-label="Barcode number" />
         <button type="button" onClick={submitCode} disabled={!validBarcode(code.trim()) || phase === 'looking'}>Look up</button>
       </div>
       <small className="barcode-credit">Product data from Open Food Facts</small>
