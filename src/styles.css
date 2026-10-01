@@ -545,3 +545,29 @@ textarea::placeholder { color: #9aa09b; }
 .storage-list span { color: var(--muted); }
 .storage-list strong { font-variant-numeric: tabular-nums; font-weight: 600; }
 @media (max-width: 430px) { .weight-averages { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 14px; } }
+.scan-barcode-button { display: inline-flex; height: 40px; align-items: center; gap: 6px; margin-left: auto; border: 1px solid var(--line); border-radius: 7px; padding: 0 12px; background: white; color: var(--ink); font-size: 13px; }
+.scan-barcode-button svg { width: 16px; height: 16px; color: var(--green); }
+.scan-barcode-button[aria-pressed="true"] { border-color: var(--green); background: #eef5f0; color: var(--green); }
+.scan-barcode-button + .clear-meal-form { margin-left: 0; }
+.barcode-scanner { display: grid; grid-column: 1 / -1; gap: 10px; min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #f7f9f7; animation: rise-in 200ms var(--ease-out); }
+.barcode-heading { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 12px; font-weight: 600; }
+.barcode-heading button { display: grid; width: 28px; height: 28px; place-items: center; border: 0; border-radius: 5px; background: transparent; color: var(--muted); }
+.barcode-heading svg { width: 16px; height: 16px; }
+.barcode-viewport { position: relative; overflow: hidden; aspect-ratio: 4 / 3; border-radius: 6px; background: #1c211e; }
+.barcode-viewport video { width: 100%; height: 100%; object-fit: cover; }
+.barcode-frame { position: absolute; inset: 30% 12%; border: 2px solid rgb(255 255 255 / 85%); border-radius: 8px; box-shadow: 0 0 0 999px rgb(0 0 0 / 28%); }
+.barcode-status { position: absolute; inset: auto 0 0; display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0; padding: 10px; background: rgb(28 33 30 / 72%); color: white; font-size: 13px; }
+.barcode-message { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 0; color: var(--muted); font-size: 13px; }
+.barcode-failed button { display: inline-flex; align-items: center; gap: 5px; border: 0; border-radius: 5px; padding: 4px 6px; background: transparent; color: var(--green); font-size: 13px; font-weight: 600; }
+.barcode-failed button svg { width: 14px; height: 14px; }
+.barcode-manual { display: flex; gap: 8px; }
+.barcode-manual input { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; color: var(--ink); background: white; font-size: 16px; font-variant-numeric: tabular-nums; }
+.barcode-manual input:focus { border-color: var(--green); outline: 0; }
+.barcode-manual button { border: 0; border-radius: 6px; padding: 0 14px; background: var(--green); color: white; font-size: 13px; font-weight: 600; }
+.barcode-manual button:disabled { cursor: not-allowed; opacity: .45; }
+.barcode-credit { color: var(--muted); font-size: 11px; }
+@media (hover: hover) and (pointer: fine) {
+  .scan-barcode-button:hover { border-color: var(--green); background: #f8fbf8; }
+  .barcode-heading button:hover { background: #edf0ed; color: var(--ink); }
+  .barcode-failed button:hover { background: #eef5f0; }
+}

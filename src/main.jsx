@@ -1,8 +1,9 @@
 import { StrictMode, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BarChart3, ChevronDown, ChevronLeft, ChevronRight, Clock, Cpu, Database, Eraser, History, Home, Info, LoaderCircle, Medal, Menu as MenuIcon, Pencil, Plus, RefreshCw, Scale, Settings, Share2, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
+import { BarChart3, ChevronDown, ChevronLeft, ChevronRight, Clock, Cpu, Database, Eraser, History, Home, Info, LoaderCircle, Medal, Menu as MenuIcon, Pencil, Plus, RefreshCw, Scale, ScanBarcode, Settings, Share2, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
 import { toBlob } from 'html-to-image';
 import { calculateScore, dayProgress, dayStatus, DAY_COMPLETE_HOUR, macroLabels, metrics, objectiveKey, objectives, scoreLabel, scoringAvailable } from './score.js';
+import { BarcodeScanner } from './BarcodeScanner.jsx';
 import './styles.css';
 
 if ('serviceWorker' in navigator) {
@@ -758,6 +759,7 @@ function App() {
         collapsibleNutrition
         suggestions={previousMeals}
         clearable
+        scannable
         onQuickAdd={addPastMeal}
         title={selectedDate === dateKey(new Date()) ? 'Add meal' : `Add meal · ${loggedLabel(selectedDate)}`}
         submitLabel="Add meal"
@@ -1682,7 +1684,7 @@ function Toast({ toast }) {
   );
 }
 
-function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', collapsibleNutrition = false, suggestions, clearable = false, onQuickAdd, onChange, onClose, onSubmit }) {
+function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', collapsibleNutrition = false, suggestions, clearable = false, scannable = false, onQuickAdd, onChange, onClose, onSubmit }) {
   const [shown, closing] = usePresence(draft, 150);
   const id = useId();
   const open = Boolean(draft);
@@ -1691,12 +1693,14 @@ function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', c
   const [perValues, setPerValues] = useState(blankPerValues);
   // What the draft looked like before a previous meal was picked, so the pick can be undone.
   const [beforePick, setBeforePick] = useState(null);
+  const [scanning, setScanning] = useState(false);
   const [suggestionsCollapsed, setSuggestionsCollapsed] = useState(() => loadLocal('daily-fuel-suggestions-collapsed', false));
   useEffect(() => saveLocal('daily-fuel-suggestions-collapsed', suggestionsCollapsed), [suggestionsCollapsed]);
   // Each time the dialog opens, start collapsed unless the draft already has values.
   useEffect(() => {
     if (open) setNutritionOpen(!collapsibleNutrition || Object.values(draft.nutrition || {}).some((value) => value !== '' && Number(value) !== 0));
     if (open) { setEntryMode('total'); setPerValues(blankPerValues); setBeforePick(null); }
+    if (!open) setScanning(false);
   }, [open]);
   // Per-amount values are kept locally; the draft always holds the scaled totals.
   function updatePer(patch) {
@@ -1707,19 +1711,38 @@ function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', c
   useEscape(Boolean(draft), onClose);
   if (!shown) return null;
   const matches = suggestions ? matchMeals(suggestions, shown.text) : [];
+  function snapshot(source) {
+    return { source, text: shown.text, nutrition: shown.nutrition, nutritionOpen, entryMode, perValues };
+  }
   function pickSuggestion(meal) {
-    setBeforePick({ text: shown.text, nutrition: shown.nutrition, nutritionOpen, entryMode, perValues });
+    setBeforePick(snapshot('a previous meal'));
     onChange({ text: meal.text, nutrition: Object.fromEntries(Object.entries(meal.nutrition).map(([key, value]) => [key, value ? String(value) : ''])) });
     setEntryMode('total');
     if (hasNutrition(meal)) setNutritionOpen(true);
   }
   const hasInput = shown.text.trim() || Object.values(shown.nutrition || {}).some((value) => value !== '') || Object.entries(perValues).some(([key, value]) => key !== 'base' && value !== '');
+  // Scanned products fill the per-100g form so changing the portion rescales the totals.
+  function fillFromProduct(product) {
+    setBeforePick(snapshot(product.per100 ? 'a barcode' : 'a barcode · no nutrition data'));
+    setScanning(false);
+    const text = product.name.slice(0, mealTextMaxLength);
+    if (!product.per100) {
+      onChange({ text });
+      return;
+    }
+    const next = { base: '100', portion: product.servingGrams ? String(product.servingGrams) : '', ...Object.fromEntries(Object.entries(product.per100).map(([key, value]) => [key, String(value)])) };
+    setPerValues(next);
+    setEntryMode('per');
+    setNutritionOpen(true);
+    onChange({ text, nutrition: scaleNutrition(next) });
+  }
   function clearForm() {
     onChange({ text: '', time: currentHour(), nutrition: blankNutrition });
     setPerValues(blankPerValues);
     setEntryMode('total');
     setNutritionOpen(!collapsibleNutrition);
     setBeforePick(null);
+    setScanning(false);
   }
   function undoPick() {
     onChange({ text: beforePick.text, nutrition: beforePick.nutrition });
@@ -1739,10 +1762,11 @@ function MealDialog({ draft, title, submitLabel, nutritionLabel = 'Nutrition', c
       <section className="add-meal-dialog" role="dialog" aria-modal="true" aria-labelledby={`${id}-title`}>
         <div className="dialog-heading"><h2 id={`${id}-title`}>{title}</h2><button type="button" onClick={onClose} aria-label="Close"><X /></button></div>
         <form className="add-meal-form" onSubmit={onSubmit}>
-          <div className="form-topline"><label>When</label><TimePicker value={shown.time} onChange={(time) => onChange({ time })} />{clearable && <button className="clear-meal-form" type="button" onClick={clearForm} disabled={!hasInput}><Eraser aria-hidden="true" />Clear</button>}</div>
+          <div className="form-topline"><label>When</label><TimePicker value={shown.time} onChange={(time) => onChange({ time })} />{scannable && <button className="scan-barcode-button" type="button" onClick={() => setScanning((current) => !current)} aria-pressed={scanning}><ScanBarcode aria-hidden="true" />Scan</button>}{clearable && <button className="clear-meal-form" type="button" onClick={clearForm} disabled={!hasInput}><Eraser aria-hidden="true" />Clear</button>}</div>
+          {scanning && <BarcodeScanner onProduct={fillFromProduct} onClose={() => setScanning(false)} />}
           <label className="sr-only" htmlFor={`${id}-text`}>What did you eat?</label>
           <textarea id={`${id}-text`} value={shown.text} onChange={(event) => { setBeforePick(null); onChange({ text: event.target.value }); }} onKeyDown={submitOnShortcut} placeholder="Log a single item or a whole meal" maxLength={mealTextMaxLength} rows="4" autoFocus />
-          {beforePick && <div className="suggestion-undo"><span>Filled from a previous meal</span><button type="button" onClick={undoPick}><Undo2 aria-hidden="true" />Undo</button></div>}
+          {beforePick && <div className="suggestion-undo"><span>Filled from {beforePick.source}</span><button type="button" onClick={undoPick}><Undo2 aria-hidden="true" />Undo</button></div>}
           {!beforePick && matches.length > 0 && <div className="meal-suggestions" role="group" aria-label="Previously logged meals">
             <button className="suggestions-toggle" type="button" onClick={() => setSuggestionsCollapsed((current) => !current)} aria-expanded={!suggestionsCollapsed}>
               Previously logged ({matches.length})<ChevronDown aria-hidden="true" data-collapsed={suggestionsCollapsed || undefined} />
