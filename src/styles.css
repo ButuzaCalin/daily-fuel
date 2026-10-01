@@ -265,7 +265,7 @@ textarea::placeholder { color: #9aa09b; }
 .toast-success { border-color: #b8d2bf; background: #f3faf4; color: #2d6240; }
 .dialog-layer { position: fixed; z-index: 9; inset: 0; display: grid; place-items: center; padding: 20px; background: rgb(34 42 37 / 28%); }
 .dialog-layer { animation: fade-in 180ms ease; }
-.dialog-layer[data-closing] { pointer-events: none; animation: fade-out 150ms ease forwards; }
+.dialog-layer[data-closing] { animation: fade-out 150ms ease forwards; }
 .add-meal-dialog { animation: dialog-in 220ms var(--ease-out); }
 .dialog-layer[data-closing] .add-meal-dialog { animation: dialog-out 150ms var(--ease-out) forwards; }
 .add-meal-dialog { width: min(100%, 460px); padding: 22px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); box-shadow: 0 16px 40px rgb(34 42 37 / 18%); }
