@@ -221,7 +221,7 @@ ${JSON.stringify(meals.map((meal) => ({ id: meal.id, time: meal.time, descriptio
 }
 
 async function estimateGoalLocally(profile, settings) {
-  const prompt = `Estimate daily nutrition targets for an adult. Return only a JSON object with numeric keys calories, proteins, carbs and fats. Values must be positive; calories are kcal and macros are grams. Use a sensible, sustainable estimate, not an extreme diet.\nProfile: ${JSON.stringify(profile)}`;
+  const prompt = `Estimate daily nutrition targets for an adult. Use the person's weight in kilograms when estimating energy needs and protein. Return only a JSON object with numeric keys calories, proteins, carbs and fats. Values must be positive; calories are kcal and macros are grams. Use a sensible, sustainable estimate, not an extreme diet.\nProfile: ${JSON.stringify(profile)}`;
   const result = await requestLocalAI(prompt, settings);
   const targets = cleanNutrition(result.data);
   if (goalTargetKeys.some((key) => !(targets[key] > 0))) throw new Error('The AI returned invalid goal targets.');
@@ -962,22 +962,24 @@ function ReportsView({ goal, quota, mealsByDate, onOpenDay, report, period, setP
   const [metric, setMetric] = useState('calories');
   const metricInfo = reportMetrics[metric];
   const goalValue = goal?.[metric] || 0;
-  const chartStep = niceStep(Math.max(...report.days.map((day) => day.nutrition[metric]), goalValue, 1) / 4);
-  const maxValue = chartStep * 4;
-  const chartTicks = [4, 3, 2, 1, 0].map((index) => index * chartStep);
-  const chartY = (value) => 91 - (value / maxValue) * 82;
-  const chartX = (index) => (index / Math.max(report.days.length - 1, 1)) * 100;
-  const chartPx = (value) => `${(chartY(value) / 100) * 180}px`;
-  const chartValue = (day) => day.nutrition[metric];
-  const chartPoints = report.days.map((day, index) => `${chartX(index)},${chartY(chartValue(day))}`).join(' ');
-  const chartDotPosition = (day, index) => ({
-    left: `${chartX(index)}%`,
-    top: chartPx(chartValue(day)),
-  });
+  const chartPeak = Math.max(...report.days.map((day) => day.nutrition[metric]), goalValue, 1);
+  const chartStep = niceStep(chartPeak / 4);
+  const tickCount = Math.max(Math.ceil(chartPeak / chartStep), 1);
+  const maxValue = chartStep * tickCount;
+  const chartTicks = Array.from({ length: tickCount + 1 }, (_, index) => (tickCount - index) * chartStep);
+  const percentOf = (value) => `${(value / maxValue) * 100}%`;
   const labelStep = period === 'month' ? 5 : 1;
   const loggedDays = report.days.filter((day) => day.meals.length).length;
   const average = loggedDays ? Object.fromEntries(Object.keys(emptyNutrition).map((key) => [key, report.total[key] / loggedDays])) : emptyNutrition;
   const averageMax = Math.max(average.proteins, average.carbs, average.fats, 1);
+  const mealCount = report.days.reduce((sum, day) => sum + day.meals.length, 0);
+  const calorieGoal = goal?.calories || 0;
+  const onTargetDays = report.days.filter((day) => day.meals.length && goalTone(day.nutrition.calories, calorieGoal) === 'on').length;
+  const stats = [
+    { label: 'Days logged', value: loggedDays, suffix: `/ ${report.days.length}` },
+    calorieGoal > 0 && { label: 'On target', value: onTargetDays, suffix: `/ ${loggedDays}` },
+    { label: 'Meals per day', value: loggedDays ? Math.round((mealCount / loggedDays) * 10) / 10 : 0 },
+  ].filter(Boolean);
 
   return (
     <main className="app-shell reports-page">
@@ -1000,33 +1002,50 @@ function ReportsView({ goal, quota, mealsByDate, onOpenDay, report, period, setP
         </div>
       </div>
 
-      <section className="report-summary-grid">
-        <ReportStat label="Calories" value={Math.round(report.total.calories)} suffix="kcal" />
-        <ReportStat label="Protein" value={Math.round(report.total.proteins)} suffix="g" />
-        <ReportStat label="Meals" value={report.days.reduce((sum, day) => sum + day.meals.length, 0)} />
+      <section className="report-summary-grid" style={{ gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))` }}>
+        {stats.map((stat) => <ReportStat key={stat.label} {...stat} />)}
       </section>
 
-      <section className="chart-card">
-        <div className="card-heading chart-heading"><div><h2>{metricInfo.label}</h2><span>{metricInfo.suffix} / day</span></div><div className="metric-toggle" role="group" aria-label="Chart metric">{Object.entries(reportMetrics).map(([key, item]) => <button className={metric === key ? 'active' : ''} type="button" onClick={() => setMetric(key)} key={key}>{item.label}</button>)}</div></div>
-        <div className="line-chart">
-          <div className="chart-scale" aria-hidden="true">{chartTicks.map((tick) => <span key={tick} style={{ top: chartPx(tick) }}>{chartNumber(tick)}</span>)}</div>
-          <div className="chart-plot">
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label={`${metricInfo.label} per day line chart`}>
-              {report.days.map((day, index) => index % labelStep === 0 && <line key={day.date} x1={chartX(index)} y1="9" x2={chartX(index)} y2="91" className="chart-grid chart-grid-vertical" />)}
-              {chartTicks.map((tick) => <line key={tick} x1="0" y1={chartY(tick)} x2="100" y2={chartY(tick)} className={tick === 0 ? 'chart-axis' : 'chart-grid'} />)}
-              {goalValue > 0 && <line x1="0" y1={chartY(goalValue)} x2="100" y2={chartY(goalValue)} className="chart-goal" />}
-              <polyline points={chartPoints} className="chart-line" />
-            </svg>
-            {goalValue > 0 && <span className="chart-goal-label" style={{ top: chartPx(goalValue) }}>Goal {chartNumber(goalValue)}</span>}
-            {report.days.map((day, index) => <span key={day.date} className="chart-dot" style={chartDotPosition(day, index)} />)}
-            <div className="chart-labels">{report.days.map((day, index) => index % labelStep === 0 && <span key={day.date} style={{ left: `${chartX(index)}%` }}>{shortDate(day.date, period)}</span>)}</div>
+      <section className="chart-card macro-card"><div className="card-heading"><h2>Daily average</h2><span>per logged day</span></div><AverageCalories value={average.calories} goal={goal?.calories} /><MacroBar label="Protein" value={average.proteins} goal={goal?.proteins} color="green" max={averageMax} /><MacroBar label="Carbs" value={average.carbs} goal={goal?.carbs} color="yellow" max={averageMax} /><MacroBar label="Fat" value={average.fats} goal={goal?.fats} color="coral" max={averageMax} /></section>
+
+      <section className="chart-card report-chart-card">
+        <div className="card-heading chart-heading"><h2>{metricInfo.label} per day</h2><div className="metric-toggle" role="group" aria-label="Chart metric">{Object.entries(reportMetrics).map(([key, item]) => <button className={metric === key ? 'active' : ''} type="button" onClick={() => setMetric(key)} key={key}>{item.label}</button>)}</div></div>
+        {goalValue > 0 && <div className="bar-legend" aria-hidden="true"><span><i className="tone-under" />Under</span><span><i className="tone-on" />{metric === 'proteins' ? 'Goal reached' : 'On target'}</span>{metric !== 'proteins' && <span><i className="tone-over" />Over</span>}<span><b />Goal {chartNumber(goalValue)} {metricInfo.suffix}</span></div>}
+        <div className="bar-chart" data-period={period}>
+          <div className="bar-scale" aria-hidden="true">{chartTicks.map((tick) => <span key={tick} style={{ bottom: percentOf(tick) }}>{chartNumber(tick)}</span>)}</div>
+          <div className="bar-plot">
+            {chartTicks.map((tick) => <i key={tick} className="bar-grid" style={{ bottom: percentOf(tick) }} />)}
+            {goalValue > 0 && <i className="bar-goal" style={{ bottom: percentOf(goalValue) }} />}
+            {report.days.map((day) => {
+              const value = day.nutrition[metric];
+              const logged = day.meals.length > 0;
+              const label = `${formatDate(day.date)}: ${logged ? `${Math.round(value).toLocaleString()} ${metricInfo.suffix}` : 'nothing logged'}`;
+              return (
+                <button key={day.date} className="bar-column" type="button" onClick={() => onOpenDay(day.date)} aria-label={`${label}. Open day`} title={label}>
+                  {logged ? <i className={`tone-${goalTone(value, goalValue, metric)}`} style={{ height: percentOf(value) }} /> : <i className="bar-empty" />}
+                  {period === 'week' && logged && <small style={{ bottom: percentOf(value) }}>{compactNumber(value)}</small>}
+                </button>
+              );
+            })}
           </div>
+          <div className="bar-labels" aria-hidden="true">{report.days.map((day, index) => <span key={day.date} data-muted={!day.meals.length || undefined}>{index % labelStep === 0 ? shortDate(day.date, period) : ''}</span>)}</div>
         </div>
+        <p className="bar-hint">Tap a day to open it.</p>
       </section>
-
-      <section className="chart-card macro-card"><div className="card-heading"><h2>Daily average</h2><span>{loggedDays} logged {loggedDays === 1 ? 'day' : 'days'}</span></div><AverageCalories value={average.calories} goal={goal?.calories} /><MacroBar label="Protein" value={average.proteins} goal={goal?.proteins} color="green" max={averageMax} /><MacroBar label="Carbs" value={average.carbs} goal={goal?.carbs} color="yellow" max={averageMax} /><MacroBar label="Fat" value={average.fats} goal={goal?.fats} color="coral" max={averageMax} /></section>
     </main>
   );
+}
+
+function compactNumber(value) {
+  return value >= 1000 ? `${(value / 1000).toFixed(1)}k` : String(Math.round(value));
+}
+
+// Within 10% of the goal counts as on target; extra protein is never "over", matching the scoring.
+function goalTone(value, goal, metric) {
+  if (!(goal > 0)) return 'none';
+  if (value < goal * 0.9) return 'under';
+  if (value > goal * 1.1 && metric !== 'proteins') return 'over';
+  return 'on';
 }
 
 function ScoresView({ goal, quota, mealsByDate, onOpenDay, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
@@ -1450,14 +1469,14 @@ const goalActivityOptions = [
 function GoalWizardDialog({ open, selected, onClose, onGenerate, onApply }) {
   const [shown, closing] = usePresence(open || null, 150);
   const [step, setStep] = useState(0);
-  const [profile, setProfile] = useState({ sex: '', age: '', height: '', activity: '', objective: selected });
+  const [profile, setProfile] = useState({ sex: '', age: '', height: '', weight: '', activity: '', objective: selected });
   const [generating, setGenerating] = useState(false);
   useEscape(open && !generating, onClose);
 
   useEffect(() => {
     if (!open) return;
     setStep(0);
-    setProfile({ sex: '', age: '', height: '', activity: '', objective: selected });
+    setProfile({ sex: '', age: '', height: '', weight: '', activity: '', objective: selected });
   }, [open, selected]);
 
   if (!shown) return null;
@@ -1465,7 +1484,7 @@ function GoalWizardDialog({ open, selected, onClose, onGenerate, onApply }) {
   const valid = [
     Boolean(profile.sex),
     Number.isInteger(Number(profile.age)) && Number(profile.age) >= 18 && Number(profile.age) <= 100,
-    Number.isFinite(Number(profile.height)) && Number(profile.height) >= 100 && Number(profile.height) <= 250,
+    Number.isFinite(Number(profile.height)) && Number(profile.height) >= 100 && Number(profile.height) <= 250 && Number.isFinite(Number(profile.weight)) && Number(profile.weight) >= 30 && Number(profile.weight) <= 300,
     Boolean(profile.activity),
     Boolean(profile.objective),
   ][step];
@@ -1478,7 +1497,7 @@ function GoalWizardDialog({ open, selected, onClose, onGenerate, onApply }) {
       return;
     }
     setGenerating(true);
-    const targets = await onGenerate({ ...profile, age: Number(profile.age), height: Number(profile.height) });
+    const targets = await onGenerate({ ...profile, age: Number(profile.age), height: Number(profile.height), weight: Number(profile.weight) });
     setGenerating(false);
     if (!targets) return;
     onApply(targets, profile.objective);
@@ -1496,7 +1515,7 @@ function GoalWizardDialog({ open, selected, onClose, onGenerate, onApply }) {
           <div className="goal-wizard-question">
             {step === 0 && <><h3>Which sex should the estimate use?</h3><div className="goal-wizard-options" role="radiogroup" aria-label="Sex">{[['female', 'Female'], ['male', 'Male']].map(([value, label]) => <button type="button" role="radio" aria-checked={profile.sex === value} className={profile.sex === value ? 'active' : ''} onClick={() => select('sex', value)} key={value}>{label}</button>)}</div></>}
             {step === 1 && <><h3>How old are you?</h3><label className="goal-wizard-field">Age<input type="number" min="18" max="100" step="1" inputMode="numeric" value={profile.age} onChange={(event) => select('age', event.target.value)} placeholder="18–100" /></label></>}
-            {step === 2 && <><h3>How tall are you?</h3><label className="goal-wizard-field">Height (cm)<input type="number" min="100" max="250" step="1" inputMode="numeric" value={profile.height} onChange={(event) => select('height', event.target.value)} placeholder="100–250 cm" /></label></>}
+            {step === 2 && <><h3>What are your height and weight?</h3><label className="goal-wizard-field">Height (cm)<input type="number" min="100" max="250" step="1" inputMode="numeric" value={profile.height} onChange={(event) => select('height', event.target.value)} placeholder="100–250 cm" /></label><label className="goal-wizard-field">Weight (kg)<input type="number" min="30" max="300" step="0.1" inputMode="decimal" value={profile.weight} onChange={(event) => select('weight', event.target.value)} placeholder="30–300 kg" /></label></>}
             {step === 3 && <><h3>How active are you most weeks?</h3><div className="goal-wizard-options goal-wizard-list" role="radiogroup" aria-label="Activity level">{goalActivityOptions.map(([value, label, description]) => <button type="button" role="radio" aria-checked={profile.activity === value} className={profile.activity === value ? 'active' : ''} onClick={() => select('activity', value)} key={value}><strong>{label}</strong><small>{description}</small></button>)}</div></>}
             {step === 4 && <><h3>What is your main purpose?</h3><div className="goal-wizard-options goal-wizard-list" role="radiogroup" aria-label="Goal purpose">{Object.entries(objectives).map(([value, objective]) => <button type="button" role="radio" aria-checked={profile.objective === value} className={profile.objective === value ? 'active' : ''} onClick={() => select('objective', value)} key={value}><strong>{objective.label}</strong><small>{objective.description}</small></button>)}</div></>}
           </div>

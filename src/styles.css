@@ -209,9 +209,6 @@ textarea::placeholder { color: #9aa09b; }
 .chart-scale span { position: absolute; right: 8px; transform: translateY(-50%); }
 .chart-axis { stroke: var(--muted); stroke-width: 1; opacity: .5; vector-effect: non-scaling-stroke; }
 .chart-grid { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
-.chart-grid-vertical { stroke-dasharray: 2 4; }
-.chart-goal { stroke: var(--ink); stroke-width: 1; stroke-dasharray: 5 4; opacity: .55; vector-effect: non-scaling-stroke; }
-.chart-goal-label { position: absolute; right: 0; transform: translateY(-120%); color: var(--ink); font-size: 10px; opacity: .7; pointer-events: none; }
 .chart-line { fill: none; stroke: var(--green); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; vector-effect: non-scaling-stroke; }
 .chart-dot { position: absolute; width: 8px; height: 8px; transform: translate(-50%, -50%); border: 2px solid white; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 1px var(--green); }
 .chart-labels { position: relative; height: 14px; margin-top: 8px; color: var(--muted); font-size: 10px; }
@@ -635,4 +632,38 @@ textarea::placeholder { color: #9aa09b; }
   .portion-card { padding: 12px 10px; }
   .portion-chips { flex-wrap: nowrap; }
   .portion-chip { flex: 1; padding-inline: 6px; white-space: nowrap; }
+}
+
+.report-chart-card { margin-top: 12px; }
+.macro-card .card-heading { margin-bottom: 0; }
+.report-stat span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.report-chart-card .card-heading { margin-bottom: 14px; }
+.bar-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 16px; color: var(--muted); font-size: 11px; }
+.bar-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.bar-legend i { width: 10px; height: 10px; border-radius: 3px; }
+.bar-legend b { width: 14px; border-top: 1.5px dashed var(--ink); opacity: .55; }
+.bar-chart { --bar-gap: 6px; display: grid; grid-template-columns: 34px minmax(0, 1fr); grid-template-rows: 180px auto; column-gap: 6px; }
+.bar-chart[data-period="month"] { --bar-gap: 2px; }
+.bar-scale { position: relative; color: var(--muted); font-size: 10px; line-height: 1; font-variant-numeric: tabular-nums; }
+.bar-scale span { position: absolute; right: 0; transform: translateY(50%); }
+.bar-plot { position: relative; display: flex; gap: var(--bar-gap); }
+.bar-grid, .bar-goal { position: absolute; left: 0; right: 0; height: 0; pointer-events: none; }
+.bar-grid { border-top: 1px solid var(--line); }
+.bar-grid:last-of-type { border-top-color: #c9cec9; }
+.bar-goal { z-index: 1; border-top: 1.5px dashed var(--ink); opacity: .5; }
+.bar-column { position: relative; display: flex; flex: 1; min-width: 0; align-items: flex-end; justify-content: center; border: 0; border-radius: 6px 6px 0 0; padding: 0; background: transparent; }
+.bar-column i { display: block; width: 100%; max-width: 30px; min-height: 3px; border-radius: 5px 5px 2px 2px; transition: height 400ms var(--ease-out), background-color 200ms ease; }
+.bar-column .bar-empty { width: 50%; height: 3px; border-radius: 2px; background: #dde1dd; }
+.bar-column small { position: absolute; left: 50%; transform: translate(-50%, -4px); color: var(--ink); z-index: 2; border-radius: 3px; padding: 0 3px; background: var(--surface); font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
+.bar-column:active:not(:disabled) { transform: none; }
+.tone-on, .tone-none { background: var(--green); }
+.tone-under { background: #a7c8b1; }
+.tone-over { background: #c66b59; }
+.bar-labels { display: flex; grid-column: 2; gap: var(--bar-gap); margin-top: 7px; }
+.bar-labels span { flex: 1; min-width: 0; color: var(--muted); font-size: 10px; text-align: center; white-space: nowrap; }
+.bar-chart[data-period="month"] .bar-labels span { text-align: left; }
+.bar-labels span[data-muted] { opacity: .5; }
+.bar-hint { margin: 12px 0 0; color: var(--muted); font-size: 11px; }
+@media (hover: hover) and (pointer: fine) {
+  .bar-column:hover { background: #f1f5f2; }
 }
