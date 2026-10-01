@@ -442,7 +442,7 @@ function App() {
 
   const total = useMemo(() => sumNutrition(meals), [meals]);
   const pendingCount = meals.filter((meal) => !hasNutrition(meal)).length;
-  const dayEstimateLabel = !meals.length ? 'No meals to estimate' : pendingCount ? `Estimate ${pendingCount} ${pendingCount === 1 ? 'meal' : 'meals'} without values` : 'All meals already have values';
+  const dayEstimateLabel = !meals.length ? 'No meals to estimate' : pendingCount ? `Estimate all ${pendingCount} ${pendingCount === 1 ? 'meal' : 'meals'} without values at once` : 'All meals already have values';
 
   const report = useMemo(() => {
     const days = reportDays(reportPeriod);
@@ -771,6 +771,8 @@ function App() {
             {scoring && <DayScore total={total} goal={goal} meals={meals} status={dayStatus(selectedDate, dateKey(now), now)} onOpen={() => setScoreOpen(true)} />}
             <button className="estimate-button daily-estimate-button" type="button" onClick={estimateDay} disabled={!pendingCount || meals.some((meal) => meal.estimating)} aria-label={dayEstimateLabel} title={dayEstimateLabel}>
               {meals.some((meal) => meal.estimating) ? <LoaderCircle className="ai-loading" aria-hidden="true" /> : <Sparkles className="ai-icon" aria-hidden="true" />}
+              <span className="daily-estimate-label">{pendingCount ? 'Estimate all' : 'Up to date'}</span>
+              {pendingCount > 0 && <span className="daily-estimate-count">{pendingCount}</span>}
             </button>
           </div>
           <div className="calorie-total"><div><strong>{Math.round(total.calories)}</strong><span>kcal</span></div>{goal?.calories > 0 && <strong className="calorie-goal">/ {Math.round(goal.calories)}<small> kcal</small></strong>}</div>

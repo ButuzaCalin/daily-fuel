@@ -108,10 +108,12 @@ textarea::placeholder { color: #9aa09b; }
 .meal-nutrition small { font-size: 11px; }
 .error-text { display: block; margin-top: 6px; color: #b34f43; font-size: 11px; }
 .summary-panel { position: sticky; top: 86px; padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
-.summary-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.summary-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
 .summary-heading .eyebrow { margin: 0; }
 .summary-date { text-align: right; }
-.daily-estimate-button { margin-left: auto; }
+.daily-estimate-button { display: inline-flex; width: auto; height: 30px; align-items: center; justify-content: center; gap: 6px; margin-left: auto; padding: 0 8px; white-space: nowrap; }
+.daily-estimate-label { font-size: 11px; font-weight: 600; }
+.daily-estimate-count { display: inline-grid; width: 18px; height: 18px; place-items: center; border-radius: 4px; background: #eef5f0; color: var(--green); font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .calorie-total { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 22px 0 10px; }
 .calorie-total > div { display: flex; align-items: baseline; gap: 8px; }
 .calorie-total strong { font-size: 42px; letter-spacing: -.04em; }
