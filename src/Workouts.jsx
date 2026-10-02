@@ -662,7 +662,8 @@ function RoutineDialog({ routine, live, hintHidden, onHideHint, now, notes, onCh
         </div>
       )}
       <div className="routine-block">
-        <h3>{dayLabel}</h3>
+        <h3>{dayLabel} <small>{plural(index, 'set')} logged</small></h3>
+        {index === 0 && <p className="routine-empty">Enter {type === 'time' ? 'the time' : 'reps and kg'}, then tap <Plus aria-hidden="true" /> to log each set.</p>}
         {index > 0 && <ol className="routine-sets">
           {exercise.sets.map((set, setIndex) => (
             <li key={setIndex}>
