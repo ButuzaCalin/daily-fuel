@@ -308,7 +308,10 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
                     <span className="workout-card-main">
                       <strong>{log.name}</strong>
                       <small>{plural(loggedExercises(log).length, 'exercise')}</small>
-                      {loggedExercises(log).length > 0 && <small className="workout-card-detail">{loggedExercises(log).map((exercise) => `${exercise.name} ${entrySummary(logEntry(exercise), exerciseType(exercise))}`).join(' · ')}</small>}
+                      {loggedExercises(log).length > 0 && (() => {
+                        const detail = loggedExercises(log).map((exercise) => `${exercise.name} ${entrySummary(logEntry(exercise), exerciseType(exercise))}`).join(' · ');
+                        return <small className="workout-card-detail" title={detail}>{detail}</small>;
+                      })()}
                     </span>
                   </button>
                   <button className="remove-button" type="button" onClick={() => removeLog(log, selectedDate)} aria-label={`Delete ${log.name}`} title="Delete session"><Trash2 /></button>
@@ -341,8 +344,8 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
                   <span className="workout-icon"><WorkoutIcon name={template.icon} /></span>
                   <span className="workout-card-main">
                     <strong>{template.name}</strong>
-                    <small>{template.exercises.length ? template.exercises.map((exercise) => exercise.name).join(' · ') : 'No exercises'}</small>
-                    {template.notes && <small className="workout-card-detail">{template.notes}</small>}
+                    <small title={template.exercises.map((exercise) => exercise.name).join(' · ') || undefined}>{template.exercises.length ? template.exercises.map((exercise) => exercise.name).join(' · ') : 'No exercises'}</small>
+                    {template.notes && <small className="workout-card-detail" title={template.notes}>{template.notes}</small>}
                   </span>
                 </button>
               ))}
@@ -437,7 +440,7 @@ function TemplateDialog({ draft, onChange, onDelete, onClose, onSubmit }) {
               <div className="exercise-row" key={exercise.id}>
                 <span className="exercise-number">{index + 1}</span>
                 {/* Enter adds the next exercise, so a list can be typed without reaching for the button. */}
-                <input value={exercise.name} onChange={(event) => updateExercise(exercise.id, { name: event.target.value })} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); if (exercise.name.trim()) addExercise(index); } }} placeholder="Exercise name" maxLength={60} autoFocus={exercise.id === focusId} enterKeyHint="next" aria-label={`Exercise ${index + 1}`} />
+                <input value={exercise.name} onChange={(event) => updateExercise(exercise.id, { name: event.target.value })} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); if (exercise.name.trim()) addExercise(index); } }} placeholder="Exercise name" title={exercise.name || undefined} maxLength={60} autoFocus={exercise.id === focusId} enterKeyHint="next" aria-label={`Exercise ${index + 1}`} />
                 <TypeToggle value={exerciseType(exercise)} onChange={(type) => updateExercise(exercise.id, { type })} label={`Exercise ${index + 1} measured by`} />
                 <button className="exercise-remove" type="button" onClick={() => onChange({ exercises: shown.exercises.filter((item) => item.id !== exercise.id) })} aria-label={`Remove exercise ${index + 1}`}><X /></button>
               </div>
@@ -502,7 +505,7 @@ function SessionDialog({ session, template, onNotesChange, onChange, onDelete, o
           return (
             <div className="exercise-entry" key={exercise.id}>
               <div className="exercise-entry-name">
-                <strong>{exercise.name}</strong>
+                <strong title={exercise.name}>{exercise.name}</strong>
                 <small>{last ? `Last: ${entrySummary(last, type)}` : 'First time'}</small>
               </div>
               {fields.map(([key, label, inputMode]) => (
