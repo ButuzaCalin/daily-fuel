@@ -1642,7 +1642,7 @@ function DataHandlingView({ quota, mealsByDate, setMealsByDate, goal, setGoal, w
   const storage = storageUsage({
     'daily-fuel-meals': { label: 'Meals', value: mealsByDate },
     'daily-fuel-weights': { label: 'Weights', value: weights },
-    'daily-fuel-workout-templates': { label: 'Saved workouts', value: workoutTemplates },
+    'daily-fuel-workout-templates': { label: 'My workouts', value: workoutTemplates },
     'daily-fuel-workout-logs': { label: 'Workout sessions', value: workoutLogs },
     'daily-fuel-usage': { label: 'Token usage', value: usage },
     'daily-fuel-settings': { label: 'Settings', value: settings },

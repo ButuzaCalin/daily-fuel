@@ -190,7 +190,7 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
   const [routineEdit, setRoutineEdit] = useState(null);
   useEffect(() => saveLocal('daily-fuel-active-routine', routine), [routine]);
   const now = useNow(Boolean(routine));
-  // Ids picked in select mode on the Saved tab; null when not selecting.
+  // Ids picked in select mode on the My workouts tab; null when not selecting.
   const [selected, setSelected] = useState(null);
   const dayLogs = logs[selectedDate] || [];
 
@@ -354,7 +354,7 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
         <div><p className="eyebrow">Training log</p><h1>Workouts</h1></div>
         <div className="period-toggle" role="group" aria-label="Workouts view">
           <button className={tab === 'calendar' ? 'active' : ''} type="button" onClick={() => { setTab('calendar'); setSelected(null); }} aria-pressed={tab === 'calendar'}>Calendar</button>
-          <button className={tab === 'saved' ? 'active' : ''} type="button" onClick={() => setTab('saved')} aria-pressed={tab === 'saved'}>Saved ({templates.length})</button>
+          <button className={tab === 'saved' ? 'active' : ''} type="button" onClick={() => setTab('saved')} aria-pressed={tab === 'saved'}>My workouts ({templates.length})</button>
         </div>
       </div>
 
@@ -437,7 +437,7 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
           </div>
           {templates.length === 0 ? (
             <div className="empty-state">
-              <p>No saved workouts yet</p>
+              <p>No workouts yet</p>
               <button className="empty-add" type="button" onClick={() => newTemplate()}>Create a workout</button>
             </div>
           ) : (
@@ -483,7 +483,7 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
         notes={templates.find((template) => template.id === shownRoutine?.templateId)?.notes}
         onChange={(patch) => (routineOpen ? setRoutine((current) => ({ ...current, ...patch })) : setRoutineEdit((current) => ({ ...current, ...patch })))}
         onClose={() => (routineOpen ? setRoutineOpen(false) : routineSnapshot(routineEdit) === routineEdit.initial ? setRoutineEdit(null) : setConfirming('routine'))}
-        onEnd={routineOpen ? endRoutine : saveRoutineEdit}
+        onEnd={routineOpen ? () => endRoutine() : saveRoutineEdit}
         onDiscard={routineOpen ? discardRoutine : () => removeLog(logs[routineEdit.date].find((item) => item.id === routineEdit.id), routineEdit.date)}
       />
       {unsaved}
