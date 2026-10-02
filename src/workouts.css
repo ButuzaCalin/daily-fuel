@@ -99,3 +99,10 @@
 .workout-notes-bubble textarea { min-height: 64px; border-color: #d3e3d8; font-size: 15px; }
 .workout-notes-bubble small { color: var(--muted); font-size: 11px; }
 @media (hover: hover) and (pointer: fine) { .workout-notes-toggle:hover { background: #edf0ed; color: var(--ink); } }
+.unsaved-layer { z-index: 11; }
+.unsaved-dialog { width: min(100%, 340px); }
+.unsaved-dialog h2 { margin: 0; font-size: 18px; }
+.unsaved-dialog p { margin: 8px 0 18px; color: var(--muted); font-size: 14px; line-height: 1.45; }
+.unsaved-dialog .dialog-actions .unsaved-discard { margin-right: auto; background: transparent; color: #b34f43; }
+@media (hover: hover) and (pointer: fine) { .unsaved-dialog .dialog-actions .unsaved-discard:hover { background: #fff1ee; } }
+@media (max-width: 430px) { .unsaved-layer { align-items: center; padding-top: 20px; } }

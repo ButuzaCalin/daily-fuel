@@ -137,14 +137,28 @@ function editableSession(log, template) {
   return { ...log, exercises: [...exercises, ...remaining.map((exercise) => ({ id: exercise.id, name: exercise.name, type: exerciseType(exercise), ...formEntry(logEntry(exercise)) }))] };
 }
 
+// What counts as a change when deciding whether closing a dialog should ask to save.
+function sessionSnapshot(draft) {
+  return JSON.stringify(draft.exercises.map((exercise) => [exercise.sets, exercise.reps, exercise.weight, exercise.min, exercise.sec].map((value) => String(value ?? '').trim())));
+}
+
+function templateSnapshot(draft) {
+  return JSON.stringify([draft.name.trim(), draft.icon, draft.notes.trim(), draft.exercises.filter((exercise) => exercise.name.trim()).map((exercise) => [exercise.name.trim(), exerciseType(exercise)])]);
+}
+
 export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, notify }) {
   const todayKey = dateKey(new Date());
   const [tab, setTab] = useState('calendar');
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [picking, setPicking] = useState(false);
-  const [templateDraft, setTemplateDraft] = useState(null);
-  const [session, setSession] = useState(null);
+  const [templateDraft, setTemplateDraftState] = useState(null);
+  const [session, setSessionState] = useState(null);
+  // Which dialog is asking "Save changes?" after a close attempt: 'template', 'session' or null.
+  const [confirming, setConfirming] = useState(null);
+  // Opening a dialog records its starting state, so a close can tell whether anything changed.
+  const openSession = (value) => setSessionState(value && { ...value, initial: sessionSnapshot(value.draft) });
+  const openTemplate = (value) => setTemplateDraftState(value && { ...value, initial: templateSnapshot(value) });
   // Ids picked in select mode on the Saved tab; null when not selecting.
   const [selected, setSelected] = useState(null);
   const dayLogs = logs[selectedDate] || [];
@@ -156,24 +170,25 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
 
   function newTemplate(logAfter = false) {
     setPicking(false);
-    setTemplateDraft({ id: null, name: '', icon: defaultIcon, notes: '', exercises: [blankExercise()], logAfter });
+    openTemplate({ id: null, name: '', icon: defaultIcon, notes: '', exercises: [blankExercise()], logAfter });
   }
 
   function saveTemplate(event) {
-    event.preventDefault();
+    event?.preventDefault();
     const name = templateDraft.name.trim();
     if (!name) return;
     const template = { id: templateDraft.id || crypto.randomUUID(), name, icon: templateDraft.icon, notes: templateDraft.notes.trim(), exercises: cleanExercises(templateDraft.exercises, false) };
     setTemplates((current) => (templateDraft.id ? current.map((item) => (item.id === template.id ? template : item)) : [...current, template]));
-    setTemplateDraft(null);
-    if (templateDraft.logAfter) setSession({ draft: startSession(template, logs, selectedDate), date: selectedDate, isNew: true });
+    setTemplateDraftState(null);
+    setConfirming(null);
+    if (templateDraft.logAfter) openSession({ draft: startSession(template, logs, selectedDate), date: selectedDate, isNew: true });
     else notify(templateDraft.id ? 'Workout updated.' : 'Workout saved.', 'success');
   }
 
   function removeTemplate(template) {
     const index = templates.findIndex((item) => item.id === template.id);
     setTemplates((current) => current.filter((item) => item.id !== template.id));
-    setTemplateDraft(null);
+    setTemplateDraftState(null);
     notify('Workout deleted.', 'info', { label: 'Undo', onClick: () => setTemplates((current) => [...current.slice(0, index), template, ...current.slice(index)]) });
   }
 
@@ -234,12 +249,14 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
   function saveSession(event, preserveEmpty = false) {
     event?.preventDefault();
     const { draft, date } = session;
-    const log = { ...draft, exercises: cleanExercises(draft.exercises, true, preserveEmpty) };
+    const { previous: _previous, ...rest } = draft;
+    const log = { ...rest, exercises: cleanExercises(draft.exercises, true, preserveEmpty) };
     setLogs((current) => {
       const items = current[date] || [];
       return { ...current, [date]: items.some((item) => item.id === log.id) ? items.map((item) => (item.id === log.id ? log : item)) : [...items, log] };
     });
-    setSession(null);
+    setSessionState(null);
+    setConfirming(null);
     notify(session.isNew ? 'Workout logged.' : 'Workout updated.', 'success');
   }
 
@@ -249,7 +266,7 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
       const { [date]: _removed, ...rest } = current;
       return items.length ? { ...current, [date]: items } : rest;
     });
-    setSession(null);
+    setSessionState(null);
     notify('Session deleted.', 'info', { label: 'Undo', onClick: () => setLogs((current) => ({ ...current, [date]: [...(current[date] || []), log] })) });
   }
 
@@ -303,7 +320,7 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
             <div className="workout-list">
               {dayLogs.map((log) => (
                 <div className="workout-row" key={log.id}>
-                  <button className="workout-card" type="button" onClick={() => setSession({ draft: withPrevious(editableSession(log, templates.find((template) => template.id === log.templateId)), logs, selectedDate), date: selectedDate })}>
+                  <button className="workout-card" type="button" onClick={() => openSession({ draft: withPrevious(editableSession(log, templates.find((template) => template.id === log.templateId)), logs, selectedDate), date: selectedDate })}>
                     <span className="workout-icon"><WorkoutIcon name={log.icon} /></span>
                     <span className="workout-card-main">
                       <strong>{log.name}</strong>
@@ -339,7 +356,7 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
           ) : (
             <div className="workout-list">
               {templates.map((template) => (
-                <button className={`workout-card${selected?.has(template.id) ? ' is-selected' : ''}`} type="button" onClick={() => (selected ? toggleSelected(template.id) : setTemplateDraft({ ...template, icon: iconKey(template.icon), exercises: template.exercises.length ? template.exercises : [blankExercise()], logAfter: false }))} aria-pressed={selected ? selected.has(template.id) : undefined} key={template.id}>
+                <button className={`workout-card${selected?.has(template.id) ? ' is-selected' : ''}`} type="button" onClick={() => (selected ? toggleSelected(template.id) : openTemplate({ ...template, icon: iconKey(template.icon), exercises: template.exercises.length ? template.exercises : [blankExercise()], logAfter: false }))} aria-pressed={selected ? selected.has(template.id) : undefined} key={template.id}>
                   {selected && <span className="workout-select" aria-hidden="true"><Check /></span>}
                   <span className="workout-icon"><WorkoutIcon name={template.icon} /></span>
                   <span className="workout-card-main">
@@ -367,13 +384,41 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
         open={picking}
         date={selectedDate}
         templates={templates}
-        onPick={(template) => { setPicking(false); setSession({ draft: startSession(template, logs, selectedDate), date: selectedDate, isNew: true }); }}
+        onPick={(template) => { setPicking(false); openSession({ draft: startSession(template, logs, selectedDate), date: selectedDate, isNew: true }); }}
         onCreate={() => newTemplate(true)}
         onClose={() => setPicking(false)}
       />
-      <TemplateDialog draft={templateDraft} onChange={(patch) => setTemplateDraft((current) => ({ ...current, ...patch }))} onDelete={templateDraft?.id ? () => removeTemplate(templates.find((item) => item.id === templateDraft.id)) : null} onClose={() => setTemplateDraft(null)} onSubmit={saveTemplate} />
-      <SessionDialog session={session} template={templates.find((template) => template.id === session?.draft.templateId)} onNotesChange={(templateId, notes) => setTemplates((current) => current.map((template) => (template.id === templateId ? { ...template, notes } : template)))} onChange={(patch) => setSession((current) => ({ ...current, draft: { ...current.draft, ...patch } }))} onDelete={session && !session.isNew ? () => removeLog(logs[session.date].find((item) => item.id === session.draft.id), session.date) : null} onClose={() => saveSession(undefined, true)} onSubmit={saveSession} />
+      <TemplateDialog draft={templateDraft} onChange={(patch) => setTemplateDraftState((current) => ({ ...current, ...patch }))} onDelete={templateDraft?.id ? () => removeTemplate(templates.find((item) => item.id === templateDraft.id)) : null} onClose={() => (templateSnapshot(templateDraft) === templateDraft.initial ? setTemplateDraftState(null) : setConfirming('template'))} onSubmit={saveTemplate} />
+      <SessionDialog session={session} template={templates.find((template) => template.id === session?.draft.templateId)} onNotesChange={(templateId, notes) => setTemplates((current) => current.map((template) => (template.id === templateId ? { ...template, notes } : template)))} onChange={(patch) => setSessionState((current) => ({ ...current, draft: { ...current.draft, ...patch } }))} onDelete={session && !session.isNew ? () => removeLog(logs[session.date].find((item) => item.id === session.draft.id), session.date) : null} onClose={() => (sessionSnapshot(session.draft) === session.initial ? setSessionState(null) : setConfirming('session'))} onSubmit={saveSession} />
+      <UnsavedDialog
+        open={Boolean(confirming)}
+        canSave={confirming !== 'template' || Boolean(templateDraft?.name.trim())}
+        onSave={() => (confirming === 'template' ? saveTemplate() : saveSession())}
+        onDiscard={() => { if (confirming === 'template') setTemplateDraftState(null); else setSessionState(null); setConfirming(null); }}
+        onKeepEditing={() => setConfirming(null)}
+      />
     </main>
+  );
+}
+
+// Asked when a dialog with changes is closed by tapping outside, Escape or ×.
+function UnsavedDialog({ open, canSave, onSave, onDiscard, onKeepEditing }) {
+  const [shown, closing] = usePresence(open ? { canSave } : null, 150);
+  const id = useId();
+  useEscape(open, onKeepEditing);
+  if (!shown) return null;
+  return (
+    <div className="dialog-layer unsaved-layer" data-closing={closing || undefined} role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) onKeepEditing(); }}>
+      <section className="add-meal-dialog unsaved-dialog" role="alertdialog" aria-modal="true" aria-labelledby={`${id}-title`} aria-describedby={`${id}-text`}>
+        <h2 id={`${id}-title`}>Save changes?</h2>
+        <p id={`${id}-text`}>{shown.canSave ? 'You have changes that are not saved yet.' : 'Add a name to save this workout, or discard it.'}</p>
+        <div className="dialog-actions">
+          <button className="unsaved-discard" type="button" onClick={onDiscard}>Discard</button>
+          <button type="button" onClick={onKeepEditing} autoFocus={!shown.canSave}>Keep editing</button>
+          {shown.canSave && <button className="confirm-add" type="button" onClick={onSave} autoFocus>Save</button>}
+        </div>
+      </section>
+    </div>
   );
 }
 
