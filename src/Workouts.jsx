@@ -1,5 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
-import { BicepsFlexed, Check, ChevronLeft, ChevronRight, Download, HeartPulse, Plus, Shirt, Trash2, Upload, X } from 'lucide-react';
+import { BicepsFlexed, Check, ChevronLeft, ChevronRight, Download, EyeOff, HeartPulse, Plus, Shirt, Trash2, Upload, X } from 'lucide-react';
 import { dateKey, formatDate, loadLocal, saveLocal, useEscape, usePresence } from './shared.js';
 import './workouts.css';
 
@@ -186,9 +186,11 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
   // The routine being done right now; kept in storage so a reload or leaving the page does not lose it.
   const [routine, setRoutine] = useState(() => loadLocal('daily-fuel-active-routine', null));
   const [routineOpen, setRoutineOpen] = useState(false);
+  const [routineHintHidden, setRoutineHintHidden] = useState(() => loadLocal('daily-fuel-hide-routine-hint', false));
   // A logged session opened from the calendar to change its sets.
   const [routineEdit, setRoutineEdit] = useState(null);
   useEffect(() => saveLocal('daily-fuel-active-routine', routine), [routine]);
+  useEffect(() => saveLocal('daily-fuel-hide-routine-hint', routineHintHidden), [routineHintHidden]);
   const now = useNow(Boolean(routine));
   // Ids picked in select mode on the My workouts tab; null when not selecting.
   const [selected, setSelected] = useState(null);
@@ -200,6 +202,7 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
   const monthCount = Object.entries(logs).filter(([date]) => date.startsWith(dateKey(month).slice(0, 7))).reduce((sum, [, items]) => sum + items.length, 0);
 
   function newTemplate(logAfter = false) {
+    if (logAfter && selectedDate > todayKey) return;
     setPicking(false);
     openTemplate({ id: null, name: '', icon: defaultIcon, notes: '', exercises: [blankExercise()], logAfter });
   }
@@ -212,7 +215,7 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
     setTemplates((current) => (templateDraft.id ? current.map((item) => (item.id === template.id ? template : item)) : [...current, template]));
     setTemplateDraftState(null);
     setConfirming(null);
-    if (templateDraft.logAfter) { setRoutine(startRoutine(template, logs, selectedDate)); setRoutineOpen(true); }
+    if (templateDraft.logAfter && selectedDate <= todayKey) { setRoutine(startRoutine(template, logs, selectedDate)); setRoutineOpen(true); }
     else notify(templateDraft.id ? 'Workout updated.' : 'Workout saved.', 'success');
   }
 
@@ -297,13 +300,6 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
     endRoutine(true);
   }, [now, routine]);
 
-  function discardRoutine() {
-    const discarded = routine;
-    setRoutine(null);
-    setRoutineOpen(false);
-    notify('Routine discarded.', 'info', { label: 'Undo', onClick: () => setRoutine(discarded) });
-  }
-
   function openRoutineEdit(log, date) {
     const draft = routineDraft(log, log.exercises, templates.find((template) => template.id === log.templateId), logs, date);
     setRoutineEdit({ ...draft, date, initial: routineSnapshot(draft) });
@@ -339,13 +335,18 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
   );
 
   function startWorkout(template) {
+    if (selectedDate > todayKey) return;
     setPicking(false);
     setRoutine(startRoutine(template, logs, selectedDate));
     setRoutineOpen(true);
   }
 
   // One workout runs at a time; adding while one is running brings it back.
-  const openPicker = () => (routine ? setRoutineOpen(true) : setPicking(true));
+  const openPicker = () => {
+    if (selectedDate > todayKey) return;
+    if (routine) setRoutineOpen(true);
+    else setPicking(true);
+  };
   const shownRoutine = routineOpen ? routine : routineEdit;
   return (
     <main className="app-shell reports-page workouts-page">
@@ -373,7 +374,7 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
               const date = dateKey(new Date(month.getFullYear(), month.getMonth(), index + 1));
               const items = logs[date] || [];
               return (
-                <button className={`calendar-day workout-day${items.length ? ' has-workout' : ''}${date === todayKey ? ' is-today' : ''}${date === selectedDate ? ' is-selected' : ''}`} type="button" onClick={() => setSelectedDate(date)} aria-pressed={date === selectedDate} aria-label={`${formatDate(date)}${items.length ? `: ${items.map((item) => item.name).join(', ')}` : ''}`} key={date}>
+                <button className={`calendar-day workout-day${items.length ? ' has-workout' : ''}${date === todayKey ? ' is-today' : ''}${date === selectedDate ? ' is-selected' : ''}`} type="button" onClick={() => setSelectedDate(date)} disabled={date > todayKey} aria-pressed={date === selectedDate} aria-label={`${formatDate(date)}${items.length ? `: ${items.map((item) => item.name).join(', ')}` : date > todayKey ? ': unavailable' : ''}`} key={date}>
                   <small className="calendar-day-date">{index + 1}</small>
                   <span className="workout-day-icons">
                     {/* Up to two icons fit; from three on, one icon plus a count reads cleaner than icons and a count together. */}
@@ -479,12 +480,14 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
       <RoutineDialog
         routine={shownRoutine}
         live={routineOpen}
+        hintHidden={routineHintHidden}
+        onHideHint={() => setRoutineHintHidden(true)}
         now={now}
         notes={templates.find((template) => template.id === shownRoutine?.templateId)?.notes}
         onChange={(patch) => (routineOpen ? setRoutine((current) => ({ ...current, ...patch })) : setRoutineEdit((current) => ({ ...current, ...patch })))}
         onClose={() => (routineOpen ? setRoutineOpen(false) : routineSnapshot(routineEdit) === routineEdit.initial ? setRoutineEdit(null) : setConfirming('routine'))}
         onEnd={routineOpen ? () => endRoutine() : saveRoutineEdit}
-        onDiscard={routineOpen ? discardRoutine : () => removeLog(logs[routineEdit.date].find((item) => item.id === routineEdit.id), routineEdit.date)}
+        onDiscard={() => removeLog(logs[routineEdit.date].find((item) => item.id === routineEdit.id), routineEdit.date)}
       />
       {unsaved}
     </main>
@@ -595,7 +598,7 @@ function TemplateDialog({ draft, onChange, onDelete, onClose, onSubmit }) {
 
 // Lists the workout's exercises, each started on its own. A started exercise fills the modal by itself until it is ended:
 // last time's sets above, today's below, and one row for the next set. Closing a live workout only hides it.
-function RoutineDialog({ routine, live, now, notes, onChange, onClose, onEnd, onDiscard }) {
+function RoutineDialog({ routine, live, hintHidden, onHideHint, now, notes, onChange, onClose, onEnd, onDiscard }) {
   const [shown, closing] = usePresence(routine, 150);
   // Typed values for the next set; empty fields fall back to the placeholder, so repeating a set is one tap.
   const [input, setInput] = useState({});
@@ -610,6 +613,7 @@ function RoutineDialog({ routine, live, now, notes, onChange, onClose, onEnd, on
   if (!exercise) return (
     <DialogShell shown={shown} closing={closing} title={<span className="workout-dialog-title"><WorkoutIcon name={shown.icon} />{shown.name}</span>} onClose={onClose} className="routine-dialog">
       <p className="workout-dialog-date">{dayLabel}{timer && <> · <span className="routine-timer">{timer}</span></>}</p>
+      {live && !hintHidden && <div className="routine-hint"><p className="routine-save-hint">Closing this window or app won't stop your workout. Your progress is saved, so you can come back and continue.</p><button type="button" onClick={onHideHint} aria-label="Hide hint" title="Hide hint"><EyeOff aria-hidden="true" /></button></div>}
       {notes?.trim() && <p className="routine-notes">{notes}</p>}
       <div className="routine-list">
         {shown.exercises.map((item) => (
@@ -623,8 +627,9 @@ function RoutineDialog({ routine, live, now, notes, onChange, onClose, onEnd, on
           </div>
         ))}
       </div>
-      <div className="dialog-actions routine-actions">
-        <button className="clear-meal-form" type="button" onClick={onDiscard}><Trash2 aria-hidden="true" />{live ? 'Discard' : 'Delete'}</button>
+      <div className={`dialog-actions routine-actions${live ? ' is-live' : ''}`}>
+        {live && <button className="routine-close" type="button" onClick={onClose}>Close</button>}
+        {!live && <button className="clear-meal-form" type="button" onClick={onDiscard}><Trash2 aria-hidden="true" />Delete</button>}
         <button className="confirm-add" type="button" onClick={onEnd}>{live ? 'Finish workout' : 'Save'}{doneCount > 0 && ` · ${doneCount}/${shown.exercises.length}`}</button>
       </div>
     </DialogShell>
@@ -649,6 +654,7 @@ function RoutineDialog({ routine, live, now, notes, onChange, onClose, onEnd, on
   return (
     <DialogShell shown={shown} closing={closing} title={exercise.name} onClose={onClose} className="routine-dialog">
       <p className="workout-dialog-date">{shown.name}{timer && <> · <span className="routine-timer">{timer}</span></>}</p>
+      {live && !hintHidden && <div className="routine-hint"><p className="routine-save-hint">Closing this window or app won't stop your workout. Your progress is saved, so you can come back and continue.</p><button type="button" onClick={onHideHint} aria-label="Hide hint" title="Hide hint"><EyeOff aria-hidden="true" /></button></div>}
       {exercise.previous && (
         <div className="routine-block routine-last">
           <h3>Last time <small>{formatDate(exercise.previous.date)}</small></h3>
@@ -677,7 +683,8 @@ function RoutineDialog({ routine, live, now, notes, onChange, onClose, onEnd, on
           <button className="routine-add-set" type="submit" disabled={!canAdd} aria-label={`Add set ${index + 1}`}><Plus aria-hidden="true" /></button>
         </form>
       </div>
-      <div className="dialog-actions routine-actions">
+      <div className={`dialog-actions routine-actions${live ? ' is-live' : ''}`}>
+        {live && <button className="routine-close" type="button" onClick={onClose}>Close</button>}
         <button className="confirm-add" type="button" onClick={() => setActive(null)}>End exercise{index > 0 && ` · ${plural(index, 'set')}`}</button>
       </div>
     </DialogShell>

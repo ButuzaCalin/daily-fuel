@@ -83,6 +83,12 @@
 .routine-running .workout-card-main small { color: var(--green); font-weight: 600; font-variant-numeric: tabular-nums; }
 .routine-running-action { flex: none; border-radius: 6px; padding: 7px 12px; background: var(--green); color: white; font-size: 13px; font-weight: 600; }
 .routine-timer { color: var(--green); font-weight: 700; font-variant-numeric: tabular-nums; }
+.routine-hint { position: relative; margin-top: 8px; }
+.routine-save-hint { margin: 0; border-left: 3px solid var(--green); padding: 7px 38px 7px 10px; background: #f3faf4; color: var(--ink); font-size: 12px; line-height: 1.45; }
+.routine-hint button { position: absolute; top: 50%; right: 4px; display: grid; width: 28px; height: 28px; place-items: center; border: 0; border-radius: 6px; padding: 0; background: transparent; color: var(--muted); transform: translateY(-50%); }
+.routine-hint button svg { width: 15px; height: 15px; }
+.routine-hint button:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
+@media (hover: hover) and (pointer: fine) { .routine-hint button:hover { background: #e7f1e9; color: var(--ink); } }
 .routine-notes { margin: 10px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; white-space: pre-wrap; }
 .routine-list { display: grid; margin-top: 12px; }
 .routine-item { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--line); }
@@ -117,6 +123,10 @@
 .routine-add-set svg { width: 20px; height: 20px; }
 .routine-add-set:disabled { cursor: not-allowed; opacity: .35; }
 .routine-actions { margin-top: 18px; }
+.routine-actions.is-live { justify-content: space-between; gap: 24px; }
+.routine-actions.is-live .confirm-add { order: 1; }
+.routine-actions.is-live .routine-close { order: 2; }
+.dialog-actions .routine-close { border: 1px solid var(--line); background: white; }
 .routine-actions .confirm-add:only-child { flex: 1; }
 @media (hover: hover) and (pointer: fine) {
   .routine-running:hover .routine-running-action, .routine-add-set:not(:disabled):hover, .routine-item-start:hover { background: #285d3d; color: white; }
