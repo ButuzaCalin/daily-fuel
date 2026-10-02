@@ -672,3 +672,8 @@ textarea::placeholder { color: #9aa09b; }
 @media (hover: hover) and (pointer: fine) {
   .bar-column:hover { background: #f1f5f2; }
 }
+.settings-menus { margin-top: 16px; gap: 0; }
+.settings-menus .scoring-toggle { display: flex; gap: 10px; padding-block: 14px; color: var(--ink); }
+.settings-menus .scoring-toggle input { flex: none; width: 18px; min-width: 0; padding: 0; }
+.settings-menus .scoring-toggle:last-child { padding-bottom: 0; }
+.settings-menus .goal-section-heading { margin-bottom: 14px; }

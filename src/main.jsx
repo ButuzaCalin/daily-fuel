@@ -1,9 +1,11 @@
 import { StrictMode, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BarChart3, ChevronDown, ChevronLeft, ChevronRight, Clock, Cpu, Database, Eraser, History, Home, Info, LoaderCircle, Medal, Menu as MenuIcon, Pencil, Plus, RefreshCw, Scale, ScanBarcode, Settings, Share2, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
+import { BarChart3, ChevronDown, Dumbbell, ChevronLeft, ChevronRight, Clock, Cpu, Database, Eraser, History, Home, Info, LoaderCircle, Medal, Menu as MenuIcon, Pencil, Plus, RefreshCw, Scale, ScanBarcode, Settings, Share2, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
 import { toBlob } from 'html-to-image';
 import { calculateScore, dayProgress, dayStatus, DAY_COMPLETE_HOUR, macroLabels, metrics, objectiveKey, objectives, scoreLabel, scoringAvailable } from './score.js';
 import { BarcodeScanner } from './BarcodeScanner.jsx';
+import { dateKey, formatDate, loadLocal, saveLocal, shiftDate, useEscape, usePresence } from './shared.js';
+import { WorkoutsView } from './Workouts.jsx';
 import './styles.css';
 
 if ('serviceWorker' in navigator) {
@@ -61,45 +63,12 @@ const reportMetrics = {
   fats: { label: 'Fat', suffix: 'g' },
 };
 
-function dateKey(date) {
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${date.getFullYear()}-${month}-${day}`;
-}
-
-function formatDate(value) {
-  const date = new Date(`${value}T12:00:00`);
-  return new Intl.DateTimeFormat('en', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  }).format(date);
-}
-
-function shiftDate(value, amount) {
-  const date = new Date(`${value}T12:00:00`);
-  date.setDate(date.getDate() + amount);
-  return dateKey(date);
-}
-
 function sortMeals(meals) {
   return [...meals].sort((first, second) => first.time.localeCompare(second.time));
 }
 
-function loadLocal(key, fallback) {
-  try {
-    return JSON.parse(localStorage.getItem(key)) || fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 function clearEstimating(mealsByDate) {
   return Object.fromEntries(Object.entries(mealsByDate).map(([date, meals]) => [date, Array.isArray(meals) ? meals.map((meal) => (meal?.estimating ? { ...meal, estimating: false } : meal)) : []]));
-}
-
-function saveLocal(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
 }
 
 async function requestJson(url, options) {
@@ -324,6 +293,7 @@ const routePaths = {
   reports: '/reports',
   scores: '/scores',
   weight: '/weight',
+  workouts: '/workouts',
   usage: '/usage',
   goal: '/goal',
   settings: '/settings',
@@ -361,40 +331,6 @@ function recordUsage(current, item) {
   return pruneUsage({ ...current, records: [item, ...(current.records || current.recent || [])] });
 }
 
-// Keeps an overlay mounted for `duration` ms after it closes so its exit animation can play.
-// Effects depend on open/closed only: callers pass a fresh object each render, and syncing it into state looped.
-function usePresence(value, duration) {
-  const open = Boolean(value);
-  const lastValue = useRef(value);
-  if (value) lastValue.current = value;
-  const [mounted, setMounted] = useState(open);
-  const [closing, setClosing] = useState(false);
-  useEffect(() => {
-    if (open) {
-      setMounted(true);
-      setClosing(false);
-      return undefined;
-    }
-    if (!mounted) return undefined;
-    setClosing(true);
-    const timer = window.setTimeout(() => {
-      setMounted(false);
-      setClosing(false);
-    }, duration);
-    return () => window.clearTimeout(timer);
-  }, [open, duration]);
-  return [value || (mounted ? lastValue.current : null), closing];
-}
-
-function useEscape(active, onEscape) {
-  useEffect(() => {
-    if (!active) return undefined;
-    const handleKeyDown = (event) => { if (event.key === 'Escape') onEscape(); };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [active, onEscape]);
-}
-
 // Re-renders once a minute so time-based UI (day completion) stays current.
 function useNow(active) {
   const [now, setNow] = useState(() => new Date());
@@ -416,6 +352,8 @@ function App() {
   const [addMealOpen, setAddMealOpen] = useState(false);
   const [goal, setGoal] = useState(() => loadLocal('daily-fuel-goal', null));
   const [weights, setWeights] = useState(() => loadLocal('daily-fuel-weights', []));
+  const [workoutTemplates, setWorkoutTemplates] = useState(() => loadLocal('daily-fuel-workout-templates', []));
+  const [workoutLogs, setWorkoutLogs] = useState(() => loadLocal('daily-fuel-workout-logs', {}));
   const [settings, setSettings] = useState(() => exclusiveAiSettings({ ...defaultSettings, ...loadLocal('daily-fuel-settings', {}) }));
   const [usage, setUsage] = useState(() => pruneUsage(loadLocal('daily-fuel-usage', { records: [] })));
   const [toast, setToast] = useState(null);
@@ -433,6 +371,8 @@ function App() {
   useEffect(() => saveLocal('daily-fuel-meals', mealsByDate), [mealsByDate]);
   useEffect(() => saveLocal('daily-fuel-goal', goal), [goal]);
   useEffect(() => saveLocal('daily-fuel-weights', weights), [weights]);
+  useEffect(() => saveLocal('daily-fuel-workout-templates', workoutTemplates), [workoutTemplates]);
+  useEffect(() => saveLocal('daily-fuel-workout-logs', workoutLogs), [workoutLogs]);
   useEffect(() => saveLocal('daily-fuel-settings', settings), [settings]);
   useEffect(() => {
     const pruned = pruneUsage(usage);
@@ -506,11 +446,14 @@ function App() {
   }, []);
 
   const weightTracking = Boolean(goal?.weightTracking);
+  const workoutsEnabled = Boolean(goal?.workouts);
   useEffect(() => {
-    if ((route !== 'scores' || scoring) && (route !== 'weight' || weightTracking)) return;
-    window.history.replaceState({}, '', routePaths.goal);
-    setRoute('goal');
-  }, [route, scoring, weightTracking]);
+    if ((route !== 'scores' || scoring) && (route !== 'weight' || weightTracking) && (route !== 'workouts' || workoutsEnabled)) return;
+    // Scoring is switched on from Goal; the other optional pages from Settings.
+    const fallback = route === 'scores' ? 'goal' : 'settings';
+    window.history.replaceState({}, '', routePaths[fallback]);
+    setRoute(fallback);
+  }, [route, scoring, weightTracking, workoutsEnabled]);
 
   function navigate(nextRoute, resetToToday = false) {
     const path = routePaths[nextRoute] || '/';
@@ -672,6 +615,18 @@ function App() {
   if (route === 'weight' && weightTracking) {
     return <WeightView goal={goal} quota={useProxy ? proxyQuota : null} mealsByDate={mealsByDate} weights={weights} setWeights={setWeights} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
   }
+  if (route === 'workouts' && workoutsEnabled) {
+    const chrome = <>
+      <header className="topbar">
+        <button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button>
+        <button className="brand" type="button" onClick={() => navigate('home')} aria-label="Daily Fuel home"><span className="brand-mark">DF</span><span>Daily Fuel</span></button>
+        <HeaderQuota quota={useProxy ? proxyQuota : null} />
+      </header>
+      <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={navigate} onLogout={logout} username="Local device" goal={goal} />
+      <Toast toast={toast} />
+    </>;
+    return <WorkoutsView chrome={chrome} templates={workoutTemplates} setTemplates={setWorkoutTemplates} logs={workoutLogs} setLogs={setWorkoutLogs} notify={notify} />;
+  }
   if (route === 'usage') {
     return <UsageView goal={goal} quota={useProxy ? proxyQuota : null} usage={usage} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
   }
@@ -679,10 +634,10 @@ function App() {
     return <GoalView goal={goal} quota={useProxy ? proxyQuota : null} setGoal={setGoal} onEstimateGoal={estimateGoal} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
   }
   if (route === 'settings') {
-    return <SettingsView goal={goal} proxyQuota={useProxy ? proxyQuota : null} settings={settings} setSettings={setSettings} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
+    return <SettingsView goal={goal} setGoal={setGoal} proxyQuota={useProxy ? proxyQuota : null} settings={settings} setSettings={setSettings} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
   }
   if (route === 'data-handling') {
-    return <DataHandlingView quota={useProxy ? proxyQuota : null} mealsByDate={mealsByDate} setMealsByDate={setMealsByDate} goal={goal} setGoal={setGoal} weights={weights} setWeights={setWeights} settings={settings} setSettings={setSettings} usage={usage} setUsage={setUsage} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
+    return <DataHandlingView quota={useProxy ? proxyQuota : null} mealsByDate={mealsByDate} setMealsByDate={setMealsByDate} goal={goal} setGoal={setGoal} weights={weights} setWeights={setWeights} workoutTemplates={workoutTemplates} setWorkoutTemplates={setWorkoutTemplates} workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} settings={settings} setSettings={setSettings} usage={usage} setUsage={setUsage} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
   }
   if (route === 'not-found') {
     return (
@@ -943,10 +898,11 @@ function Menu({ open, onClose, onNavigate, onLogout, username, goal }) {
             <button type="button" onClick={() => onNavigate('reports')}><span className="menu-link-label"><span className="menu-icon"><BarChart3 /></span>Reports</span><span aria-hidden="true">&rarr;</span></button>
             <button type="button" onClick={() => onNavigate('goal')}><span className="menu-link-label"><span className="menu-icon"><Target /></span>Goal</span><span aria-hidden="true">&rarr;</span></button>
           </div>
-          {(scoringAvailable(goal) || goal?.weightTracking) && (
+          {(scoringAvailable(goal) || goal?.weightTracking || goal?.workouts) && (
             <div className="menu-group menu-group-secondary">
               {scoringAvailable(goal) && <button type="button" onClick={() => onNavigate('scores')}><span className="menu-link-label"><span className="menu-icon"><Medal /></span>Scores</span><span aria-hidden="true">&rarr;</span></button>}
               {goal?.weightTracking && <button type="button" onClick={() => onNavigate('weight')}><span className="menu-link-label"><span className="menu-icon"><Scale /></span>Weight</span><span aria-hidden="true">&rarr;</span></button>}
+              {goal?.workouts && <button type="button" onClick={() => onNavigate('workouts')}><span className="menu-link-label"><span className="menu-icon"><Dumbbell /></span>Workouts</span><span aria-hidden="true">&rarr;</span></button>}
             </div>
           )}
           <div className="menu-group menu-group-secondary">
@@ -1375,7 +1331,7 @@ const goalTargetKeys = ['calories', 'proteins', 'carbs', 'fats'];
 function normalizeGoal(value) {
   const targets = Object.fromEntries(goalTargetKeys.map((key) => [key, Math.max(0, Number(value?.[key]) || 0)]));
   const anyTarget = goalTargetKeys.some((key) => targets[key] > 0);
-  return { ...targets, objective: objectiveKey(value?.objective), scoring: Boolean(value?.scoring && anyTarget), weightTracking: Boolean(value?.weightTracking) };
+  return { ...targets, objective: objectiveKey(value?.objective), scoring: Boolean(value?.scoring && anyTarget), weightTracking: Boolean(value?.weightTracking), workouts: Boolean(value?.workouts) };
 }
 
 // Goal edits are held in a draft until saved from the save bar.
@@ -1435,7 +1391,7 @@ function GoalView({ goal, quota, setGoal, onEstimateGoal, onNavigate, menuOpen, 
           )}
         </form>
         <section className="goal-form">
-          <div className="goal-section-heading"><h2>Additional menus</h2><p>Turn on extra pages in the menu.</p></div>
+          <div className="goal-section-heading"><h2>Daily score</h2><p>Adds the Scores page to the menu.</p></div>
           <label className="scoring-toggle">
             <input type="checkbox" role="switch" checked={scoringOn} disabled={!targetSaved} onChange={(event) => updateGoal({ scoring: event.target.checked })} />
             <span><strong>Scoring</strong><small>{targetSaved ? 'Rate each day 0–100 on how closely you followed your targets.' : 'Set and save at least one target to enable scoring.'}</small></span>
@@ -1448,10 +1404,6 @@ function GoalView({ goal, quota, setGoal, onEstimateGoal, onNavigate, menuOpen, 
               </div>
             </div>
           )}
-          <label className="scoring-toggle">
-            <input type="checkbox" role="switch" checked={current.weightTracking} onChange={(event) => updateGoal({ weightTracking: event.target.checked })} />
-            <span><strong>Weight track</strong><small>Log your weight and see your average daily macros between weigh-ins.</small></span>
-          </label>
         </section>
         <ObjectiveInfoDialog open={objectiveInfoOpen} selected={draftObjective} onSelect={(objective) => { setDraftObjective(objective); setObjectiveInfoOpen(false); }} onClose={() => setObjectiveInfoOpen(false)} />
         <GoalWizardDialog open={goalWizardOpen} selected={current.objective} onClose={() => setGoalWizardOpen(false)} onGenerate={onEstimateGoal} onApply={applyAiGoal} />
@@ -1559,13 +1511,16 @@ function ObjectiveInfoDialog({ open, selected, onSelect, onClose }) {
   );
 }
 
-function SettingsView({ goal, proxyQuota, settings, setSettings, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
+function SettingsView({ goal, setGoal, proxyQuota, settings, setSettings, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
   const [draft, setDraft] = useState(settings);
   const [updating, setUpdating] = useState(false);
   function update(key, value) { setDraft((current) => ({ ...current, [key]: value })); }
   const activeMode = settings.aiMode === 'proxy' ? 'proxy' : 'manual';
   const draftMode = draft.aiMode === 'proxy' ? 'proxy' : 'manual';
   const willReplace = draftMode !== activeMode && isAiConfigured(settings);
+  // Menu switches live on the goal so existing data and backups keep working.
+  const menus = normalizeGoal(goal);
+  const toggleMenu = (patch) => setGoal(normalizeGoal({ ...menus, ...patch }));
   function saveSettings(event) {
     event.preventDefault();
     if (draft.aiMode === 'proxy') {
@@ -1626,6 +1581,17 @@ function SettingsView({ goal, proxyQuota, settings, setSettings, onNavigate, men
         </>}
         <button className="auth-submit" type="submit">{willReplace ? `Switch to ${aiModeLabels[draftMode]}` : 'Save settings'}</button>
       </form>
+      <section className="settings-form settings-menus">
+        <div className="goal-section-heading"><h2>Menus</h2><p>Turn on extra pages in the menu.</p></div>
+        <label className="scoring-toggle">
+          <input type="checkbox" role="switch" checked={menus.weightTracking} onChange={(event) => toggleMenu({ weightTracking: event.target.checked })} />
+          <span><strong>Weight track</strong><small>Log your weight and see your average daily macros between weigh-ins.</small></span>
+        </label>
+        <label className="scoring-toggle">
+          <input type="checkbox" role="switch" checked={menus.workouts} onChange={(event) => toggleMenu({ workouts: event.target.checked })} />
+          <span><strong>Workouts</strong><small>Save workouts and log your sets and reps on a calendar.</small></span>
+        </label>
+      </section>
       <section className="settings-form settings-update"><p className="goal-form-copy">Get the latest version of the app. Your meals, goals and settings stay on this device.</p><button className="auth-submit" type="button" onClick={handleUpdate} disabled={updating}>{updating ? 'Updating…' : 'Update app'}</button></section>
     </main>
   );
@@ -1655,13 +1621,15 @@ function storageUsage(stored) {
   return { items, total: items.reduce((sum, item) => sum + item.bytes, 0) };
 }
 
-function DataHandlingView({ quota, mealsByDate, setMealsByDate, goal, setGoal, weights, setWeights, settings, setSettings, usage, setUsage, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
+function DataHandlingView({ quota, mealsByDate, setMealsByDate, goal, setGoal, weights, setWeights, workoutTemplates, setWorkoutTemplates, workoutLogs, setWorkoutLogs, settings, setSettings, usage, setUsage, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
   const today = dateKey(new Date());
   const [start, setStart] = useState(today);
   const [end, setEnd] = useState(today);
   const storage = storageUsage({
     'daily-fuel-meals': { label: 'Meals', value: mealsByDate },
     'daily-fuel-weights': { label: 'Weights', value: weights },
+    'daily-fuel-workout-templates': { label: 'Saved workouts', value: workoutTemplates },
+    'daily-fuel-workout-logs': { label: 'Workout sessions', value: workoutLogs },
     'daily-fuel-usage': { label: 'Token usage', value: usage },
     'daily-fuel-settings': { label: 'Settings', value: settings },
     'daily-fuel-goal': { label: 'Goal', value: goal },
@@ -1672,7 +1640,7 @@ function DataHandlingView({ quota, mealsByDate, setMealsByDate, goal, setGoal, w
       app: 'daily-fuel',
       version: 1,
       exportedAt: new Date().toISOString(),
-      data: { mealsByDate, goal, weights, settings, usage },
+      data: { mealsByDate, goal, weights, workoutTemplates, workoutLogs, settings, usage },
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -1704,8 +1672,10 @@ function DataHandlingView({ quota, mealsByDate, setMealsByDate, goal, setGoal, w
         })).filter((meal) => meal.text)];
       }));
       setMealsByDate(importedMeals);
-      setGoal(data.goal && typeof data.goal === 'object' ? normalizeGoal({ ...data.goal, scoring: data.goal.scoring === true, weightTracking: data.goal.weightTracking === true }) : null);
+      setGoal(data.goal && typeof data.goal === 'object' ? normalizeGoal({ ...data.goal, scoring: data.goal.scoring === true, weightTracking: data.goal.weightTracking === true, workouts: data.goal.workouts === true }) : null);
       if (Array.isArray(data.weights)) setWeights(data.weights.filter((entry) => /^\d{4}-\d{2}-\d{2}$/.test(entry?.date) && Number(entry.weight) > 0).map((entry) => ({ date: entry.date, weight: Number(entry.weight) })));
+      if (Array.isArray(data.workoutTemplates)) setWorkoutTemplates(data.workoutTemplates.filter((template) => typeof template?.name === 'string' && Array.isArray(template.exercises)));
+      if (data.workoutLogs && typeof data.workoutLogs === 'object' && !Array.isArray(data.workoutLogs)) setWorkoutLogs(Object.fromEntries(Object.entries(data.workoutLogs).filter(([date, logs]) => /^\d{4}-\d{2}-\d{2}$/.test(date) && Array.isArray(logs))));
       setSettings(exclusiveAiSettings({ ...defaultSettings, ...(data.settings || {}) }));
       if (data.usage && typeof data.usage === 'object') setUsage(pruneUsage(data.usage));
       notify('Backup imported.', 'success');

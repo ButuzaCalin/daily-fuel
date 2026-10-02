@@ -1,0 +1,101 @@
+/* Workouts */
+.workout-day .workout-day-icons { display: flex; align-items: center; justify-content: flex-end; gap: 2px; min-height: 15px; color: var(--green); }
+.workout-day-icons svg { width: 14px; height: 14px; }
+.workout-day-icons small { font-size: 10px; font-weight: 700; }
+.workout-day.has-workout { border-color: #b8d2bf; background: #eef5f0; }
+.workout-day.is-selected { border-color: var(--green); box-shadow: inset 0 0 0 1px var(--green); }
+.workout-day-panel { margin-top: 24px; }
+.workout-list { display: grid; gap: 8px; }
+.workout-row { display: grid; grid-template-columns: minmax(0, 1fr) 30px; gap: 10px; align-items: center; }
+.workout-card, .workout-pick-list button { display: flex; align-items: center; gap: 12px; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: var(--surface); color: var(--ink); text-align: left; }
+.workout-icon { display: grid; flex: none; width: 38px; height: 38px; place-items: center; border-radius: 8px; background: #eef5f0; color: var(--green); }
+.workout-icon svg { width: 19px; height: 19px; }
+.workout-card-main { display: grid; gap: 2px; min-width: 0; }
+.workout-card-main strong { font-size: 15px; font-weight: 600; }
+.workout-card-main small { overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.workout-card-detail { font-variant-numeric: tabular-nums; }
+.workout-pick-list { display: grid; gap: 8px; max-height: 60dvh; margin-top: 18px; overflow-y: auto; }
+.workout-pick-list .workout-pick-new { border-style: dashed; }
+.workout-dialog-title { display: inline-flex; align-items: center; gap: 8px; }
+.workout-dialog-title svg { width: 18px; height: 18px; color: var(--green); }
+.workout-dialog-date { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+.workout-form { display: grid; gap: 16px; min-width: 0; margin-top: 18px; }
+.workout-field { display: grid; gap: 7px; min-width: 0; margin: 0; border: 0; padding: 0; color: var(--muted); font-size: 12px; }
+.workout-field legend { margin-bottom: 7px; padding: 0; }
+.workout-field > input { width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 6px; padding: 10px 11px; outline: 0; color: var(--ink); background: white; font-size: 16px; }
+.workout-field textarea { min-height: 60px; font-size: 16px; }
+.workout-field > input:focus { border-color: var(--green); }
+.workout-field .tool-chip { justify-self: start; }
+.workout-icon-picker { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.workout-icon-picker button { display: grid; justify-items: center; gap: 3px; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 8px 2px 6px; background: white; color: var(--muted); }
+.workout-icon-picker small { max-width: 100%; overflow: hidden; font-size: 10px; font-weight: 500; text-overflow: ellipsis; }
+.workout-icon-picker button.active { border-color: var(--green); background: #eef5f0; color: var(--green); }
+.workout-icon-picker svg { width: 20px; height: 20px; }
+.exercise-log-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: -4px -4px 0 0; }
+.exercise-log-heading h3 { margin: 0; font-size: 15px; }
+@media (hover: hover) and (pointer: fine) {
+  .workout-card:hover, .workout-pick-list button:hover { border-color: #b8d2bf; background: #f8fbf8; }
+  .workout-icon-picker button:not(.active):hover { border-color: #b8d2bf; color: var(--ink); }
+}
+.workout-transfer { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 12px; }
+.workout-transfer button, .workout-transfer label { position: relative; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; background: var(--surface); color: var(--ink); font-size: 12px; cursor: pointer; }
+.workout-transfer button:disabled { cursor: not-allowed; opacity: .45; }
+.workout-transfer label:focus-within { box-shadow: var(--focus-ring); }
+.workout-transfer svg { width: 15px; height: 15px; color: var(--green); }
+.workout-transfer input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
+@media (hover: hover) and (pointer: fine) { .workout-transfer button:not(:disabled):hover, .workout-transfer label:hover { border-color: var(--green); color: var(--green); } }
+.workout-day-panel:has(> .workout-transfer) { margin-top: 0; }
+.exercise-type { display: flex; padding: 2px; border: 1px solid var(--line); border-radius: 6px; background: #f7f9f7; }
+.exercise-type button { border: 0; border-radius: 4px; padding: 7px 8px; background: transparent; color: var(--muted); font-size: 12px; }
+.exercise-type button.active { background: var(--ink); color: white; }
+@media (hover: hover) and (pointer: fine) { .exercise-type button:not(.active):hover { color: var(--ink); } }
+.session-form { gap: 0; margin-top: 12px; }
+.session-form .dialog-actions { margin-top: 14px; }
+.exercise-entry { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, 54px); align-items: end; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.exercise-entry-name { display: grid; gap: 2px; min-width: 0; align-self: center; }
+.exercise-entry-name strong { overflow: hidden; font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.exercise-entry-name small { overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.entry-field { display: grid; gap: 3px; min-width: 0; }
+.entry-field small { color: var(--muted); font-size: 10px; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: .04em; }
+.entry-field input { width: 100%; min-width: 0; border: 0; border-radius: 6px; outline: 0; padding: 8px 2px; background: #edf0ed; color: var(--ink); font-size: 16px; font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; -moz-appearance: textfield; appearance: textfield; }
+.entry-field input:focus { box-shadow: inset 0 0 0 1.5px var(--green); }
+.entry-field input::placeholder { color: #a9b0aa; font-weight: 500; }
+.entry-field input::-webkit-inner-spin-button, .entry-field input::-webkit-outer-spin-button { margin: 0; -webkit-appearance: none; }
+.workout-select { display: grid; flex: none; width: 22px; height: 22px; place-items: center; border: 1.5px solid #c4c9c5; border-radius: 6px; color: transparent; transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease; }
+.workout-select svg { width: 14px; height: 14px; stroke-width: 3; }
+.workout-card.is-selected { border-color: var(--green); background: #f3faf4; }
+.workout-card.is-selected .workout-select { border-color: var(--green); background: var(--green); color: white; }
+.workouts-page:has(.workout-select-bar) { padding-bottom: 96px; }
+.workout-select-bar button { display: inline-flex; align-items: center; gap: 6px; }
+.workout-select-bar button svg { width: 15px; height: 15px; }
+.workout-select-bar button:disabled { cursor: not-allowed; opacity: .4; }
+.workout-select-delete { background: #b34f43; color: white; }
+@media (hover: hover) and (pointer: fine) { .workout-select-delete:not(:disabled):hover { background: #8e3e34; } }
+.exercise-list { display: grid; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: white; }
+.exercise-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto 32px; align-items: center; gap: 4px; padding: 5px 4px 5px 8px; border-bottom: 1px solid var(--line); transition: background-color 150ms ease; }
+.exercise-row:focus-within { background: #f8fbf8; }
+.exercise-number { display: grid; width: 22px; height: 22px; place-items: center; border-radius: 50%; background: #edf0ed; color: var(--muted); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.exercise-row input { width: 100%; min-width: 0; border: 0; outline: 0; padding: 8px 6px; background: transparent; color: var(--ink); font-size: 16px; }
+.exercise-row input:focus { box-shadow: none; }
+.exercise-row input::placeholder { color: #a9b0aa; }
+.exercise-row .exercise-type button { padding: 5px 7px; font-size: 11px; font-weight: 600; }
+.exercise-remove { display: grid; width: 32px; height: 32px; place-items: center; border: 0; border-radius: 6px; padding: 0; background: transparent; color: var(--muted); }
+.exercise-remove svg { width: 15px; height: 15px; }
+.exercise-add-row { display: flex; align-items: center; gap: 8px; border: 0; padding: 12px; background: transparent; color: var(--green); font-size: 14px; font-weight: 600; text-align: left; }
+.exercise-add-row svg { width: 16px; height: 16px; }
+@media (hover: hover) and (pointer: fine) { .exercise-remove:hover { background: #fff1ee; color: #8e3e34; } .exercise-add-row:hover { background: #f3faf4; } }
+.dialog-heading .workout-notes-toggle { position: relative; display: grid; width: 28px; height: 28px; place-items: center; margin-left: 2px; border: 0; border-radius: 50%; padding: 0; background: transparent; color: var(--muted); }
+.workout-dialog-title .workout-notes-toggle svg { width: 17px; height: 17px; color: currentColor; }
+.workout-notes-toggle[aria-expanded="true"] { background: #eef5f0; color: var(--green); }
+.workout-notes-toggle.has-notes::after { position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border: 1.5px solid var(--surface); border-radius: 50%; background: var(--green); content: ''; }
+/* Height animates through grid rows (0fr → 1fr) so the exercises below slide instead of jumping. */
+.workout-notes { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 240ms var(--ease-out); }
+.workout-notes[data-open] { grid-template-rows: 1fr; }
+.workout-notes-inner { min-height: 0; overflow: hidden; }
+.workout-notes-bubble { position: relative; display: grid; gap: 6px; margin-top: 16px; border: 1px solid #b8d2bf; border-radius: 10px; padding: 10px; background: #f3faf4; opacity: 0; transform: translateY(-4px) scale(.98); transform-origin: var(--notes-arrow, 50%) top; transition: opacity 160ms ease, transform 240ms var(--ease-out); }
+.workout-notes[data-open] .workout-notes-bubble { opacity: 1; transform: none; transition-delay: 40ms; }
+@media (prefers-reduced-motion: reduce) { .workout-notes, .workout-notes-bubble { transition-property: opacity; } .workout-notes-bubble { transform: none; } }
+.workout-notes-bubble::before { position: absolute; top: -6px; left: var(--notes-arrow, 120px); width: 10px; height: 10px; border-top: 1px solid #b8d2bf; border-left: 1px solid #b8d2bf; background: #f3faf4; content: ''; transform: rotate(45deg); }
+.workout-notes-bubble textarea { min-height: 64px; border-color: #d3e3d8; font-size: 15px; }
+.workout-notes-bubble small { color: var(--muted); font-size: 11px; }
+@media (hover: hover) and (pointer: fine) { .workout-notes-toggle:hover { background: #edf0ed; color: var(--ink); } }
