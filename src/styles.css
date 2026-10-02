@@ -30,14 +30,15 @@ button:active:not(:disabled), .date-control:active, .time-picker:active, .import
 input, select, textarea { transition: border-color 150ms ease, box-shadow 150ms ease; }
 input:focus, select:focus, textarea:focus { box-shadow: var(--focus-ring); }
 .date-control input:focus, .time-picker input:focus, .import-button input:focus { box-shadow: none; }
-.app-shell { width: min(900px, calc(100% - 32px)); margin: 0 auto; padding: 24px 0 48px; }
+.app-shell { --header-height: calc(59px + env(safe-area-inset-top)); width: min(900px, calc(100% - 32px)); margin: 0 auto; padding: calc(var(--header-height) + 28px) 0 48px; }
 .not-found-content { display: grid; min-height: min(58vh, 520px); align-content: center; justify-items: start; gap: 12px; }
 .not-found-code { margin: 0; color: var(--green); font-size: 13px; font-weight: 700; }
 .not-found-content h1 { margin: 0; font-size: 36px; }
 .not-found-content > p:last-of-type { max-width: 420px; margin: 0; color: var(--muted); line-height: 1.5; }
 .not-found-content .auth-submit { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 .not-found-content .auth-submit svg { width: 16px; height: 16px; }
-.topbar, .home-header { position: sticky; z-index: 3; top: 0; margin: -24px calc(50% - 50vw) 28px; padding: calc(10px + env(safe-area-inset-top)) calc(50vw - 50%) 10px; background: rgb(255 255 255 / 94%); border-bottom: 1px solid var(--line); box-shadow: 0 5px 16px rgb(34 42 37 / 5%); backdrop-filter: blur(8px); }
+/* Fixed rather than sticky so the header stays put while iOS bounces the page at the top. */
+.topbar, .home-header { position: fixed; z-index: 3; top: 0; right: 0; left: 0; min-height: 38px; padding: calc(10px + env(safe-area-inset-top)) max(16px, calc((100% - 900px) / 2)) 10px; background: #fff; border-bottom: 1px solid var(--line); box-shadow: 0 5px 16px rgb(34 42 37 / 5%); transform: translateZ(0); }
 .topbar { display: flex; align-items: center; gap: 12px; }
 .header-ai-quota { display: inline-flex; flex: none; align-items: center; gap: 5px; margin-left: auto; border: 1px solid #dce8df; border-radius: 6px; padding: 6px 9px; background: #f1f6f2; color: var(--green); font-size: 11px; line-height: 1; }
 .header-ai-quota svg { width: 13px; height: 13px; }
@@ -341,8 +342,8 @@ textarea::placeholder { color: #9aa09b; }
   .dialog-actions button:not(.confirm-add):hover,     .period-toggle button:not(.active):hover, .metric-toggle button:not(.active):hover { color: var(--ink); }
 }
 @media (max-width: 700px) {
-  .app-shell { width: min(100% - 24px, 520px); padding-top: 16px; }
-  .topbar, .home-header { margin-top: -16px; }
+  .app-shell { width: min(100% - 24px, 520px); }
+  .topbar, .home-header { padding-inline: max(12px, calc((100% - 520px) / 2)); }
   .topbar-note { display: none; }
   .content-grid { grid-template-columns: 1fr; gap: 28px; }
   .summary-panel { position: static; order: -1; }
@@ -395,12 +396,15 @@ textarea::placeholder { color: #9aa09b; }
 .score-method p, .score-method ul { margin: 10px 0 0; }
 .score-method ul { padding-left: 18px; }
 .score-method strong { color: var(--ink); }
-.day-progress { display: grid; gap: 10px; border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
+.day-progress { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; column-gap: 10px; row-gap: 10px; border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
 .day-progress > div:first-child { display: flex; justify-content: space-between; font-size: 13px; }
 .day-progress > p { margin: 0; color: var(--muted); font-size: 13px; }
 .day-progress > small { color: var(--muted); font-size: 11px; }
-.day-progress-row { display: grid; grid-template-columns: 56px 1fr auto; align-items: center; gap: 10px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.day-progress > :not(.day-progress-row) { grid-column: 1 / -1; }
+/* Subgrid shares the columns across rows, so every track is the same width whatever the numbers. */
+.day-progress-row { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; font-size: 12px; font-variant-numeric: tabular-nums; }
 .day-progress-row .progress-track { position: relative; margin-top: 0; }
+.day-progress-row > span:last-child { text-align: right; }
 .day-progress-row .progress-track b { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: var(--ink); opacity: .5; }
 .scoring-toggle { display: flex; grid-column: 1 / -1; align-items: flex-start; gap: 10px; border-top: 1px solid var(--line); padding-top: 16px; cursor: pointer; }
 .scoring-toggle input { width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--green); }
