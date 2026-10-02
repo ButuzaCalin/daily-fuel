@@ -282,8 +282,9 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
                 <button className={`calendar-day workout-day${items.length ? ' has-workout' : ''}${date === todayKey ? ' is-today' : ''}${date === selectedDate ? ' is-selected' : ''}`} type="button" onClick={() => setSelectedDate(date)} aria-pressed={date === selectedDate} aria-label={`${formatDate(date)}${items.length ? `: ${items.map((item) => item.name).join(', ')}` : ''}`} key={date}>
                   <small className="calendar-day-date">{index + 1}</small>
                   <span className="workout-day-icons">
-                    {items.slice(0, 2).map((item) => <WorkoutIcon name={item.icon} key={item.id} />)}
-                    {items.length > 2 && <small>+{items.length - 2}</small>}
+                    {/* Up to two icons fit; from three on, one icon plus a count reads cleaner than icons and a count together. */}
+                    {items.slice(0, items.length > 2 ? 1 : 2).map((item) => <WorkoutIcon name={item.icon} key={item.id} />)}
+                    {items.length > 2 && <small>+{items.length - 1}</small>}
                   </span>
                 </button>
               );
