@@ -98,11 +98,11 @@ textarea::placeholder { color: #9aa09b; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .remove-button svg { width: 15px; height: 15px; stroke-width: 2; }
 .remove-button { display: grid; width: 30px; height: 30px; place-items: center; border: 1px solid #e6b7ad; border-radius: 5px; padding: 0; background: #fff8f6; color: #b34f43; font-size: 20px; line-height: 1; }
-.meal-nutrition { display: flex; grid-column: 2 / -1; align-items: baseline; gap: 14px; padding-left: 2px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; transition: opacity 200ms ease; }
+.meal-nutrition { display: flex; grid-column: 2 / -1; align-items: baseline; gap: 14px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; transition: opacity 200ms ease; }
 .meal-nutrition.is-empty { font-style: italic; }
-.meal-macro { display: inline-flex; align-items: baseline; gap: 4px; padding-left: 7px; border-left: 3px solid var(--green); }
-.meal-macro.macro-yellow { border-color: #c99b24; }
-.meal-macro.macro-coral { border-color: #c66b59; }
+.meal-macro { display: inline-flex; align-items: baseline; gap: 4px; padding-left: 7px; border-left: 3px solid color-mix(in srgb, var(--green) 45%, transparent); }
+.meal-macro.macro-yellow { border-color: rgb(201 155 36 / 45%); }
+.meal-macro.macro-coral { border-color: rgb(198 107 89 / 45%); }
 .meal-macro strong { color: var(--ink); font-size: 14px; font-weight: 600; }
 .meal-card .remove-button { border-color: transparent; background: transparent; color: var(--muted); }
 .meal-card[data-estimating] .meal-nutrition, .summary-panel[data-estimating] .calorie-total, .summary-panel[data-estimating] .macro-grid, .summary-panel[data-estimating] .goal-progress { opacity: .4; }
@@ -360,7 +360,7 @@ textarea::placeholder { color: #9aa09b; }
   .meal-time { flex: 0 0 48px; }
   .meal-main { min-width: 0; flex: 1 1 0; }
   .meal-actions { flex: 0 0 auto; }
-  .meal-nutrition { flex: 0 0 100%; padding-left: 58px; gap: 10px; flex-wrap: wrap; }
+  .meal-nutrition { flex: 0 0 100%; gap: 10px; flex-wrap: wrap; }
     .report-summary-grid { gap: 8px; }
   .report-stat { padding: 12px 10px; }
   .report-stat strong { font-size: 20px; }
