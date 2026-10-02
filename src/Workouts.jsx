@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { BicepsFlexed, Check, ChevronLeft, ChevronRight, Download, HeartPulse, Info, Plus, Shirt, Trash2, Upload, X } from 'lucide-react';
 import { dateKey, formatDate, useEscape, usePresence } from './shared.js';
 import './workouts.css';
@@ -440,7 +440,7 @@ function TemplateDialog({ draft, onChange, onDelete, onClose, onSubmit }) {
               <div className="exercise-row" key={exercise.id}>
                 <span className="exercise-number">{index + 1}</span>
                 {/* Enter adds the next exercise, so a list can be typed without reaching for the button. */}
-                <input value={exercise.name} onChange={(event) => updateExercise(exercise.id, { name: event.target.value })} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); if (exercise.name.trim()) addExercise(index); } }} placeholder="Exercise name" title={exercise.name || undefined} maxLength={60} autoFocus={exercise.id === focusId} enterKeyHint="next" aria-label={`Exercise ${index + 1}`} />
+                <NameField value={exercise.name} onChange={(value) => updateExercise(exercise.id, { name: value })} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); if (exercise.name.trim()) addExercise(index); } }} placeholder="Exercise name" maxLength={60} autoFocus={exercise.id === focusId} enterKeyHint="next" aria-label={`Exercise ${index + 1}`} />
                 <TypeToggle value={exerciseType(exercise)} onChange={(type) => updateExercise(exercise.id, { type })} label={`Exercise ${index + 1} measured by`} />
                 <button className="exercise-remove" type="button" onClick={() => onChange({ exercises: shown.exercises.filter((item) => item.id !== exercise.id) })} aria-label={`Remove exercise ${index + 1}`}><X /></button>
               </div>
@@ -524,6 +524,19 @@ function SessionDialog({ session, template, onNotesChange, onChange, onDelete, o
       </form>
     </DialogShell>
   );
+}
+
+// A one-line text field that wraps long names onto more lines instead of hiding them (an input cannot wrap).
+// Line breaks are typed as Enter, which callers handle, so the value always stays a single line.
+function NameField({ value, onChange, ...props }) {
+  const ref = useRef(null);
+  useLayoutEffect(() => {
+    const field = ref.current;
+    if (!field) return;
+    field.style.height = 'auto';
+    field.style.height = `${field.scrollHeight}px`;
+  }, [value]);
+  return <textarea ref={ref} rows="1" value={value} onChange={(event) => onChange(event.target.value.replace(/\s*\n\s*/g, ' '))} {...props} />;
 }
 
 function TypeToggle({ value, onChange, label }) {
