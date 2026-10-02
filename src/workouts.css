@@ -31,8 +31,6 @@
 .workout-icon-picker small { max-width: 100%; overflow: hidden; font-size: 10px; font-weight: 500; text-overflow: ellipsis; }
 .workout-icon-picker button.active { border-color: var(--green); background: #eef5f0; color: var(--green); }
 .workout-icon-picker svg { width: 20px; height: 20px; }
-.exercise-log-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: -4px -4px 0 0; }
-.exercise-log-heading h3 { margin: 0; font-size: 15px; }
 @media (hover: hover) and (pointer: fine) {
   .workout-card:hover, .workout-pick-list button:hover { border-color: #b8d2bf; background: #f8fbf8; }
   .workout-icon-picker button:not(.active):hover { border-color: #b8d2bf; color: var(--ink); }
@@ -49,18 +47,6 @@
 .exercise-type button { border: 0; border-radius: 4px; padding: 7px 8px; background: transparent; color: var(--muted); font-size: 12px; }
 .exercise-type button.active { background: var(--ink); color: white; }
 @media (hover: hover) and (pointer: fine) { .exercise-type button:not(.active):hover { color: var(--ink); } }
-.session-form { gap: 0; margin-top: 12px; }
-.session-form .dialog-actions { margin-top: 14px; }
-.exercise-entry { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, 54px); align-items: end; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--line); }
-.exercise-entry-name { display: grid; gap: 2px; min-width: 0; align-self: center; }
-.exercise-entry-name strong { font-size: 14px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
-.exercise-entry-name small { color: var(--muted); font-size: 11px; line-height: 1.35; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.entry-field { display: grid; gap: 3px; min-width: 0; }
-.entry-field small { color: var(--muted); font-size: 10px; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: .04em; }
-.entry-field input { width: 100%; min-width: 0; border: 0; border-radius: 6px; outline: 0; padding: 8px 2px; background: #edf0ed; color: var(--ink); font-size: 16px; font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; -moz-appearance: textfield; appearance: textfield; }
-.entry-field input:focus { box-shadow: inset 0 0 0 1.5px var(--green); }
-.entry-field input::placeholder { color: #a9b0aa; font-weight: 500; }
-.entry-field input::-webkit-inner-spin-button, .entry-field input::-webkit-outer-spin-button { margin: 0; -webkit-appearance: none; }
 .workout-select { display: grid; flex: none; width: 22px; height: 22px; place-items: center; border: 1.5px solid #c4c9c5; border-radius: 6px; color: transparent; transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease; }
 .workout-select svg { width: 14px; height: 14px; stroke-width: 3; }
 .workout-card.is-selected { border-color: var(--green); background: #f3faf4; }
@@ -84,21 +70,6 @@
 .exercise-add-row { display: flex; align-items: center; gap: 8px; border: 0; padding: 12px; background: transparent; color: var(--green); font-size: 14px; font-weight: 600; text-align: left; }
 .exercise-add-row svg { width: 16px; height: 16px; }
 @media (hover: hover) and (pointer: fine) { .exercise-remove:hover { background: #fff1ee; color: #8e3e34; } .exercise-add-row:hover { background: #f3faf4; } }
-.dialog-heading .workout-notes-toggle { position: relative; display: grid; width: 28px; height: 28px; place-items: center; margin-left: 2px; border: 0; border-radius: 50%; padding: 0; background: transparent; color: var(--muted); }
-.workout-dialog-title .workout-notes-toggle svg { width: 17px; height: 17px; color: currentColor; }
-.workout-notes-toggle[aria-expanded="true"] { background: #eef5f0; color: var(--green); }
-.workout-notes-toggle.has-notes::after { position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border: 1.5px solid var(--surface); border-radius: 50%; background: var(--green); content: ''; }
-/* Height animates through grid rows (0fr → 1fr) so the exercises below slide instead of jumping. */
-.workout-notes { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 240ms var(--ease-out); }
-.workout-notes[data-open] { grid-template-rows: 1fr; }
-.workout-notes-inner { min-height: 0; overflow: hidden; }
-.workout-notes-bubble { position: relative; display: grid; gap: 6px; margin-top: 16px; border: 1px solid #b8d2bf; border-radius: 10px; padding: 10px; background: #f3faf4; opacity: 0; transform: translateY(-4px) scale(.98); transform-origin: var(--notes-arrow, 50%) top; transition: opacity 160ms ease, transform 240ms var(--ease-out); }
-.workout-notes[data-open] .workout-notes-bubble { opacity: 1; transform: none; transition-delay: 40ms; }
-@media (prefers-reduced-motion: reduce) { .workout-notes, .workout-notes-bubble { transition-property: opacity; } .workout-notes-bubble { transform: none; } }
-.workout-notes-bubble::before { position: absolute; top: -6px; left: var(--notes-arrow, 120px); width: 10px; height: 10px; border-top: 1px solid #b8d2bf; border-left: 1px solid #b8d2bf; background: #f3faf4; content: ''; transform: rotate(45deg); }
-.workout-notes-bubble textarea { min-height: 64px; border-color: #d3e3d8; font-size: 15px; }
-.workout-notes-bubble small { color: var(--muted); font-size: 11px; }
-@media (hover: hover) and (pointer: fine) { .workout-notes-toggle:hover { background: #edf0ed; color: var(--ink); } }
 .unsaved-layer { z-index: 11; }
 .unsaved-dialog { width: min(100%, 340px); }
 .unsaved-dialog h2 { margin: 0; font-size: 18px; }
@@ -106,3 +77,48 @@
 .unsaved-dialog .dialog-actions .unsaved-discard { margin-right: auto; background: transparent; color: #b34f43; }
 @media (hover: hover) and (pointer: fine) { .unsaved-dialog .dialog-actions .unsaved-discard:hover { background: #fff1ee; } }
 @media (max-width: 430px) { .unsaved-layer { align-items: center; padding-top: 20px; } }
+/* Routines: a workout lists its exercises; a started exercise fills the modal until it is ended. */
+.routine-running { border-color: var(--green); background: #f3faf4; margin-bottom: 8px; width: 100%; }
+.routine-running .workout-card-main { flex: 1; }
+.routine-running .workout-card-main small { color: var(--green); font-weight: 600; font-variant-numeric: tabular-nums; }
+.routine-running-action { flex: none; border-radius: 6px; padding: 7px 12px; background: var(--green); color: white; font-size: 13px; font-weight: 600; }
+.routine-timer { color: var(--green); font-weight: 700; font-variant-numeric: tabular-nums; }
+.routine-notes { margin: 10px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; white-space: pre-wrap; }
+.routine-list { display: grid; margin-top: 12px; }
+.routine-item { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.routine-item-check { display: grid; width: 22px; height: 22px; place-items: center; border: 1.5px solid #c4c9c5; border-radius: 50%; color: white; }
+.routine-item.is-done .routine-item-check { border-color: var(--green); background: var(--green); }
+.routine-item-check svg { width: 13px; height: 13px; stroke-width: 3; }
+.routine-item-main { display: grid; gap: 2px; min-width: 0; }
+.routine-item-main strong { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.routine-item-main small { color: var(--muted); font-size: 12px; line-height: 1.4; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.routine-item-start { border: 1px solid var(--green); border-radius: 7px; padding: 7px 14px; background: var(--green); color: white; font-size: 13px; font-weight: 600; }
+.routine-item.is-done .routine-item-start { background: white; color: var(--green); }
+.routine-block { display: grid; gap: 8px; margin-top: 16px; }
+.routine-block h3 { display: flex; align-items: baseline; gap: 6px; margin: 0; font-size: 13px; font-weight: 600; }
+.routine-block h3 small { color: var(--muted); font-size: 12px; font-weight: 400; }
+.routine-last { border-radius: 10px; padding: 12px; background: #f5f7f5; }
+.routine-last .routine-sets li { color: var(--muted); }
+.routine-last .routine-set-number { background: white; color: var(--muted); }
+.routine-sets { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.routine-sets li { display: grid; grid-template-columns: 24px minmax(0, 1fr) 30px; align-items: center; gap: 10px; min-height: 32px; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.routine-set-number { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 50%; background: #eef5f0; color: var(--green); font-size: 11px; font-weight: 700; }
+.routine-set-number.is-next { background: transparent; box-shadow: inset 0 0 0 1.5px #c4c9c5; color: var(--muted); }
+.routine-sets button { display: grid; width: 30px; height: 30px; place-items: center; border: 0; border-radius: 6px; padding: 0; background: transparent; color: var(--muted); }
+.routine-sets button svg { width: 14px; height: 14px; }
+.routine-add { display: grid; grid-template-columns: 24px repeat(2, minmax(0, 1fr)) 44px; align-items: center; gap: 10px; }
+.routine-field { position: relative; display: block; min-width: 0; }
+.routine-field input { width: 100%; min-width: 0; border: 0; border-radius: 8px; outline: 0; padding: 10px 34px 10px 12px; background: #edf0ed; color: var(--ink); font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; -moz-appearance: textfield; appearance: textfield; }
+.routine-field input:focus { box-shadow: inset 0 0 0 1.5px var(--green); }
+.routine-field input::placeholder { color: #a9b0aa; font-weight: 500; }
+.routine-field input::-webkit-inner-spin-button, .routine-field input::-webkit-outer-spin-button { margin: 0; -webkit-appearance: none; }
+.routine-field small { position: absolute; top: 50%; right: 10px; color: var(--muted); font-size: 12px; pointer-events: none; transform: translateY(-50%); }
+.routine-add-set { display: grid; width: 44px; height: 42px; place-items: center; border: 0; border-radius: 8px; padding: 0; background: var(--green); color: white; }
+.routine-add-set svg { width: 20px; height: 20px; }
+.routine-add-set:disabled { cursor: not-allowed; opacity: .35; }
+.routine-actions { margin-top: 18px; }
+.routine-actions .confirm-add:only-child { flex: 1; }
+@media (hover: hover) and (pointer: fine) {
+  .routine-running:hover .routine-running-action, .routine-add-set:not(:disabled):hover, .routine-item-start:hover { background: #285d3d; color: white; }
+  .routine-sets button:hover { background: #fff1ee; color: #8e3e34; }
+}

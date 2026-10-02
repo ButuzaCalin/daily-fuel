@@ -1,6 +1,6 @@
-import { useId, useLayoutEffect, useRef, useState } from 'react';
-import { BicepsFlexed, Check, ChevronLeft, ChevronRight, Download, HeartPulse, Info, Plus, Shirt, Trash2, Upload, X } from 'lucide-react';
-import { dateKey, formatDate, useEscape, usePresence } from './shared.js';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { BicepsFlexed, Check, ChevronLeft, ChevronRight, Download, HeartPulse, Plus, Shirt, Trash2, Upload, X } from 'lucide-react';
+import { dateKey, formatDate, loadLocal, saveLocal, useEscape, usePresence } from './shared.js';
 import './workouts.css';
 
 // Body-part icons drawn in Lucide's style (24px grid, 2px round strokes) for the parts Lucide has no icon for.
@@ -34,7 +34,6 @@ function WorkoutIcon({ name, ...props }) {
 
 // Exercises are measured either in reps (with optional kg) or in time; older entries without a type are reps.
 const exerciseType = (exercise) => (exercise?.type === 'time' ? 'time' : 'reps');
-const blankEntry = () => ({ sets: '', reps: '', weight: '', min: '', sec: '' });
 const blankExercise = () => ({ id: crypto.randomUUID(), name: '', type: 'reps' });
 const exerciseKey = (exercise) => `${exerciseType(exercise)}:${exercise.name.trim().toLowerCase()}`;
 const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
@@ -60,13 +59,6 @@ function formEntry(entry) {
   return { sets: value(entry.sets), reps: value(entry.reps), weight: value(entry.weight), min: value(Math.floor(entry.seconds / 60)), sec: value(entry.seconds % 60) };
 }
 
-// Leaves out whatever was not filled in, e.g. "3 sets", "8 × 60 kg" or "3 × 1:30".
-function entrySummary(entry, type) {
-  const amount = type === 'time' ? (entry.seconds ? formatDuration(entry.seconds) : '') : entry.reps ? `${entry.reps}${entry.weight ? ` × ${entry.weight} kg` : ''}` : '';
-  if (!amount) return plural(entry.sets, 'set');
-  return entry.sets ? `${entry.sets} × ${amount}` : amount;
-}
-
 // A previous entry worth showing: plain numbers with at least a set count, reps or time.
 function shownEntry(entry) {
   if (!entry || Array.isArray(entry) || typeof entry !== 'object') return null;
@@ -76,34 +68,9 @@ function shownEntry(entry) {
 
 const loggedExercises = (workout) => workout.exercises.filter((exercise) => { const entry = logEntry(exercise); return entry.sets || entry.reps || entry.seconds; });
 
-// Cleans form strings into stored numbers; exercises without a name, and logged exercises left empty, are dropped.
-function cleanExercises(exercises, logged, preserveEmpty = false) {
-  const cleaned = exercises.map((exercise) => {
-    const type = exerciseType(exercise);
-    if (!logged) return { id: exercise.id, name: exercise.name.trim(), type };
-    const values = type === 'time' ? { seconds: whole(exercise.min) * 60 + whole(exercise.sec) } : { reps: whole(exercise.reps), weight: Math.max(0, Math.round(Number(exercise.weight) * 10) / 10 || 0) };
-    return { id: exercise.id, name: exercise.name.trim(), type, sets: whole(exercise.sets), ...values };
-  }).filter((exercise) => exercise.name);
-  return logged && !preserveEmpty ? cleaned.filter((exercise) => exercise.sets || exercise.reps || exercise.seconds) : cleaned;
-}
-
-// The most recent earlier session of the same workout, shown as gray placeholders.
-function withPrevious(draft, logs, date) {
-  const previous = Object.keys(logs).filter((day) => day <= date).sort().reverse().flatMap((day) => [...logs[day]].reverse())
-    .find((log) => log.templateId === draft.templateId && log.id !== draft.id);
-  const last = new Map((previous?.exercises || []).map((exercise) => [exerciseKey(exercise), logEntry(exercise)]));
-  return { ...draft, exercises: draft.exercises.map((exercise) => ({ ...exercise, previous: last.get(exerciseKey(exercise)) || null })) };
-}
-
-function startSession(template, logs, date) {
-  return withPrevious({
-    id: crypto.randomUUID(),
-    templateId: template.id,
-    name: template.name,
-    icon: template.icon,
-    notes: '',
-    exercises: template.exercises.map((exercise) => ({ id: crypto.randomUUID(), name: exercise.name, type: exerciseType(exercise), ...blankEntry() })),
-  }, logs, date);
+// Exercises without a name are dropped.
+function cleanExercises(exercises) {
+  return exercises.map((exercise) => ({ id: exercise.id, name: exercise.name.trim(), type: exerciseType(exercise) })).filter((exercise) => exercise.name);
 }
 
 // Same name and exercises (ignoring case) counts as a workout that is already saved.
@@ -126,25 +93,84 @@ function parseTemplates(file) {
   }));
 }
 
-function editableSession(log, template) {
-  const remaining = [...log.exercises];
-  const exercises = (template?.exercises || []).map((exercise) => {
-    const index = remaining.findIndex((item) => exerciseKey(item) === exerciseKey(exercise));
-    if (index < 0) return { id: crypto.randomUUID(), name: exercise.name, type: exerciseType(exercise), ...blankEntry() };
-    const [saved] = remaining.splice(index, 1);
-    return { id: saved.id, name: exercise.name, type: exerciseType(exercise), ...formEntry(logEntry(saved)) };
-  });
-  return { ...log, exercises: [...exercises, ...remaining.map((exercise) => ({ id: exercise.id, name: exercise.name, type: exerciseType(exercise), ...formEntry(logEntry(exercise)) }))] };
-}
-
-// What counts as a change when deciding whether closing a dialog should ask to save.
-function sessionSnapshot(draft) {
-  return JSON.stringify(draft.exercises.map((exercise) => [exercise.sets, exercise.reps, exercise.weight, exercise.min, exercise.sec].map((value) => String(value ?? '').trim())));
-}
-
 function templateSnapshot(draft) {
   return JSON.stringify([draft.name.trim(), draft.icon, draft.notes.trim(), draft.exercises.filter((exercise) => exercise.name.trim()).map((exercise) => [exercise.name.trim(), exerciseType(exercise)])]);
 }
+
+// Routines log every set on its own: { reps, weight } or { seconds }. Older entries are expanded into that many equal sets.
+function setList(exercise) {
+  if (Array.isArray(exercise?.sets)) return exercise.sets.map((set) => ({ reps: whole(set?.reps), weight: Math.max(0, Number(set?.weight) || 0), seconds: whole(set?.seconds) })).filter((set) => set.reps || set.seconds);
+  const entry = shownEntry(logEntry(exercise || {}));
+  if (!entry || !(entry.reps || entry.seconds)) return [];
+  return Array.from({ length: Math.max(1, entry.sets) }, () => ({ reps: entry.reps, weight: entry.weight, seconds: entry.seconds }));
+}
+
+const setLabel = (set, type) => (type === 'time' ? formatDuration(set.seconds) : `${set.reps}${set.weight ? ` × ${set.weight} kg` : ''}`);
+
+// "3 × 8 × 60 kg" when every set matches, otherwise each set in order.
+function exerciseSummary(exercise) {
+  const type = exerciseType(exercise);
+  const labels = setList(exercise).map((set) => setLabel(set, type));
+  if (!labels.length) return plural(logEntry(exercise).sets, 'set');
+  return labels.every((label) => label === labels[0]) ? `${labels.length} × ${labels[0]}` : labels.join(', ');
+}
+
+// For each exercise, the sets from the most recent earlier session that did it (in any workout), for the "Last time" view and the placeholders.
+function routinePrevious(logs, date, excludeId) {
+  const found = new Map();
+  Object.keys(logs).filter((day) => day <= date).sort().reverse().forEach((day) => [...logs[day]].reverse().forEach((log) => {
+    if (log.id === excludeId) return;
+    (log.exercises || []).forEach((exercise) => {
+      const key = exerciseKey(exercise);
+      const sets = setList(exercise);
+      if (!found.has(key) && sets.length) found.set(key, { date: day, sets });
+    });
+  }));
+  return found;
+}
+
+// The workout's exercises in order, keeping logged sets that match; logged exercises no longer in the workout come last.
+function routineDraft(base, sourceExercises, template, logs, date) {
+  const remaining = [...sourceExercises];
+  const take = (exercise) => {
+    const index = remaining.findIndex((item) => exerciseKey(item) === exerciseKey(exercise));
+    return index < 0 ? null : remaining.splice(index, 1)[0];
+  };
+  const previous = routinePrevious(logs, date, base.id);
+  const build = (exercise, saved) => ({ id: saved?.id || crypto.randomUUID(), name: exercise.name, type: exerciseType(exercise), sets: saved ? setList(saved) : [], previous: previous.get(exerciseKey(exercise)) || null });
+  const exercises = (template?.exercises || []).map((exercise) => build(exercise, take(exercise)));
+  return { ...base, active: null, exercises: [...exercises, ...remaining.map((exercise) => build(exercise, exercise))] };
+}
+
+// Only a routine for today is timed; one logged for another day has no duration.
+function startRoutine(template, logs, date) {
+  return routineDraft({ id: crypto.randomUUID(), templateId: template.id, name: template.name, icon: template.icon, notes: '', date, startedAt: date === dateKey(new Date()) ? Date.now() : null }, [], template, logs, date);
+}
+
+function routineLog(routine, duration) {
+  const { active: _active, startedAt: _startedAt, date: _date, initial: _initial, ...rest } = routine;
+  return { ...rest, routine: true, duration, exercises: routine.exercises.filter((exercise) => exercise.sets.length).map(({ id, name, type, sets }) => ({ id, name, type, sets: sets.map((set) => (type === 'time' ? { seconds: set.seconds } : { reps: set.reps, weight: set.weight })) })) };
+}
+
+const routineSnapshot = (routine) => JSON.stringify(routine.exercises.map((exercise) => exercise.sets));
+
+// Re-renders every second while `active`, for running timers.
+function useNow(active) {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (!active) return undefined;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [active]);
+  return now;
+}
+
+// A timed workout still running after this long was most likely forgotten, so it is ended for you.
+const autoEndSeconds = 2 * 60 * 60;
+const durationLabel = (log) => `${formatDuration(log.duration)}${log.autoEnded ? ' (auto ended)' : ''}`;
+
+const elapsed = (routine, now) => (routine.startedAt ? Math.max(0, Math.floor((now - routine.startedAt) / 1000)) : 0);
 
 export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, notify }) {
   const todayKey = dateKey(new Date());
@@ -153,12 +179,17 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
   const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [picking, setPicking] = useState(false);
   const [templateDraft, setTemplateDraftState] = useState(null);
-  const [session, setSessionState] = useState(null);
-  // Which dialog is asking "Save changes?" after a close attempt: 'template', 'session' or null.
+  // Which screen is asking "Save changes?" after a close attempt: 'template', 'routine' or null.
   const [confirming, setConfirming] = useState(null);
   // Opening a dialog records its starting state, so a close can tell whether anything changed.
-  const openSession = (value) => setSessionState(value && { ...value, initial: sessionSnapshot(value.draft) });
   const openTemplate = (value) => setTemplateDraftState(value && { ...value, initial: templateSnapshot(value) });
+  // The routine being done right now; kept in storage so a reload or leaving the page does not lose it.
+  const [routine, setRoutine] = useState(() => loadLocal('daily-fuel-active-routine', null));
+  const [routineOpen, setRoutineOpen] = useState(false);
+  // A logged session opened from the calendar to change its sets.
+  const [routineEdit, setRoutineEdit] = useState(null);
+  useEffect(() => saveLocal('daily-fuel-active-routine', routine), [routine]);
+  const now = useNow(Boolean(routine));
   // Ids picked in select mode on the Saved tab; null when not selecting.
   const [selected, setSelected] = useState(null);
   const dayLogs = logs[selectedDate] || [];
@@ -177,11 +208,11 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
     event?.preventDefault();
     const name = templateDraft.name.trim();
     if (!name) return;
-    const template = { id: templateDraft.id || crypto.randomUUID(), name, icon: templateDraft.icon, notes: templateDraft.notes.trim(), exercises: cleanExercises(templateDraft.exercises, false) };
+    const template = { id: templateDraft.id || crypto.randomUUID(), name, icon: templateDraft.icon, notes: templateDraft.notes.trim(), exercises: cleanExercises(templateDraft.exercises) };
     setTemplates((current) => (templateDraft.id ? current.map((item) => (item.id === template.id ? template : item)) : [...current, template]));
     setTemplateDraftState(null);
     setConfirming(null);
-    if (templateDraft.logAfter) openSession({ draft: startSession(template, logs, selectedDate), date: selectedDate, isNew: true });
+    if (templateDraft.logAfter) { setRoutine(startRoutine(template, logs, selectedDate)); setRoutineOpen(true); }
     else notify(templateDraft.id ? 'Workout updated.' : 'Workout saved.', 'success');
   }
 
@@ -246,18 +277,45 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
     }
   }
 
-  function saveSession(event, preserveEmpty = false) {
-    event?.preventDefault();
-    const { draft, date } = session;
-    const { previous: _previous, ...rest } = draft;
-    const log = { ...rest, exercises: cleanExercises(draft.exercises, true, preserveEmpty) };
-    setLogs((current) => {
-      const items = current[date] || [];
-      return { ...current, [date]: items.some((item) => item.id === log.id) ? items.map((item) => (item.id === log.id ? log : item)) : [...items, log] };
-    });
-    setSessionState(null);
+  function endRoutine(auto = false) {
+    const log = { ...routineLog(routine, auto ? autoEndSeconds : elapsed(routine, Date.now())), ...(auto && { autoEnded: true }) };
+    const { date } = routine;
+    setRoutine(null);
+    setRoutineOpen(false);
+    if (!log.exercises.length) return notify(auto ? `${log.name} was ended after 2 hours. No sets were logged.` : 'Routine ended. No sets were logged.', 'info');
+    setLogs((current) => ({ ...current, [date]: [...(current[date] || []), log] }));
+    setSelectedDate(date);
+    notify(auto ? `${log.name} was still running after 2 hours, so it was ended and logged.` : 'Workout logged.', auto ? 'info' : 'success');
+  }
+
+  // Also catches a workout left running while the app was closed, as soon as this page opens.
+  // The ref keeps a repeated effect run (e.g. StrictMode) from logging the same workout twice.
+  const autoEnded = useRef(null);
+  useEffect(() => {
+    if (!routine?.startedAt || elapsed(routine, now) < autoEndSeconds || autoEnded.current === routine.id) return;
+    autoEnded.current = routine.id;
+    endRoutine(true);
+  }, [now, routine]);
+
+  function discardRoutine() {
+    const discarded = routine;
+    setRoutine(null);
+    setRoutineOpen(false);
+    notify('Routine discarded.', 'info', { label: 'Undo', onClick: () => setRoutine(discarded) });
+  }
+
+  function openRoutineEdit(log, date) {
+    const draft = routineDraft(log, log.exercises, templates.find((template) => template.id === log.templateId), logs, date);
+    setRoutineEdit({ ...draft, date, initial: routineSnapshot(draft) });
+  }
+
+  function saveRoutineEdit() {
+    const { date } = routineEdit;
+    const log = routineLog(routineEdit, routineEdit.duration);
+    setLogs((current) => ({ ...current, [date]: (current[date] || []).map((item) => (item.id === log.id ? log : item)) }));
+    setRoutineEdit(null);
     setConfirming(null);
-    notify(session.isNew ? 'Workout logged.' : 'Workout updated.', 'success');
+    notify('Workout updated.', 'success');
   }
 
   function removeLog(log, date) {
@@ -266,10 +324,29 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
       const { [date]: _removed, ...rest } = current;
       return items.length ? { ...current, [date]: items } : rest;
     });
-    setSessionState(null);
+    setRoutineEdit(null);
     notify('Session deleted.', 'info', { label: 'Undo', onClick: () => setLogs((current) => ({ ...current, [date]: [...(current[date] || []), log] })) });
   }
 
+  const unsaved = (
+    <UnsavedDialog
+      open={Boolean(confirming)}
+      canSave={confirming !== 'template' || Boolean(templateDraft?.name.trim())}
+      onSave={() => (confirming === 'template' ? saveTemplate() : saveRoutineEdit())}
+      onDiscard={() => { if (confirming === 'template') setTemplateDraftState(null); else setRoutineEdit(null); setConfirming(null); }}
+      onKeepEditing={() => setConfirming(null)}
+    />
+  );
+
+  function startWorkout(template) {
+    setPicking(false);
+    setRoutine(startRoutine(template, logs, selectedDate));
+    setRoutineOpen(true);
+  }
+
+  // One workout runs at a time; adding while one is running brings it back.
+  const openPicker = () => (routine ? setRoutineOpen(true) : setPicking(true));
+  const shownRoutine = routineOpen ? routine : routineEdit;
   return (
     <main className="app-shell reports-page workouts-page">
       {chrome}
@@ -311,22 +388,32 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
 
         <section className="workout-day-panel">
           <div className="section-heading"><h2>{selectedDate === todayKey ? 'Today' : formatDate(selectedDate)}</h2><span className="meal-count">{dayLogs.length}</span></div>
-          {dayLogs.length === 0 ? (
+          {routine?.date === selectedDate && (
+            <button className="workout-card routine-running" type="button" onClick={() => setRoutineOpen(true)}>
+              <span className="workout-icon"><WorkoutIcon name={routine.icon} /></span>
+              <span className="workout-card-main">
+                <strong>{routine.name}</strong>
+                <small>In progress{routine.startedAt ? ` · ${formatDuration(elapsed(routine, now))}` : ''} · {plural(routine.exercises.filter((exercise) => exercise.sets.length).length, 'exercise')} done</small>
+              </span>
+              <span className="routine-running-action">Continue</span>
+            </button>
+          )}
+          {dayLogs.length === 0 ? (routine?.date === selectedDate ? null :
             <div className="empty-state">
               <p>No workouts logged {selectedDate === todayKey ? 'today' : 'on this day'}</p>
-              <button className="empty-add" type="button" onClick={() => setPicking(true)}>Add a workout</button>
+              <button className="empty-add" type="button" onClick={openPicker}>Start a workout</button>
             </div>
           ) : (
             <div className="workout-list">
               {dayLogs.map((log) => (
                 <div className="workout-row" key={log.id}>
-                  <button className="workout-card" type="button" onClick={() => openSession({ draft: withPrevious(editableSession(log, templates.find((template) => template.id === log.templateId)), logs, selectedDate), date: selectedDate })}>
+                  <button className="workout-card" type="button" onClick={() => openRoutineEdit(log, selectedDate)}>
                     <span className="workout-icon"><WorkoutIcon name={log.icon} /></span>
                     <span className="workout-card-main">
                       <strong>{log.name}</strong>
-                      <small>{plural(loggedExercises(log).length, 'exercise')}</small>
+                      <small>{plural(loggedExercises(log).length, 'exercise')}{log.duration > 0 && ` · ${durationLabel(log)}`}</small>
                       {loggedExercises(log).length > 0 && (() => {
-                        const detail = loggedExercises(log).map((exercise) => `${exercise.name} ${entrySummary(logEntry(exercise), exerciseType(exercise))}`).join(' · ');
+                        const detail = loggedExercises(log).map((exercise) => `${exercise.name} ${exerciseSummary(exercise)}`).join(' · ');
                         return <small className="workout-card-detail" title={detail}>{detail}</small>;
                       })()}
                     </span>
@@ -378,25 +465,28 @@ export function WorkoutsView({ chrome, templates, setTemplates, logs, setLogs, n
           <button className="workout-select-delete" type="button" onClick={deleteSelected} disabled={!selected.size}><Trash2 aria-hidden="true" />Delete</button>
         </div>
       )}
-      {!selected && <button className="add-meal-fab" type="button" onClick={() => (tab === 'calendar' ? setPicking(true) : newTemplate())} aria-label={tab === 'calendar' ? 'Add workout' : 'New workout'}>+</button>}
+      {!selected && <button className="add-meal-fab" type="button" onClick={() => (tab === 'calendar' ? openPicker() : newTemplate())} aria-label={tab === 'calendar' ? 'Start workout' : 'New workout'}>+</button>}
 
       <PickWorkoutDialog
         open={picking}
         date={selectedDate}
         templates={templates}
-        onPick={(template) => { setPicking(false); openSession({ draft: startSession(template, logs, selectedDate), date: selectedDate, isNew: true }); }}
+        onPick={startWorkout}
         onCreate={() => newTemplate(true)}
         onClose={() => setPicking(false)}
       />
       <TemplateDialog draft={templateDraft} onChange={(patch) => setTemplateDraftState((current) => ({ ...current, ...patch }))} onDelete={templateDraft?.id ? () => removeTemplate(templates.find((item) => item.id === templateDraft.id)) : null} onClose={() => (templateSnapshot(templateDraft) === templateDraft.initial ? setTemplateDraftState(null) : setConfirming('template'))} onSubmit={saveTemplate} />
-      <SessionDialog session={session} template={templates.find((template) => template.id === session?.draft.templateId)} onNotesChange={(templateId, notes) => setTemplates((current) => current.map((template) => (template.id === templateId ? { ...template, notes } : template)))} onChange={(patch) => setSessionState((current) => ({ ...current, draft: { ...current.draft, ...patch } }))} onDelete={session && !session.isNew ? () => removeLog(logs[session.date].find((item) => item.id === session.draft.id), session.date) : null} onClose={() => (sessionSnapshot(session.draft) === session.initial ? setSessionState(null) : setConfirming('session'))} onSubmit={saveSession} />
-      <UnsavedDialog
-        open={Boolean(confirming)}
-        canSave={confirming !== 'template' || Boolean(templateDraft?.name.trim())}
-        onSave={() => (confirming === 'template' ? saveTemplate() : saveSession())}
-        onDiscard={() => { if (confirming === 'template') setTemplateDraftState(null); else setSessionState(null); setConfirming(null); }}
-        onKeepEditing={() => setConfirming(null)}
+      <RoutineDialog
+        routine={shownRoutine}
+        live={routineOpen}
+        now={now}
+        notes={templates.find((template) => template.id === shownRoutine?.templateId)?.notes}
+        onChange={(patch) => (routineOpen ? setRoutine((current) => ({ ...current, ...patch })) : setRoutineEdit((current) => ({ ...current, ...patch })))}
+        onClose={() => (routineOpen ? setRoutineOpen(false) : routineSnapshot(routineEdit) === routineEdit.initial ? setRoutineEdit(null) : setConfirming('routine'))}
+        onEnd={routineOpen ? endRoutine : saveRoutineEdit}
+        onDiscard={routineOpen ? discardRoutine : () => removeLog(logs[routineEdit.date].find((item) => item.id === routineEdit.id), routineEdit.date)}
       />
+      {unsaved}
     </main>
   );
 }
@@ -439,7 +529,7 @@ function PickWorkoutDialog({ open, date, templates, onPick, onCreate, onClose })
   const [shown, closing] = usePresence(open ? { date } : null, 150);
   useEscape(open, onClose);
   return (
-    <DialogShell shown={shown} closing={closing} title={`Add workout · ${shown && shown.date === dateKey(new Date()) ? 'Today' : shown && formatDate(shown.date)}`} onClose={onClose}>
+    <DialogShell shown={shown} closing={closing} title={`Start workout · ${shown && shown.date === dateKey(new Date()) ? 'Today' : shown && formatDate(shown.date)}`} onClose={onClose}>
       <div className="workout-pick-list">
         {templates.map((template) => (
           <button type="button" onClick={() => onPick(template)} key={template.id}>
@@ -449,7 +539,7 @@ function PickWorkoutDialog({ open, date, templates, onPick, onCreate, onClose })
         ))}
         <button className="workout-pick-new" type="button" onClick={onCreate}>
           <span className="workout-icon"><Plus aria-hidden="true" /></span>
-          <span className="workout-card-main"><strong>New workout</strong><small>Create it, then log it</small></span>
+          <span className="workout-card-main"><strong>New workout</strong><small>Create it, then start it</small></span>
         </button>
       </div>
     </DialogShell>
@@ -496,77 +586,100 @@ function TemplateDialog({ draft, onChange, onDelete, onClose, onSubmit }) {
         <label className="workout-field">Notes<textarea value={shown.notes} onChange={(event) => onChange({ notes: event.target.value })} placeholder="Warm-up, tempo, rest times…" maxLength={500} rows="2" /></label>
         <div className="dialog-actions">
           {onDelete && <button className="clear-meal-form" type="button" onClick={onDelete}><Trash2 aria-hidden="true" />Delete</button>}
-          <button className="confirm-add" type="submit" disabled={!shown.name.trim()}>{shown.logAfter ? 'Save & log' : 'Save'}</button>
+          <button className="confirm-add" type="submit" disabled={!shown.name.trim()}>{shown.logAfter ? 'Save & start' : 'Save'}</button>
         </div>
       </form>
     </DialogShell>
   );
 }
 
-// One row per exercise: sets, then reps and kg (or min and sec). Inputs start empty; last session's values are the placeholders.
-function SessionDialog({ session, template, onNotesChange, onChange, onDelete, onClose, onSubmit }) {
-  const [shown, closing] = usePresence(session, 150);
-  // Keyed by session so the notes bubble starts closed each time the dialog opens.
-  const [notesFor, setNotesFor] = useState(null);
-  const [arrowX, setArrowX] = useState(0);
-  const notesRef = useRef(null);
-  // Points the bubble's arrow at the ⓘ, whose position depends on the workout name's length.
-  function toggleNotes(event) {
-    const button = event.currentTarget.getBoundingClientRect();
-    const dialog = event.currentTarget.closest('.workout-dialog');
-    const left = dialog.getBoundingClientRect().left + parseFloat(getComputedStyle(dialog).paddingLeft) + dialog.clientLeft;
-    setArrowX(button.left + button.width / 2 - left - 6);
-    setNotesFor(notesOpen ? null : draft.id);
-    // Wait a frame: the field is inert until the open state has rendered.
-    if (!notesOpen && !notes) requestAnimationFrame(() => notesRef.current?.focus({ preventScroll: true }));
-  }
-  useEscape(Boolean(session), onClose);
+// Lists the workout's exercises, each started on its own. A started exercise fills the modal by itself until it is ended:
+// last time's sets above, today's below, and one row for the next set. Closing a live workout only hides it.
+function RoutineDialog({ routine, live, now, notes, onChange, onClose, onEnd, onDiscard }) {
+  const [shown, closing] = usePresence(routine, 150);
+  // Typed values for the next set; empty fields fall back to the placeholder, so repeating a set is one tap.
+  const [input, setInput] = useState({});
+  useEscape(Boolean(routine), onClose);
   if (!shown) return null;
-  const { draft } = shown;
-  const updateExercise = (exerciseId, patch) => onChange({ exercises: draft.exercises.map((exercise) => (exercise.id === exerciseId ? { ...exercise, ...patch } : exercise)) });
-  const notesOpen = notesFor === draft.id;
-  const notes = template?.notes || '';
-  return (
-    <DialogShell shown={shown} closing={closing} title={<span className="workout-dialog-title"><WorkoutIcon name={draft.icon} />{draft.name}{template && <button className={`workout-notes-toggle${notes.trim() ? ' has-notes' : ''}`} type="button" onClick={toggleNotes} aria-expanded={notesOpen} aria-label="Workout notes" title="Workout notes"><Info /></button>}</span>} onClose={onClose}>
-      <p className="workout-dialog-date">{shown.date === dateKey(new Date()) ? 'Today' : formatDate(shown.date)}</p>
-      {/* Always mounted so it can expand and collapse; inert keeps it out of reach while closed. */}
-      {template && (
-        <div className="workout-notes" data-open={notesOpen || undefined} inert={!notesOpen}>
-          <div className="workout-notes-inner">
-            <div className="workout-notes-bubble" style={{ '--notes-arrow': `${arrowX}px` }}>
-              {/* Notes belong to the saved workout, so they show up again every time it is logged. */}
-              <textarea ref={notesRef} value={notes} onChange={(event) => onNotesChange(template.id, event.target.value)} placeholder="Add notes for this workout: warm-up, rest times, form cues…" maxLength={500} rows="3" aria-label="Workout notes" />
-              <small>Saved to {template.name}</small>
-            </div>
+  const exercise = shown.exercises.find((item) => item.id === shown.active);
+  const setActive = (active) => { setInput({}); onChange({ active }); };
+  const dayLabel = shown.date === dateKey(new Date()) ? 'Today' : formatDate(shown.date);
+  const timer = live ? (shown.startedAt ? formatDuration(elapsed(shown, now)) : '') : shown.duration > 0 ? durationLabel(shown) : '';
+  const doneCount = shown.exercises.filter((item) => item.sets.length).length;
+
+  if (!exercise) return (
+    <DialogShell shown={shown} closing={closing} title={<span className="workout-dialog-title"><WorkoutIcon name={shown.icon} />{shown.name}</span>} onClose={onClose} className="routine-dialog">
+      <p className="workout-dialog-date">{dayLabel}{timer && <> · <span className="routine-timer">{timer}</span></>}</p>
+      {notes?.trim() && <p className="routine-notes">{notes}</p>}
+      <div className="routine-list">
+        {shown.exercises.map((item) => (
+          <div className={`routine-item${item.sets.length ? ' is-done' : ''}`} key={item.id}>
+            <span className="routine-item-check" aria-hidden="true">{item.sets.length > 0 && <Check />}</span>
+            <span className="routine-item-main">
+              <strong>{item.name}</strong>
+              <small>{item.sets.length ? exerciseSummary(item) : item.previous ? `Last: ${exerciseSummary({ type: item.type, sets: item.previous.sets })}` : 'Not done yet'}</small>
+            </span>
+            <button className="routine-item-start" type="button" onClick={() => setActive(item.id)}>{item.sets.length ? 'Edit' : 'Start'}</button>
           </div>
+        ))}
+      </div>
+      <div className="dialog-actions routine-actions">
+        <button className="clear-meal-form" type="button" onClick={onDiscard}><Trash2 aria-hidden="true" />{live ? 'Discard' : 'Delete'}</button>
+        <button className="confirm-add" type="button" onClick={onEnd}>{live ? 'Finish workout' : 'Save'}{doneCount > 0 && ` · ${doneCount}/${shown.exercises.length}`}</button>
+      </div>
+    </DialogShell>
+  );
+
+  const { type } = exercise;
+  const index = exercise.sets.length;
+  const last = exercise.previous?.sets || [];
+  const suggestion = exercise.sets[index - 1] || last[index] || last[last.length - 1] || null;
+  const placeholder = suggestion ? formEntry({ sets: 0, ...suggestion }) : {};
+  const value = (key) => ((input[key] ?? '') !== '' ? input[key] : placeholder[key] || '');
+  const next = type === 'time' ? { reps: 0, weight: 0, seconds: whole(value('min')) * 60 + whole(value('sec')) } : { reps: whole(value('reps')), weight: Math.max(0, Math.round(Number(value('weight')) * 10) / 10 || 0), seconds: 0 };
+  const canAdd = type === 'time' ? next.seconds > 0 : next.reps > 0;
+  const fields = type === 'time' ? [['min', 'min', 'numeric'], ['sec', 'sec', 'numeric']] : [['reps', 'reps', 'numeric'], ['weight', 'kg', 'decimal']];
+  const updateSets = (sets) => onChange({ exercises: shown.exercises.map((item) => (item.id === exercise.id ? { ...item, sets } : item)) });
+  function addSet(event) {
+    event.preventDefault();
+    if (!canAdd) return;
+    updateSets([...exercise.sets, next]);
+    setInput({});
+  }
+  return (
+    <DialogShell shown={shown} closing={closing} title={exercise.name} onClose={onClose} className="routine-dialog">
+      <p className="workout-dialog-date">{shown.name}{timer && <> · <span className="routine-timer">{timer}</span></>}</p>
+      {exercise.previous && (
+        <div className="routine-block routine-last">
+          <h3>Last time <small>{formatDate(exercise.previous.date)}</small></h3>
+          <ol className="routine-sets">{last.map((set, setIndex) => <li key={setIndex}><span className="routine-set-number">{setIndex + 1}</span><span>{setLabel(set, type)}</span></li>)}</ol>
         </div>
       )}
-      <form className="workout-form session-form" onSubmit={onSubmit}>
-        {draft.exercises.map((exercise) => {
-          const type = exerciseType(exercise);
-          const last = shownEntry(exercise.previous);
-          const placeholder = last ? formEntry(last) : {};
-          const fields = [['sets', 'Sets', 'numeric'], ...(type === 'time' ? [['min', 'Min', 'numeric'], ['sec', 'Sec', 'numeric']] : [['reps', 'Reps', 'numeric'], ['weight', 'kg', 'decimal']])];
-          return (
-            <div className="exercise-entry" key={exercise.id}>
-              <div className="exercise-entry-name">
-                <strong title={exercise.name}>{exercise.name}</strong>
-                <small>{last ? `Last: ${entrySummary(last, type)}` : 'First time'}</small>
-              </div>
-              {fields.map(([key, label, inputMode]) => (
-                <label className="entry-field" key={key}>
-                  <small>{label}</small>
-                  <input type="number" min="0" max={key === 'sec' ? '59' : undefined} step={key === 'weight' ? 'any' : '1'} inputMode={inputMode} value={exercise[key]} placeholder={placeholder[key] || (key === 'weight' ? '–' : '0')} onChange={(event) => updateExercise(exercise.id, { [key]: event.target.value })} aria-label={`${exercise.name} ${label}`} />
-                </label>
-              ))}
-            </div>
-          );
-        })}
-        <div className="dialog-actions">
-          {onDelete && <button className="clear-meal-form" type="button" onClick={onDelete}><Trash2 aria-hidden="true" />Delete</button>}
-          <button className="confirm-add" type="submit">{shown.isNew ? 'Log workout' : 'Save'}</button>
-        </div>
-      </form>
+      <div className="routine-block">
+        <h3>{dayLabel}</h3>
+        {index > 0 && <ol className="routine-sets">
+          {exercise.sets.map((set, setIndex) => (
+            <li key={setIndex}>
+              <span className="routine-set-number">{setIndex + 1}</span>
+              <span>{setLabel(set, type)}</span>
+              <button type="button" onClick={() => updateSets(exercise.sets.filter((_, item) => item !== setIndex))} aria-label={`Remove set ${setIndex + 1}`}><X /></button>
+            </li>
+          ))}
+        </ol>}
+        <form className="routine-add" onSubmit={addSet}>
+          <span className="routine-set-number is-next">{index + 1}</span>
+          {fields.map(([key, label, inputMode]) => (
+            <label className="routine-field" key={key}>
+              <input type="number" min="0" max={key === 'sec' ? '59' : undefined} step={key === 'weight' ? 'any' : '1'} inputMode={inputMode} value={input[key] ?? ''} placeholder={placeholder[key] || (key === 'weight' ? '–' : '0')} onChange={(event) => setInput((current) => ({ ...current, [key]: event.target.value }))} aria-label={`Set ${index + 1} ${label}`} />
+              <small>{label}</small>
+            </label>
+          ))}
+          <button className="routine-add-set" type="submit" disabled={!canAdd} aria-label={`Add set ${index + 1}`}><Plus aria-hidden="true" /></button>
+        </form>
+      </div>
+      <div className="dialog-actions routine-actions">
+        <button className="confirm-add" type="button" onClick={() => setActive(null)}>End exercise{index > 0 && ` · ${plural(index, 'set')}`}</button>
+      </div>
     </DialogShell>
   );
 }
