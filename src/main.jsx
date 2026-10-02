@@ -251,7 +251,7 @@ function scoreForDay(date, mealsByDate, goal, todayKey, now) {
 // Completed days only: the range ends yesterday, because today's log is still in progress.
 function reportDays(period) {
   const days = [];
-  const count = period === 'month' ? 30 : 7;
+  const count = { week: 7, month: 30, quarter: 90 }[period] || 7;
   const today = new Date();
   for (let index = count; index >= 1; index -= 1) {
     const date = new Date(today);
@@ -263,7 +263,7 @@ function reportDays(period) {
 
 function shortDate(value, period) {
   const date = new Date(`${value}T12:00:00`);
-  return new Intl.DateTimeFormat('en', period === 'month'
+  return new Intl.DateTimeFormat('en', period !== 'week'
     ? { month: 'numeric', day: 'numeric' }
     : { weekday: 'short' }).format(date);
 }
@@ -940,7 +940,7 @@ function ReportsView({ goal, quota, mealsByDate, onOpenDay, report, period, setP
   const maxValue = chartStep * tickCount;
   const chartTicks = Array.from({ length: tickCount + 1 }, (_, index) => (tickCount - index) * chartStep);
   const percentOf = (value) => `${(value / maxValue) * 100}%`;
-  const labelStep = period === 'month' ? 5 : 1;
+  const labelStep = { month: 5, quarter: 15 }[period] || 1;
   const loggedDays = report.days.filter((day) => day.meals.length).length;
   const average = loggedDays ? Object.fromEntries(Object.keys(emptyNutrition).map((key) => [key, report.total[key] / loggedDays])) : emptyNutrition;
   const averageMax = Math.max(average.proteins, average.carbs, average.fats, 1);
@@ -971,6 +971,7 @@ function ReportsView({ goal, quota, mealsByDate, onOpenDay, report, period, setP
         <div className="period-toggle" role="group" aria-label="Report period">
           <button className={period === 'week' ? 'active' : ''} type="button" onClick={() => setPeriod('week')}>7 days</button>
           <button className={period === 'month' ? 'active' : ''} type="button" onClick={() => setPeriod('month')}>30 days</button>
+          <button className={period === 'quarter' ? 'active' : ''} type="button" onClick={() => setPeriod('quarter')}>3 months</button>
         </div>
       </div>
 
@@ -1004,7 +1005,129 @@ function ReportsView({ goal, quota, mealsByDate, onOpenDay, report, period, setP
         </div>
         <p className="bar-hint">Tap a day to open it.</p>
       </section>
+
+      <MealTimeHeatmap days={report.days} />
     </main>
+  );
+}
+
+const heatmapWeekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+// Meal counts per weekday × hour; the hour range covers 06–23 and stretches to any earlier or later meal.
+function MealTimeHeatmap({ days }) {
+  const grid = heatmapWeekdays.map(() => Array(24).fill(0));
+  const byHour = Array(24).fill(0);
+  for (const day of days) {
+    const weekday = (new Date(`${day.date}T12:00:00`).getDay() + 6) % 7;
+    for (const meal of day.meals) {
+      const hour = Number.parseInt(meal.time, 10);
+      if (!(hour >= 0 && hour < 24)) continue;
+      grid[weekday][hour] += 1;
+      byHour[hour] += 1;
+    }
+  }
+  const logged = byHour.map((count, hour) => (count ? hour : null)).filter((hour) => hour !== null);
+  if (!logged.length) return null;
+  const firstHour = Math.min(6, ...logged);
+  const lastHour = Math.max(23, ...logged);
+  const hours = Array.from({ length: lastHour - firstHour + 1 }, (_, index) => firstHour + index);
+  const peak = Math.max(...grid.flat());
+  const busiest = byHour.indexOf(Math.max(...byHour));
+  const hourLabel = (hour) => `${String(hour).padStart(2, '0')}:00`;
+
+  return (
+    <section className="chart-card report-chart-card">
+      <div className="card-heading"><h2>Logged meal times</h2><span>most logged around {hourLabel(busiest)}</span></div>
+      <div className="heatmap" style={{ '--hours': hours.length }}>
+        {grid.map((row, weekday) => (
+          <div className="heatmap-row" key={heatmapWeekdays[weekday]}>
+            <span>{heatmapWeekdays[weekday]}</span>
+            {hours.map((hour) => {
+              const count = row[hour];
+              return <i key={hour} title={`${heatmapWeekdays[weekday]} ${hourLabel(hour)}: ${count} ${count === 1 ? 'meal' : 'meals'}`} style={count ? { opacity: 0.25 + (count / peak) * 0.75 } : undefined} data-empty={!count || undefined} />;
+            })}
+          </div>
+        ))}
+        <div className="heatmap-row heatmap-hours" aria-hidden="true">
+          <span />
+          {hours.map((hour) => <small key={hour}>{hour % 3 === 0 ? String(hour).padStart(2, '0') : ''}</small>)}
+        </div>
+      </div>
+      <p className="bar-hint">Darker cells mean more meals logged at that hour.</p>
+      <MealTimeInsights days={days} />
+    </section>
+  );
+}
+
+function mealMinutes(time) {
+  const [hours, minutes] = String(time).split(':').map(Number);
+  return Number.isFinite(hours) ? hours * 60 + (minutes || 0) : null;
+}
+
+function clockLabel(minutes) {
+  const rounded = Math.round(minutes / 15) * 15;
+  return `${String(Math.floor(rounded / 60) % 24).padStart(2, '0')}:${String(rounded % 60).padStart(2, '0')}`;
+}
+
+function durationLabel(minutes) {
+  const hours = Math.round(minutes / 30) / 2;
+  return `${hours}h`;
+}
+
+const mean = (values) => values.reduce((sum, value) => sum + value, 0) / values.length;
+
+// Plain-language takeaways from meal times; each one needs at least 3 logged days to be shown.
+function MealTimeInsights({ days }) {
+  const [collapsed, setCollapsed] = useState(() => loadLocal('daily-fuel-insights-collapsed', false));
+  const logged = days
+    .map((day) => ({ date: day.date, times: day.meals.map((meal) => mealMinutes(meal.time)).filter((value) => value !== null).sort((a, b) => a - b) }))
+    .filter((day) => day.times.length);
+  if (logged.length < 3) return null;
+
+  const firsts = logged.map((day) => day.times[0]);
+  const lasts = logged.map((day) => day.times.at(-1));
+  const insights = [];
+
+  const window = mean(lasts) - mean(firsts);
+  insights.push(`Logged meals usually fall between ${clockLabel(mean(firsts))} and ${clockLabel(mean(lasts))}, a ${durationLabel(window)} window.`);
+
+  const fasts = [];
+  for (let index = 1; index < logged.length; index += 1) {
+    const previous = new Date(`${logged[index - 1].date}T12:00:00`);
+    previous.setDate(previous.getDate() + 1);
+    if (dateKey(previous) === logged[index].date) fasts.push(24 * 60 - logged[index - 1].times.at(-1) + logged[index].times[0]);
+  }
+  if (fasts.length >= 2) insights.push(`About ${durationLabel(mean(fasts))} usually pass between the last logged meal and the next day's first.`);
+
+  const spread = Math.sqrt(mean(firsts.map((value) => (value - mean(firsts)) ** 2)));
+  insights.push(spread <= 45 ? 'The first logged meal is at a similar time each day, within about 45 min.' : `The first logged meal varies by about ±${durationLabel(spread)} from day to day.`);
+
+  const allTimes = logged.flatMap((day) => day.times);
+  const late = allTimes.filter((value) => value >= 21 * 60).length / allTimes.length;
+  if (late >= 0.15) insights.push(`${Math.round(late * 100)}% of logged meals are at 21:00 or later.`);
+
+  const isWeekend = (date) => [0, 6].includes(new Date(`${date}T12:00:00`).getDay());
+  const weekendFirsts = logged.filter((day) => isWeekend(day.date)).map((day) => day.times[0]);
+  const weekdayFirsts = logged.filter((day) => !isWeekend(day.date)).map((day) => day.times[0]);
+  if (weekendFirsts.length && weekdayFirsts.length) {
+    const shift = mean(weekendFirsts) - mean(weekdayFirsts);
+    if (Math.abs(shift) >= 45) insights.push(`On weekends the first logged meal is ${durationLabel(Math.abs(shift))} ${shift > 0 ? 'later' : 'earlier'} than on weekdays.`);
+  }
+
+  function toggle() {
+    setCollapsed((current) => {
+      saveLocal('daily-fuel-insights-collapsed', !current);
+      return !current;
+    });
+  }
+
+  return (
+    <div className="heatmap-insights">
+      <button className="insights-toggle" type="button" onClick={toggle} aria-expanded={!collapsed}>
+        From your log<ChevronDown aria-hidden="true" data-collapsed={collapsed || undefined} />
+      </button>
+      {!collapsed && <ul>{insights.map((text) => <li key={text}>{text}</li>)}</ul>}
+    </div>
   );
 }
 
