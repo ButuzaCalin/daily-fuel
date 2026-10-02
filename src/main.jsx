@@ -1,6 +1,6 @@
 import { StrictMode, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BarChart3, ChevronDown, Dumbbell, ChevronLeft, ChevronRight, Clock, Cpu, Database, Eraser, History, Home, Info, LoaderCircle, Medal, Menu as MenuIcon, Pencil, Plus, RefreshCw, Scale, ScanBarcode, Settings, Share2, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
+import { BarChart3, ChevronDown, Dumbbell, ChevronLeft, ChevronRight, Clock, Cpu, Database, Eraser, History, Home, Info, LoaderCircle, Medal, Menu as MenuIcon, Plus, RefreshCw, Scale, ScanBarcode, Settings, Share2, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
 import { toBlob } from 'html-to-image';
 import { calculateScore, dayProgress, dayStatus, DAY_COMPLETE_HOUR, macroLabels, metrics, objectiveKey, objectives, scoreLabel, scoringAvailable } from './score.js';
 import { BarcodeScanner } from './BarcodeScanner.jsx';
@@ -604,6 +604,17 @@ function App() {
     }
   }
 
+  // Saves the edited text/time, then replaces the nutrition with a fresh AI estimate.
+  function reestimateEdit() {
+    const text = editMeal?.text.trim();
+    const original = meals.find((meal) => meal.id === editMeal?.id);
+    if (!text || !original) return;
+    const { id, time } = editMeal;
+    setMealsByDate((current) => ({ ...current, [selectedDate]: sortMeals((current[selectedDate] || []).map((meal) => (meal.id === id ? { ...meal, text, time } : meal))) }));
+    setEditMeal(null);
+    estimateMeal({ ...original, text, time });
+  }
+
   function logout() { setMenuOpen(false); }
 
   if (route === 'reports') {
@@ -705,15 +716,9 @@ function App() {
                     {meal.estimating ? <LoaderCircle className="ai-loading" aria-hidden="true" /> : hasNutrition(meal) ? <RefreshCw className="ai-icon" aria-hidden="true" /> : <Sparkles className="ai-icon" aria-hidden="true" />}
                     <span className="sr-only">{meal.estimating ? 'Estimating' : hasNutrition(meal) ? 'Re-estimate nutrition with AI' : 'Estimate nutrition with AI'}</span>
                   </button>
-                  <button className="manual-button" type="button" onClick={() => openEditMeal(meal)} aria-label={`Edit ${meal.text}`} title="Edit meal"><Pencil /></button>
+                  <button className="remove-button" type="button" onClick={() => removeMeal(meal)} aria-label={`Delete ${meal.text}`} title="Delete meal"><Trash2 /></button>
                 </div>
-                <button className="remove-button" type="button" onClick={() => removeMeal(meal)} aria-label={`Delete ${meal.text}`} title="Delete meal"><Trash2 /></button>
-                <div className="meal-nutrition">
-                  <NutritionItem label="kcal" value={meal.nutrition.calories} />
-                  <NutritionItem label="protein" value={meal.nutrition.proteins} suffix="g" />
-                  <NutritionItem label="carbs" value={meal.nutrition.carbs} suffix="g" />
-                  <NutritionItem label="fat" value={meal.nutrition.fats} suffix="g" />
-                </div>
+                <MealNutrition nutrition={meal.nutrition} />
               </article>
             ))}
           </div>
@@ -754,7 +759,7 @@ function App() {
         onSubmit={addMeal}
       />
       <ScoreDialog open={scoring && scoreOpen} total={total} goal={goal} meals={meals} pendingCount={pendingCount} status={dayStatus(selectedDate, dateKey(now), now)} now={now} onClose={() => setScoreOpen(false)} />
-      <MealDialog draft={editMeal} title="Edit meal" submitLabel="Save" onChange={(patch) => setEditMeal((current) => ({ ...current, ...patch, nutrition: { ...current.nutrition, ...patch.nutrition } }))} onClose={() => setEditMeal(null)} onSubmit={saveMealEdit} />
+      <MealDialog draft={editMeal} title="Edit meal" submitLabel="Save" onChange={(patch) => setEditMeal((current) => ({ ...current, ...patch, nutrition: { ...current.nutrition, ...patch.nutrition } }))} onClose={() => setEditMeal(null)} onSubmit={saveMealEdit} onReestimate={reestimateEdit} />
     </main>
   );
 }
@@ -775,8 +780,17 @@ function HeaderQuota({ quota }) {
     </div>
   );
 }
-function NutritionItem({ label, value, suffix = '' }) {
-  return <span><strong>{value ? Math.round(value) : '—'}</strong> {suffix}<small>{label}</small></span>;
+function MealNutrition({ nutrition }) {
+  if (!hasNutrition({ nutrition })) return <div className="meal-nutrition is-empty">Not estimated</div>;
+  const grams = (value) => Math.round(Number(value) || 0);
+  return (
+    <div className="meal-nutrition">
+      <span className="meal-kcal"><strong>{grams(nutrition.calories)}</strong> kcal</span>
+      <span className="meal-macro macro-green"><strong>{grams(nutrition.proteins)}g</strong> protein</span>
+      <span className="meal-macro macro-yellow"><strong>{grams(nutrition.carbs)}g</strong> carbs</span>
+      <span className="meal-macro macro-coral"><strong>{grams(nutrition.fats)}g</strong> fat</span>
+    </div>
+  );
 }
 
 function ManualInput({ label, value, onChange }) {
@@ -1789,7 +1803,7 @@ function Toast({ toast }) {
   );
 }
 
-function MealDialog({ draft, title, submitLabel, collapsibleNutrition = false, suggestions, clearable = false, scannable = false, onQuickAdd, onChange, onClose, onSubmit }) {
+function MealDialog({ draft, title, submitLabel, collapsibleNutrition = false, suggestions, clearable = false, scannable = false, onQuickAdd, onReestimate, onChange, onClose, onSubmit }) {
   const [shown, closing] = usePresence(draft, 150);
   const id = useId();
   const open = Boolean(draft);
@@ -1942,6 +1956,7 @@ function MealDialog({ draft, title, submitLabel, collapsibleNutrition = false, s
           </fieldset>}
           <div className="dialog-actions">
             {clearable && <button className="clear-meal-form" type="button" onClick={clearForm} disabled={!hasInput}><Eraser aria-hidden="true" />Clear</button>}
+            {onReestimate && <button className="reestimate-meal" type="button" onClick={onReestimate} disabled={!shown.text.trim()} title="Replace values with a new AI estimate"><RefreshCw aria-hidden="true" />{hasNutrition(shown) ? 'Re-estimate' : 'Estimate'}</button>}
             <button className="confirm-add" type="submit" disabled={!shown.text.trim()}>{submitLabel}</button>
           </div>
         </form>
