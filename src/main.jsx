@@ -1758,10 +1758,27 @@ function storageUsage(stored) {
   return { items, total: items.reduce((sum, item) => sum + item.bytes, 0) };
 }
 
+const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
+
+// What a range clear would remove, per kind of dated data, for the preview and the confirmation toast.
+function clearRangePlan({ mealsByDate, weights, workoutLogs }, start, end) {
+  const inRange = (date) => date >= start && date <= end;
+  const mealDays = Object.entries(mealsByDate).filter(([date, meals]) => inRange(date) && meals.length);
+  const meals = mealDays.reduce((sum, [, dayMeals]) => sum + dayMeals.length, 0);
+  const weighIns = weights.filter((entry) => inRange(entry.date)).length;
+  const sessions = Object.entries(workoutLogs).filter(([date]) => inRange(date)).reduce((sum, [, logs]) => sum + logs.length, 0);
+  return [
+    { key: 'meals', name: 'Meals', count: meals, label: plural(meals, 'meal'), detail: meals ? `${plural(meals, 'meal')} · ${plural(mealDays.length, 'day')}` : 'None' },
+    { key: 'weights', name: 'Weigh-ins', count: weighIns, label: plural(weighIns, 'weigh-in'), detail: weighIns ? plural(weighIns, 'weigh-in') : 'None' },
+    { key: 'workoutLogs', name: 'Workout sessions', count: sessions, label: plural(sessions, 'workout session'), detail: sessions ? plural(sessions, 'session') : 'None' },
+  ];
+}
+
 function DataHandlingView({ quota, mealsByDate, setMealsByDate, goal, setGoal, weights, setWeights, workoutTemplates, setWorkoutTemplates, workoutLogs, setWorkoutLogs, settings, setSettings, usage, setUsage, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
   const today = dateKey(new Date());
   const [start, setStart] = useState(today);
   const [end, setEnd] = useState(today);
+  const [clearKinds, setClearKinds] = useState({ meals: true, weights: false, workoutLogs: false });
   const storage = storageUsage({
     'daily-fuel-meals': { label: 'Meals', value: mealsByDate },
     'daily-fuel-weights': { label: 'Weights', value: weights },
@@ -1821,14 +1838,60 @@ function DataHandlingView({ quota, mealsByDate, setMealsByDate, goal, setGoal, w
     }
   }
 
+  const clearPlan = clearRangePlan({ mealsByDate, weights, workoutLogs }, start, end);
+  const clearTotal = clearPlan.reduce((sum, item) => sum + (clearKinds[item.key] ? item.count : 0), 0);
+  const oldestDate = [...Object.keys(mealsByDate), ...weights.map((entry) => entry.date), ...Object.keys(workoutLogs)].sort()[0];
+  // Selects the first `days` days starting at the oldest logged entry, to trim history from the far end.
+  function selectOldest(days) {
+    setStart(oldestDate);
+    setEnd(shiftDate(oldestDate, days - 1));
+  }
   function clearRange(event) {
     event.preventDefault();
     if (start > end) return notify('Choose a valid date range.');
-    const next = Object.fromEntries(Object.entries(mealsByDate).filter(([date]) => date < start || date > end));
-    setMealsByDate(next);
-    notify('Data cleared.', 'success');
+    if (!clearTotal) return;
+    const inRange = (date) => date >= start && date <= end;
+    const removedMeals = clearKinds.meals ? Object.fromEntries(Object.entries(mealsByDate).filter(([date]) => inRange(date))) : {};
+    const removedWeights = clearKinds.weights ? weights.filter((entry) => inRange(entry.date)) : [];
+    const removedLogs = clearKinds.workoutLogs ? Object.fromEntries(Object.entries(workoutLogs).filter(([date]) => inRange(date))) : {};
+    if (clearKinds.meals) setMealsByDate((current) => Object.fromEntries(Object.entries(current).filter(([date]) => !inRange(date))));
+    if (clearKinds.weights) setWeights((current) => current.filter((entry) => !inRange(entry.date)));
+    if (clearKinds.workoutLogs) setWorkoutLogs((current) => Object.fromEntries(Object.entries(current).filter(([date]) => !inRange(date))));
+    const summary = clearPlan.filter((item) => clearKinds[item.key] && item.count).map((item) => item.label).join(', ');
+    // Undo merges the removed entries back, so anything added in the meantime is kept.
+    notify(`Deleted ${summary}.`, 'success', {
+      label: 'Undo',
+      onClick: () => {
+        setMealsByDate((current) => ({ ...current, ...removedMeals }));
+        setWeights((current) => [...current, ...removedWeights.filter((entry) => !current.some((item) => item.date === entry.date))].sort((a, b) => a.date.localeCompare(b.date)));
+        setWorkoutLogs((current) => ({ ...current, ...removedLogs }));
+        notify('Deleted data restored.', 'success');
+      },
+    });
   }
-  return <main className="app-shell settings-page"><header className="topbar"><button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button><button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home"><span className="brand-mark">DF</span><span>Daily Fuel</span></button><HeaderQuota quota={quota} /></header><Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} /><Toast toast={toast} /><div className="reports-heading"><div><p className="eyebrow">On this device</p><h1>Data handling</h1></div></div><section className="settings-form storage-form"><div className="storage-heading"><h2>Storage</h2><strong>{formatBytes(storage.total)}</strong></div><div className="storage-list">{storage.items.map((item) => <div key={item.key}><span>{item.label}</span><strong>{formatBytes(item.bytes)}</strong></div>)}</div></section><section className="settings-form migration-form"><div><h2>Migrations</h2><p>Save your data before updating the app, or restore it from a previous backup.</p></div><div className="migration-actions"><button className="auth-submit" type="button" onClick={exportData}>Export</button><label className="import-button">Import<input type="file" accept="application/json,.json" onChange={importData} /></label></div></section><form className="settings-form clear-form" onSubmit={clearRange}><h2>Clear data</h2><p>Delete meals within a date range.</p><label>From<input type="date" value={start} onChange={(event) => setStart(event.target.value)} /></label><label>To<input type="date" value={end} onChange={(event) => setEnd(event.target.value)} /></label><button className="clear-data-button" type="submit">Clear range</button></form></main>;
+  return <main className="app-shell settings-page"><header className="topbar"><button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button><button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home"><span className="brand-mark">DF</span><span>Daily Fuel</span></button><HeaderQuota quota={quota} /></header><Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} /><Toast toast={toast} /><div className="reports-heading"><div><p className="eyebrow">On this device</p><h1>Data handling</h1></div></div><section className="settings-form storage-form"><div className="storage-heading"><h2>Storage</h2><strong>{formatBytes(storage.total)}</strong></div><div className="storage-list">{storage.items.map((item) => <div key={item.key}><span>{item.label}</span><strong>{formatBytes(item.bytes)}</strong></div>)}</div></section><section className="settings-form migration-form"><div><h2>Migrations</h2><p>Save your data before updating the app, or restore it from a previous backup.</p></div><div className="migration-actions"><button className="auth-submit" type="button" onClick={exportData}>Export</button><label className="import-button">Import<input type="file" accept="application/json,.json" onChange={importData} /></label></div></section><form className="settings-form clear-form" onSubmit={clearRange}>
+    <h2>Clear data</h2>
+    <p>Delete logged data within a date range. You can undo right after.</p>
+    <div className="clear-presets" role="group" aria-label="Quick ranges">
+      <button type="button" onClick={() => selectOldest(7)} disabled={!oldestDate}>Oldest week</button>
+      <button type="button" onClick={() => selectOldest(30)} disabled={!oldestDate}>Oldest month</button>
+    </div>
+    <div className="clear-dates">
+      <label>From<input type="date" value={start} max={end} onChange={(event) => setStart(event.target.value)} /></label>
+      <label>To<input type="date" value={end} min={start} onChange={(event) => setEnd(event.target.value)} /></label>
+    </div>
+    <div className="clear-kinds">
+      {clearPlan.map((item) => (
+        <label key={item.key} data-empty={!item.count || undefined}>
+          <input type="checkbox" checked={clearKinds[item.key]} onChange={(event) => setClearKinds((current) => ({ ...current, [item.key]: event.target.checked }))} />
+          <span>{item.name}</span>
+          <strong>{item.detail}</strong>
+        </label>
+      ))}
+    </div>
+    <p className="clear-summary">{start > end ? 'The start date is after the end date.' : clearTotal ? `${clearTotal} ${clearTotal === 1 ? 'item' : 'items'} will be deleted.` : 'Nothing selected to delete in this range.'}</p>
+    <button className="clear-data-button" type="submit" disabled={!clearTotal || start > end}>{clearTotal ? `Delete ${clearTotal} ${clearTotal === 1 ? 'item' : 'items'}` : 'Nothing to delete'}</button>
+  </form></main>;
 }
 
 function UsageView({ goal, quota, usage, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast }) {
