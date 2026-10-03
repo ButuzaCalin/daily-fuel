@@ -1350,6 +1350,25 @@ function WeightView({ goal, quota, mealsByDate, weights, setWeights, onNavigate,
       <Toast toast={toast} />
       <div className="reports-heading"><div><p className="eyebrow">Weigh-ins</p><h1>Weight</h1></div></div>
 
+      {last && (
+        <section className="chart-card weight-card weight-trend">
+          <div className="weight-current">
+            <div>
+              <span>Current weight</span>
+              <strong>{formatWeight(last.weight)}<small> kg</small></strong>
+              <small>{formatDate(last.date)}</small>
+            </div>
+            {entries.length >= 2 && (
+              <dl className="weight-deltas">
+                <div><dt>Last change</dt><dd>{formatWeightChange(last.weight - entries.at(-2).weight)}<small> kg</small></dd></div>
+                <div><dt>Since {formatDate(entries[0].date)}</dt><dd>{formatWeightChange(last.weight - entries[0].weight)}<small> kg</small></dd></div>
+              </dl>
+            )}
+          </div>
+          {entries.length >= 2 ? <WeightChart entries={entries} /> : <p className="usage-empty">Log another weigh-in to see your trend.</p>}
+        </section>
+      )}
+
       <form className="settings-form weight-form" onSubmit={logWeight}>
         <h2>Log weight</h2>
         <div className="weight-inputs">
@@ -1367,13 +1386,6 @@ function WeightView({ goal, quota, mealsByDate, weights, setWeights, onNavigate,
               {Object.entries(reportMetrics).map(([key, metric]) => <div key={key}><span>{metric.label}</span><strong>{Math.round(sinceLast.average[key]).toLocaleString()}<small>{metric.suffix}</small></strong></div>)}
             </div>
           ) : <p className="usage-empty">No completed days logged since then yet.</p>}
-        </section>
-      )}
-
-      {entries.length >= 2 && (
-        <section className="chart-card weight-card">
-          <div className="card-heading"><h2>Trend</h2><span>{formatWeightChange(last.weight - entries[0].weight)} kg since {formatDate(entries[0].date)}</span></div>
-          <WeightChart entries={entries} />
         </section>
       )}
 
@@ -1399,32 +1411,44 @@ function WeightView({ goal, quota, mealsByDate, weights, setWeights, onNavigate,
   );
 }
 
-// Line chart with x spaced by date (weigh-ins are irregular) and y fitted to the weight range instead of starting at 0.
+// Line chart with x spaced by date (weigh-ins are irregular) and y fitted tightly to the weight range instead of starting at 0.
 function WeightChart({ entries }) {
+  const gradientId = `weight-fill-${useId().replace(/[^a-z0-9]/gi, '')}`;
   const values = entries.map((entry) => entry.weight);
   const min = Math.min(...values);
   const max = Math.max(...values);
-  const step = niceStep(Math.max(max - min, 0.4) / 3);
-  const low = Math.floor(min / step) * step;
-  const ticks = [4, 3, 2, 1, 0].map((index) => low + index * step);
+  const step = niceStep(Math.max(max - min, 0.6) / 3);
+  const low = Math.floor((min - step / 4) / step) * step;
+  const high = Math.ceil((max + step / 4) / step) * step;
+  const ticks = Array.from({ length: Math.round((high - low) / step) + 1 }, (_, index) => Math.round((high - index * step) * 10) / 10);
   const time = (date) => new Date(`${date}T12:00:00`).getTime();
   const start = time(entries[0].date);
   const span = Math.max(time(entries.at(-1).date) - start, 1);
-  const chartX = (date) => ((time(date) - start) / span) * 100;
-  const chartY = (value) => 91 - ((value - low) / (step * 4)) * 82;
-  const chartPx = (value) => `${(chartY(value) / 100) * 180}px`;
+  // Inset the ends so the first and last dots are not clipped by the plot edges.
+  const chartX = (date) => 3 + ((time(date) - start) / span) * 94;
+  const chartY = (value) => 6 + (1 - (value - low) / (high - low)) * 88;
+  const chartPx = (value) => `${(chartY(value) / 100) * 168}px`;
+  const points = entries.map((entry) => `${chartX(entry.date)},${chartY(entry.weight)}`);
+  const latest = entries.at(-1);
   const labelDate = (value) => new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(new Date(value));
-  const labels = [0, 0.5, 1].map((share) => start + span * share);
+  const labels = entries.length > 2 ? [start, start + span / 2, start + span] : [start, start + span];
   return (
-    <div className="line-chart">
-      <div className="chart-scale" aria-hidden="true">{ticks.map((tick) => <span key={tick} style={{ top: chartPx(tick) }}>{chartNumber(Math.round(tick * 10) / 10)}</span>)}</div>
+    <div className="line-chart weight-chart">
+      <div className="chart-scale" aria-hidden="true">{ticks.map((tick) => <span key={tick} style={{ top: chartPx(tick) }}>{chartNumber(tick)}</span>)}</div>
       <div className="chart-plot">
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Weight over time line chart">
-          {ticks.map((tick) => <line key={tick} x1="0" y1={chartY(tick)} x2="100" y2={chartY(tick)} className={tick === low ? 'chart-axis' : 'chart-grid'} />)}
-          <polyline points={entries.map((entry) => `${chartX(entry.date)},${chartY(entry.weight)}`).join(' ')} className="chart-line" />
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--green)" stopOpacity=".18" />
+              <stop offset="100%" stopColor="var(--green)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {ticks.map((tick) => <line key={tick} x1="0" y1={chartY(tick)} x2="100" y2={chartY(tick)} className={tick === ticks.at(-1) ? 'chart-axis' : 'chart-grid'} />)}
+          <polygon points={`${chartX(entries[0].date)},${chartY(low)} ${points.join(' ')} ${chartX(latest.date)},${chartY(low)}`} fill={`url(#${gradientId})`} />
+          <polyline points={points.join(' ')} className="chart-line" />
         </svg>
-        {entries.map((entry) => <span key={entry.date} className="chart-dot" style={{ left: `${chartX(entry.date)}%`, top: chartPx(entry.weight) }} title={`${formatDate(entry.date)}: ${formatWeight(entry.weight)} kg`} />)}
-        <div className="chart-labels">{labels.map((value, index) => <span key={index} style={{ left: `${index * 50}%`, transform: index === 2 ? 'translateX(-100%)' : undefined }}>{labelDate(value)}</span>)}</div>
+        {entries.map((entry) => <span key={entry.date} className={`chart-dot${entry === latest ? ' is-latest' : ''}`} style={{ left: `${chartX(entry.date)}%`, top: chartPx(entry.weight) }} title={`${formatDate(entry.date)}: ${formatWeight(entry.weight)} kg`} />)}
+        <div className="chart-labels">{labels.map((value, index) => <span key={index}>{labelDate(value)}</span>)}</div>
       </div>
     </div>
   );

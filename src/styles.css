@@ -713,3 +713,21 @@ textarea::placeholder { color: #9aa09b; }
 .heatmap-insights .insights-toggle { display: inline-flex; align-items: center; justify-self: start; border: 0; border-radius: 6px; background: transparent; gap: 4px; margin-left: -8px; padding: 4px 8px; color: var(--muted); font-size: 12px; }
 .heatmap-insights .insights-toggle svg { transition: transform 200ms var(--ease-out); }
 .heatmap-insights .insights-toggle svg[data-collapsed] { transform: rotate(-90deg); }
+.weight-trend { margin-top: 0; margin-bottom: 0; }
+.weight-trend + .weight-form { margin-top: 16px; }
+.weight-current { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.weight-current > div { display: grid; gap: 2px; }
+.weight-current > div > span, .weight-current > div > small { color: var(--muted); font-size: 12px; }
+.weight-current > div > strong { font-size: 34px; letter-spacing: -.03em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.weight-current > div > strong small { color: var(--muted); font-size: 14px; font-weight: 400; letter-spacing: 0; }
+.weight-deltas { display: flex; gap: 8px; margin: 0; }
+.weight-deltas div { display: grid; gap: 2px; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; background: #f7f9f7; }
+.weight-deltas dt { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.weight-deltas dd { margin: 0; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.weight-deltas dd small { color: var(--muted); font-size: 11px; font-weight: 400; }
+.weight-chart, .weight-chart .chart-plot { height: auto; }
+.weight-chart svg, .weight-chart .chart-scale { height: 168px; }
+.weight-chart .chart-labels { display: flex; justify-content: space-between; height: auto; margin-top: 6px; }
+.weight-chart .chart-labels span, .weight-chart .chart-labels span:first-child { position: static; transform: none; }
+.chart-dot.is-latest { width: 11px; height: 11px; background: var(--green); box-shadow: 0 0 0 1px var(--green), 0 0 0 5px rgb(52 112 77 / 14%); }
+@media (max-width: 430px) { .weight-current { flex-direction: column; align-items: stretch; } .weight-deltas div { flex: 1; } }
