@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { BicepsFlexed, Check, ChevronLeft, ChevronRight, Download, EyeOff, HeartPulse, Plus, Shirt, Trash2, Upload, X } from 'lucide-react';
-import { dateKey, formatDate, loadLocal, saveLocal, useEscape, usePresence } from './shared.js';
+import { dateKey, decimalInput, formatDate, loadLocal, saveLocal, useEscape, usePresence } from './shared.js';
 import './workouts.css';
 
 // Body-part icons drawn in Lucide's style (24px grid, 2px round strokes) for the parts Lucide has no icon for.
@@ -677,7 +677,7 @@ function RoutineDialog({ routine, live, hintHidden, onHideHint, now, notes, onCh
           <span className="routine-set-number is-next">{index + 1}</span>
           {fields.map(([key, label, inputMode]) => (
             <label className="routine-field" key={key}>
-              <input type="number" min="0" max={key === 'sec' ? '59' : undefined} step={key === 'weight' ? 'any' : '1'} inputMode={inputMode} value={input[key] ?? ''} placeholder={placeholder[key] || (key === 'weight' ? '–' : '0')} onChange={(event) => setInput((current) => ({ ...current, [key]: event.target.value }))} aria-label={`Set ${index + 1} ${label}`} />
+              <input type={inputMode === 'decimal' ? 'text' : 'number'} min="0" max={key === 'sec' ? '59' : undefined} step="1" inputMode={inputMode} value={input[key] ?? ''} placeholder={placeholder[key] || (key === 'weight' ? '–' : '0')} onChange={(event) => setInput((current) => ({ ...current, [key]: inputMode === 'decimal' ? decimalInput(event.target.value) : event.target.value }))} aria-label={`Set ${index + 1} ${label}`} />
               <small>{label}</small>
             </label>
           ))}

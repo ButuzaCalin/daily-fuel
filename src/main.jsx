@@ -4,7 +4,7 @@ import { BarChart3, ChevronDown, Dumbbell, ChevronLeft, ChevronRight, Clock, Cpu
 import { toBlob } from 'html-to-image';
 import { calculateScore, dayProgress, dayStatus, DAY_COMPLETE_HOUR, macroLabels, metrics, objectiveKey, objectives, scoreLabel, scoringAvailable } from './score.js';
 import { BarcodeScanner } from './BarcodeScanner.jsx';
-import { dateKey, formatDate, loadLocal, saveLocal, shiftDate, useEscape, usePresence } from './shared.js';
+import { dateKey, decimalInput, formatDate, loadLocal, saveLocal, shiftDate, useEscape, usePresence } from './shared.js';
 import { WorkoutsView } from './Workouts.jsx';
 import './styles.css';
 
@@ -794,7 +794,7 @@ function MealNutrition({ nutrition }) {
 }
 
 function ManualInput({ label, value, onChange }) {
-  return <label className="manual-input">{label}<input type="number" min="0" step="any" value={value} onChange={(event) => onChange(event.target.value)} /></label>;
+  return <label className="manual-input">{label}<input type="text" inputMode="decimal" value={value} onChange={(event) => onChange(decimalInput(event.target.value))} /></label>;
 }
 
 function Macro({ label, value, goal, color }) {
@@ -1352,7 +1352,7 @@ function WeightView({ goal, quota, mealsByDate, weights, setWeights, onNavigate,
         <h2>Log weight</h2>
         <div className="weight-inputs">
           <label>Date<input type="date" value={date} max={todayKey} onChange={(event) => setDate(event.target.value)} /></label>
-          <label>Weight (kg)<input type="number" inputMode="decimal" min="0" step="any" value={weight} onChange={(event) => setWeight(event.target.value)} /></label>
+          <label>Weight (kg)<input type="text" inputMode="decimal" value={weight} onChange={(event) => setWeight(decimalInput(event.target.value))} /></label>
         </div>
         <button className="auth-submit" type="submit">Log weight</button>
       </form>
@@ -1606,7 +1606,7 @@ function GoalWizardDialog({ open, selected, onClose, onGenerate, onApply }) {
           <div className="goal-wizard-question">
             {step === 0 && <><h3>Which sex should the estimate use?</h3><div className="goal-wizard-options" role="radiogroup" aria-label="Sex">{[['female', 'Female'], ['male', 'Male']].map(([value, label]) => <button type="button" role="radio" aria-checked={profile.sex === value} className={profile.sex === value ? 'active' : ''} onClick={() => select('sex', value)} key={value}>{label}</button>)}</div></>}
             {step === 1 && <><h3>How old are you?</h3><label className="goal-wizard-field">Age<input type="number" min="18" max="100" step="1" inputMode="numeric" value={profile.age} onChange={(event) => select('age', event.target.value)} placeholder="18–100" /></label></>}
-            {step === 2 && <><h3>What are your height and weight?</h3><label className="goal-wizard-field">Height (cm)<input type="number" min="100" max="250" step="1" inputMode="numeric" value={profile.height} onChange={(event) => select('height', event.target.value)} placeholder="100–250 cm" /></label><label className="goal-wizard-field">Weight (kg)<input type="number" min="30" max="300" step="0.1" inputMode="decimal" value={profile.weight} onChange={(event) => select('weight', event.target.value)} placeholder="30–300 kg" /></label></>}
+            {step === 2 && <><h3>What are your height and weight?</h3><label className="goal-wizard-field">Height (cm)<input type="number" min="100" max="250" step="1" inputMode="numeric" value={profile.height} onChange={(event) => select('height', event.target.value)} placeholder="100–250 cm" /></label><label className="goal-wizard-field">Weight (kg)<input type="text" inputMode="decimal" value={profile.weight} onChange={(event) => select('weight', decimalInput(event.target.value))} placeholder="30–300 kg" /></label></>}
             {step === 3 && <><h3>How active are you most weeks?</h3><div className="goal-wizard-options goal-wizard-list" role="radiogroup" aria-label="Activity level">{goalActivityOptions.map(([value, label, description]) => <button type="button" role="radio" aria-checked={profile.activity === value} className={profile.activity === value ? 'active' : ''} onClick={() => select('activity', value)} key={value}><strong>{label}</strong><small>{description}</small></button>)}</div></>}
             {step === 4 && <><h3>What is your main purpose?</h3><div className="goal-wizard-options goal-wizard-list" role="radiogroup" aria-label="Goal purpose">{Object.entries(objectives).map(([value, objective]) => <button type="button" role="radio" aria-checked={profile.objective === value} className={profile.objective === value ? 'active' : ''} onClick={() => select('objective', value)} key={value}><strong>{objective.label}</strong><small>{objective.description}</small></button>)}</div></>}
           </div>
@@ -2123,13 +2123,13 @@ function MealDialog({ draft, title, submitLabel, collapsibleNutrition = false, s
             {entryMode === 'total' ? <div className="macro-inputs">
               {macroFields.map((field) => <MacroInput key={field.key} {...field} value={shown.nutrition[field.key]} onChange={(value) => onChange({ nutrition: { [field.key]: value } })} />)}
             </div> : <>
-              <p className="per-base"><label htmlFor={`${id}-base`}>Values on the label, per</label><input id={`${id}-base`} type="number" inputMode="decimal" min="0" step="any" value={perValues.base} onChange={(event) => updatePer({ base: event.target.value })} />g</p>
+              <p className="per-base"><label htmlFor={`${id}-base`}>Values on the label, per</label><input id={`${id}-base`} type="text" inputMode="decimal" value={perValues.base} onChange={(event) => updatePer({ base: decimalInput(event.target.value) })} />g</p>
               <div className="macro-inputs">
                 {macroFields.map((field) => <MacroInput key={field.key} {...field} value={perValues[field.key]} onChange={(value) => updatePer({ [field.key]: value })} />)}
               </div>
               <div className="portion-card">
                 <label htmlFor={`${id}-portion`}>Portion eaten<small>How much you had</small></label>
-                <span className="portion-field"><input id={`${id}-portion`} type="number" inputMode="decimal" min="0" step="any" value={perValues.portion} onChange={(event) => updatePer({ portion: event.target.value })} placeholder="0" /><span>g</span></span>
+                <span className="portion-field"><input id={`${id}-portion`} type="text" inputMode="decimal" value={perValues.portion} onChange={(event) => updatePer({ portion: decimalInput(event.target.value) })} placeholder="0" /><span>g</span></span>
                 {serving && <div className="portion-chips">
                   {[[0.5, '½ serving'], [1, '1 serving'], [2, '2 servings']].map(([count, label]) => {
                     const grams = String(Math.round(serving * count * 10) / 10);
@@ -2159,7 +2159,7 @@ const macroFields = [
 ];
 
 function MacroInput({ label, unit, value, onChange }) {
-  return <label className="macro-input">{label}<span className="macro-field"><input type="number" inputMode="decimal" min="0" step="any" value={value} onChange={(event) => onChange(event.target.value)} placeholder="0" /><small>{unit}</small></span></label>;
+  return <label className="macro-input">{label}<span className="macro-field"><input type="text" inputMode="decimal" value={value} onChange={(event) => onChange(decimalInput(event.target.value))} placeholder="0" /><small>{unit}</small></span></label>;
 }
 
 const blankPerValues = { base: '100', portion: '', ...blankNutrition };

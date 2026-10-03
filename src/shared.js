@@ -66,3 +66,10 @@ export function useEscape(active, onEscape) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [active, onEscape]);
 }
+
+// iOS keyboards in comma locales type "," for decimals, which type="number" inputs reject; normalize to "." instead.
+export function decimalInput(value) {
+  const clean = value.replace(/,/g, '.').replace(/[^\d.]/g, '');
+  const dot = clean.indexOf('.');
+  return dot === -1 ? clean : clean.slice(0, dot + 1) + clean.slice(dot + 1).replace(/\./g, '');
+}
