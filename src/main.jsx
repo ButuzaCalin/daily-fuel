@@ -1,6 +1,6 @@
 import { StrictMode, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BarChart3, ChevronDown, Dumbbell, ChevronLeft, ChevronRight, Clock, Cpu, Database, Eraser, History, Home, Info, LoaderCircle, Medal, Menu as MenuIcon, Plus, RefreshCw, Scale, ScanBarcode, Settings, Share2, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
+import { BarChart3, ChevronDown, CircleHelp, Dumbbell, Eye, EyeOff, ShieldCheck, SlidersHorizontal, ChevronLeft, ChevronRight, Clock, Cpu, Database, Eraser, History, Home, Info, LoaderCircle, Medal, Menu as MenuIcon, Plus, RefreshCw, Scale, ScanBarcode, Settings, Share2, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
 import { toBlob } from 'html-to-image';
 import { calculateScore, dayProgress, dayStatus, DAY_COMPLETE_HOUR, macroLabels, metrics, objectiveKey, objectives, scoreLabel, scoringAvailable } from './score.js';
 import { BarcodeScanner } from './BarcodeScanner.jsx';
@@ -295,13 +295,19 @@ const routePaths = {
   scores: '/scores',
   weight: '/weight',
   workouts: '/workouts',
-  usage: '/usage',
+  ai: '/settings/ai',
+  usage: '/settings/tokens',
   goal: '/goal',
   settings: '/settings',
-  'data-handling': '/data-handling',
+  'data-handling': '/settings/data',
+  help: '/help',
 };
 
+// Tokens and Data handling used to be their own pages.
+const legacyPaths = { '/usage': 'usage', '/data-handling': 'data-handling' };
+
 function routeFromPath(pathname) {
+  if (legacyPaths[pathname]) return legacyPaths[pathname];
   return Object.keys(routePaths).find((route) => routePaths[route] === pathname) || 'not-found';
 }
 
@@ -407,7 +413,7 @@ function App() {
   const aiConfigured = isAiConfigured(settings);
 
   function promptForKey() {
-    notify(useProxy ? 'Add your proxy URL and username in Settings first.' : 'Add your AI key in Settings first.', 'error', { label: 'Open settings', onClick: () => navigate('settings') });
+    notify(useProxy ? 'Add your proxy URL and username in Settings first.' : 'Add your AI key in Settings first.', 'error', { label: 'Open settings', onClick: () => navigate('ai') });
   }
 
   function trackUsage(usage, model) {
@@ -640,17 +646,14 @@ function App() {
     </>;
     return <WorkoutsView chrome={chrome} templates={workoutTemplates} setTemplates={setWorkoutTemplates} logs={workoutLogs} setLogs={setWorkoutLogs} notify={notify} />;
   }
-  if (route === 'usage') {
-    return <UsageView goal={goal} quota={useProxy ? proxyQuota : null} usage={usage} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
-  }
   if (route === 'goal') {
     return <GoalView goal={goal} quota={useProxy ? proxyQuota : null} setGoal={setGoal} onEstimateGoal={estimateGoal} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
   }
-  if (route === 'settings') {
-    return <SettingsView goal={goal} setGoal={setGoal} proxyQuota={useProxy ? proxyQuota : null} settings={settings} setSettings={setSettings} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
+  if (['settings', 'ai', 'usage', 'data-handling'].includes(route)) {
+    return <SettingsView tab={route} goal={goal} setGoal={setGoal} proxyQuota={useProxy ? proxyQuota : null} settings={settings} setSettings={setSettings} usage={usage} setUsage={setUsage} mealsByDate={mealsByDate} setMealsByDate={setMealsByDate} weights={weights} setWeights={setWeights} workoutTemplates={workoutTemplates} setWorkoutTemplates={setWorkoutTemplates} workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
   }
-  if (route === 'data-handling') {
-    return <DataHandlingView quota={useProxy ? proxyQuota : null} mealsByDate={mealsByDate} setMealsByDate={setMealsByDate} goal={goal} setGoal={setGoal} weights={weights} setWeights={setWeights} workoutTemplates={workoutTemplates} setWorkoutTemplates={setWorkoutTemplates} workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} settings={settings} setSettings={setSettings} usage={usage} setUsage={setUsage} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
+  if (route === 'help') {
+    return <HelpView goal={goal} quota={useProxy ? proxyQuota : null} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
   }
   if (route === 'not-found') {
     return (
@@ -923,8 +926,7 @@ function Menu({ open, onClose, onNavigate, onLogout, username, goal }) {
           )}
           <div className="menu-group menu-group-secondary">
             <button type="button" onClick={() => onNavigate('settings')}><span className="menu-link-label"><span className="menu-icon"><Settings /></span>Settings</span><span aria-hidden="true">&rarr;</span></button>
-            <button type="button" onClick={() => onNavigate('usage')}><span className="menu-link-label"><span className="menu-icon"><Cpu /></span>Tokens</span><span aria-hidden="true">&rarr;</span></button>
-            <button type="button" onClick={() => onNavigate('data-handling')}><span className="menu-link-label"><span className="menu-icon"><Database /></span>Data handling</span><span aria-hidden="true">&rarr;</span></button>
+            <button type="button" onClick={() => onNavigate('help')}><span className="menu-link-label"><span className="menu-icon"><CircleHelp /></span>How to use</span><span aria-hidden="true">&rarr;</span></button>
           </div>
         </nav>
       </aside>
@@ -1674,16 +1676,51 @@ function ObjectiveInfoDialog({ open, selected, onSelect, onClose }) {
   );
 }
 
-function SettingsView({ goal, setGoal, proxyQuota, settings, setSettings, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
+const settingsTabs = [
+  { route: 'settings', label: 'General', icon: SlidersHorizontal },
+  { route: 'ai', label: 'AI', icon: Sparkles },
+  { route: 'usage', label: 'Tokens', icon: Cpu },
+  { route: 'data-handling', label: 'Data', icon: Database },
+];
+
+function SettingsView({ tab, goal, proxyQuota, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, ...props }) {
+  return (
+    <main className="app-shell settings-page">
+      <header className="topbar"><button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button><button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home"><span className="brand-mark">DF</span><span>Daily Fuel</span></button><HeaderQuota quota={proxyQuota} /></header>
+      <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} />
+      <Toast toast={toast} />
+      <div className="reports-heading"><div><p className="eyebrow">On this device</p><h1>Settings</h1></div></div>
+      <nav className="settings-tabs" aria-label="Settings sections">
+        {settingsTabs.map(({ route, label, icon: Icon }) => (
+          <button key={route} className={tab === route ? 'active' : ''} type="button" onClick={() => tab !== route && onNavigate(route)} aria-current={tab === route ? 'page' : undefined}><Icon aria-hidden="true" />{label}</button>
+        ))}
+      </nav>
+      <div className="settings-panel">
+        {tab === 'ai' ? <AiPanel {...props} /> : tab === 'usage' ? <TokensPanel usage={props.usage} /> : tab === 'data-handling' ? <DataPanel goal={goal} {...props} /> : <GeneralPanel goal={goal} {...props} />}
+      </div>
+    </main>
+  );
+}
+
+function SecretInput({ label, value, onChange }) {
+  const [shown, setShown] = useState(false);
+  return (
+    <label>{label}
+      <span className="secret-input">
+        <input type={shown ? 'text' : 'password'} value={value} onChange={(event) => onChange(event.target.value)} autoComplete="off" autoCapitalize="none" spellCheck="false" />
+        <button type="button" onClick={() => setShown((current) => !current)} aria-label={shown ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`} title={shown ? 'Hide' : 'Show'}>{shown ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}</button>
+      </span>
+    </label>
+  );
+}
+
+function AiPanel({ settings, setSettings, notify }) {
   const [draft, setDraft] = useState(settings);
-  const [updating, setUpdating] = useState(false);
   function update(key, value) { setDraft((current) => ({ ...current, [key]: value })); }
   const activeMode = settings.aiMode === 'proxy' ? 'proxy' : 'manual';
   const draftMode = draft.aiMode === 'proxy' ? 'proxy' : 'manual';
   const willReplace = draftMode !== activeMode && isAiConfigured(settings);
-  // Menu switches live on the goal so existing data and backups keep working.
-  const menus = normalizeGoal(goal);
-  const toggleMenu = (patch) => setGoal(normalizeGoal({ ...menus, ...patch }));
+  const changed = Object.keys(draft).some((key) => draft[key] !== settings[key]);
   function saveSettings(event) {
     event.preventDefault();
     if (draft.aiMode === 'proxy') {
@@ -1698,6 +1735,49 @@ function SettingsView({ goal, setGoal, proxyQuota, settings, setSettings, onNavi
     setDraft(next);
     notify(switched ? `Switched to ${aiModeLabels[next.aiMode]}.` : 'Settings saved.', 'success');
   }
+  return (
+    <form className="settings-form" onSubmit={saveSettings}>
+      <div className="settings-section-heading">
+        <div>
+          <h2>AI config</h2>
+          <p className="ai-active">
+            <span className={`ai-active-dot${isAiConfigured(settings) ? ' is-on' : ''}`} aria-hidden="true" />
+            In use: <strong>{aiModeLabels[activeMode]}</strong>{!isAiConfigured(settings) && ' · not set up'}
+          </p>
+        </div>
+        <div className="period-toggle" role="group" aria-label="AI configuration">
+          {Object.entries(aiModeLabels).map(([mode, label]) => <button key={mode} className={draftMode === mode ? 'active' : ''} type="button" onClick={() => update('aiMode', mode)} aria-pressed={draftMode === mode}>{label}</button>)}
+        </div>
+      </div>
+      {willReplace && <p className="settings-warning">Saving switches to {aiModeLabels[draftMode]} and removes your {aiModeLabels[activeMode]} details from this device.</p>}
+      {draft.aiMode === 'proxy' ? <>
+        <p className="settings-hint">Estimates are sent to your own endpoint, which holds the AI key. Meal details or profile answers for goal suggestions are sent.</p>
+        <label>Proxy URL<input type="url" inputMode="url" placeholder="https://…" value={draft.proxyUrl} onChange={(event) => update('proxyUrl', event.target.value.trim())} autoComplete="off" /></label>
+        <label>Username<input value={draft.proxyUsername} onChange={(event) => update('proxyUsername', event.target.value)} autoComplete="username" autoCapitalize="none" /></label>
+        <SecretInput label="Access key" value={draft.proxyKey} onChange={(value) => update('proxyKey', value)} />
+      </> : <>
+        <label>Provider<select value={draft.provider} onChange={(event) => update('provider', event.target.value)}><option value="google">Google AI</option><option value="openai">OpenAI</option></select></label>
+        {draft.provider === 'google' ? <div className="settings-pair">
+          <SecretInput label="API key" value={draft.googleKey} onChange={(value) => update('googleKey', value)} />
+          <label>Model<input value={draft.googleModel} onChange={(event) => update('googleModel', event.target.value)} autoCapitalize="none" spellCheck="false" /></label>
+        </div> : <div className="settings-pair">
+          <SecretInput label="API key" value={draft.openaiKey} onChange={(value) => update('openaiKey', value)} />
+          <label>Model<input value={draft.openaiModel} onChange={(event) => update('openaiModel', event.target.value)} autoCapitalize="none" spellCheck="false" /></label>
+        </div>}
+      </>}
+      <div className="settings-actions">
+        {changed && <button className="settings-discard" type="button" onClick={() => setDraft(settings)}>Discard</button>}
+        <button className="auth-submit" type="submit" disabled={!changed}>{willReplace ? `Switch to ${aiModeLabels[draftMode]}` : changed ? 'Save settings' : 'Saved'}</button>
+      </div>
+    </form>
+  );
+}
+
+function GeneralPanel({ goal, setGoal, notify }) {
+  const [updating, setUpdating] = useState(false);
+  // Menu switches live on the goal so existing data and backups keep working.
+  const menus = normalizeGoal(goal);
+  const toggleMenu = (patch) => setGoal(normalizeGoal({ ...menus, ...patch }));
   async function handleUpdate() {
     setUpdating(true);
     try {
@@ -1707,57 +1787,23 @@ function SettingsView({ goal, setGoal, proxyQuota, settings, setSettings, onNavi
       notify(error.message || 'The update failed.', 'error');
     }
   }
-  return (
-    <main className="app-shell settings-page">
-      <header className="topbar"><button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button><button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home"><span className="brand-mark">DF</span><span>Daily Fuel</span></button><HeaderQuota quota={proxyQuota} /></header>
-      <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} />
-      <Toast toast={toast} />
-      <div className="reports-heading"><div><p className="eyebrow">On this device</p><h1>Settings</h1></div></div>
-      <form className="settings-form" onSubmit={saveSettings}>
-        <div className="settings-section-heading">
-          <div>
-            <h2>AI config</h2>
-            <p className="ai-active">
-              <span className={`ai-active-dot${isAiConfigured(settings) ? ' is-on' : ''}`} aria-hidden="true" />
-              In use: <strong>{aiModeLabels[activeMode]}</strong>{!isAiConfigured(settings) && ' · not set up'}
-            </p>
-          </div>
-          <div className="period-toggle" role="group" aria-label="AI configuration">
-            {Object.entries(aiModeLabels).map(([mode, label]) => <button key={mode} className={draftMode === mode ? 'active' : ''} type="button" onClick={() => update('aiMode', mode)} aria-pressed={draftMode === mode}>{label}</button>)}
-          </div>
-        </div>
-        {willReplace && <p className="settings-warning">Saving switches to {aiModeLabels[draftMode]} and removes your {aiModeLabels[activeMode]} details from this device.</p>}
-        {draft.aiMode === 'proxy' ? <>
-          <p className="settings-hint">Estimates are sent to your own endpoint, which holds the AI key. Meal details or profile answers for goal suggestions are sent.</p>
-          <label>Proxy URL<input type="url" inputMode="url" placeholder="https://…" value={draft.proxyUrl} onChange={(event) => update('proxyUrl', event.target.value.trim())} autoComplete="off" /></label>
-          <label>Username<input value={draft.proxyUsername} onChange={(event) => update('proxyUsername', event.target.value)} autoComplete="username" autoCapitalize="none" /></label>
-          <label>Access key<input type="password" value={draft.proxyKey} onChange={(event) => update('proxyKey', event.target.value)} autoComplete="off" /></label>
-        </> : <>
-          <label>Provider<select value={draft.provider} onChange={(event) => update('provider', event.target.value)}><option value="google">Google AI</option><option value="openai">OpenAI</option></select></label>
-          {draft.provider === 'google' ? <>
-            <label>Google API key<input type="password" value={draft.googleKey} onChange={(event) => update('googleKey', event.target.value)} autoComplete="off" /></label>
-            <label>Google model<input value={draft.googleModel} onChange={(event) => update('googleModel', event.target.value)} /></label>
-          </> : <>
-            <label>OpenAI API key<input type="password" value={draft.openaiKey} onChange={(event) => update('openaiKey', event.target.value)} autoComplete="off" /></label>
-            <label>OpenAI model<input value={draft.openaiModel} onChange={(event) => update('openaiModel', event.target.value)} /></label>
-          </>}
-        </>}
-        <button className="auth-submit" type="submit">{willReplace ? `Switch to ${aiModeLabels[draftMode]}` : 'Save settings'}</button>
-      </form>
-      <section className="settings-form settings-menus">
-        <div className="goal-section-heading"><h2>Menus</h2><p>Turn on extra pages in the menu.</p></div>
-        <label className="scoring-toggle">
-          <input type="checkbox" role="switch" checked={menus.weightTracking} onChange={(event) => toggleMenu({ weightTracking: event.target.checked })} />
-          <span><strong>Weight track</strong><small>Log your weight and see your average daily macros between weigh-ins.</small></span>
-        </label>
-        <label className="scoring-toggle">
-          <input type="checkbox" role="switch" checked={menus.workouts} onChange={(event) => toggleMenu({ workouts: event.target.checked })} />
-          <span><strong>Workouts</strong><small>Save workouts and log your sets and reps on a calendar.</small></span>
-        </label>
-      </section>
-      <section className="settings-form settings-update"><p className="goal-form-copy">Get the latest version of the app. Your meals, goals and settings stay on this device.</p><button className="auth-submit" type="button" onClick={handleUpdate} disabled={updating}>{updating ? 'Updating…' : 'Update app'}</button></section>
-    </main>
-  );
+  return <>
+    <section className="settings-form settings-menus">
+      <div className="goal-section-heading"><h2>Menus</h2><p>Turn on extra pages in the menu.</p></div>
+      <label className="scoring-toggle">
+        <input type="checkbox" role="switch" checked={menus.weightTracking} onChange={(event) => toggleMenu({ weightTracking: event.target.checked })} />
+        <span><strong>Weight track</strong><small>Log your weight and see your average daily macros between weigh-ins.</small></span>
+      </label>
+      <label className="scoring-toggle">
+        <input type="checkbox" role="switch" checked={menus.workouts} onChange={(event) => toggleMenu({ workouts: event.target.checked })} />
+        <span><strong>Workouts</strong><small>Save workouts and log your sets and reps on a calendar.</small></span>
+      </label>
+    </section>
+    <section className="settings-form settings-update">
+      <div className="goal-section-heading"><h2>App</h2><p>Get the latest version. Your meals, goals and settings stay on this device.</p></div>
+      <button className="auth-submit" type="button" onClick={handleUpdate} disabled={updating}><RefreshCw className={updating ? 'is-spinning' : undefined} aria-hidden="true" />{updating ? 'Updating…' : 'Update app'}</button>
+    </section>
+  </>;
 }
 
 function formatBytes(bytes) {
@@ -1800,7 +1846,7 @@ function clearRangePlan({ mealsByDate, weights, workoutLogs }, start, end) {
   ];
 }
 
-function DataHandlingView({ quota, mealsByDate, setMealsByDate, goal, setGoal, weights, setWeights, workoutTemplates, setWorkoutTemplates, workoutLogs, setWorkoutLogs, settings, setSettings, usage, setUsage, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast, notify }) {
+function DataPanel({ mealsByDate, setMealsByDate, goal, setGoal, weights, setWeights, workoutTemplates, setWorkoutTemplates, workoutLogs, setWorkoutLogs, settings, setSettings, usage, setUsage, notify }) {
   const today = dateKey(new Date());
   const [start, setStart] = useState(today);
   const [end, setEnd] = useState(today);
@@ -1895,7 +1941,7 @@ function DataHandlingView({ quota, mealsByDate, setMealsByDate, goal, setGoal, w
       },
     });
   }
-  return <main className="app-shell settings-page"><header className="topbar"><button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button><button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home"><span className="brand-mark">DF</span><span>Daily Fuel</span></button><HeaderQuota quota={quota} /></header><Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} /><Toast toast={toast} /><div className="reports-heading"><div><p className="eyebrow">On this device</p><h1>Data handling</h1></div></div><section className="settings-form storage-form"><div className="storage-heading"><h2>Storage</h2><strong>{formatBytes(storage.total)}</strong></div><div className="storage-list">{storage.items.map((item) => <div key={item.key}><span>{item.label}</span><strong>{formatBytes(item.bytes)}</strong></div>)}</div></section><section className="settings-form migration-form"><div><h2>Migrations</h2><p>Save your data before updating the app, or restore it from a previous backup.</p></div><div className="migration-actions"><button className="auth-submit" type="button" onClick={exportData}>Export</button><label className="import-button">Import<input type="file" accept="application/json,.json" onChange={importData} /></label></div></section><form className="settings-form clear-form" onSubmit={clearRange}>
+  return <><section className="settings-form storage-form"><div className="storage-heading"><h2>Storage</h2><strong>{formatBytes(storage.total)}</strong></div><div className="storage-list">{storage.items.map((item) => <div key={item.key}><span>{item.label}</span><strong>{formatBytes(item.bytes)}</strong></div>)}</div></section><section className="settings-form migration-form"><div><h2>Backup</h2><p>Save your data before updating the app or switching devices, or restore it from a previous backup.</p></div><div className="migration-actions"><button className="auth-submit" type="button" onClick={exportData}>Export</button><label className="import-button">Import<input type="file" accept="application/json,.json" onChange={importData} /></label></div></section><form className="settings-form clear-form" onSubmit={clearRange}>
     <h2>Clear data</h2>
     <p>Delete logged data within a date range. You can undo right after.</p>
     <div className="clear-presets" role="group" aria-label="Quick ranges">
@@ -1917,42 +1963,110 @@ function DataHandlingView({ quota, mealsByDate, setMealsByDate, goal, setGoal, w
     </div>
     <p className="clear-summary">{start > end ? 'The start date is after the end date.' : clearTotal ? `${clearTotal} ${clearTotal === 1 ? 'item' : 'items'} will be deleted.` : 'Nothing selected to delete in this range.'}</p>
     <button className="clear-data-button" type="submit" disabled={!clearTotal || start > end}>{clearTotal ? `Delete ${clearTotal} ${clearTotal === 1 ? 'item' : 'items'}` : 'Nothing to delete'}</button>
-  </form></main>;
+  </form></>;
 }
 
-function UsageView({ goal, quota, usage, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast }) {
+// Usage guide in Romanian, one drawer per menu page; button names stay as they appear in the app.
+const helpSections = [
+  { icon: Home, title: 'Today', items: [
+    'Aici vezi mesele zilei. Folosește săgețile din antet sau apasă pe dată ca să alegi altă zi; „Back to today” te readuce la ziua curentă.',
+    'Apasă butonul + ca să adaugi o masă: descrie ce ai mâncat și alege ora. Poți scana codul de bare al unui produs („Scan barcode”) sau poți alege rapid o masă introdusă anterior din sugestii.',
+    'Valorile nutriționale pot fi completate manual („Add values”), fie ca total, fie după gramaj („By weight”), pe baza etichetei produsului.',
+    'Butonul ✨ de pe o masă estimează caloriile și macronutrienții cu AI. „Estimate all” estimează dintr-o dată toate mesele fără valori.',
+    'Apasă pe textul unei mese ca să o editezi, iar coșul de gunoi o șterge (poți anula din notificare).',
+    'Panoul „Daily total” arată totalul zilei față de obiectivele tale. Dacă scorul este activ, insigna de lângă el se completează după ora 21:00.',
+  ] },
+  { icon: BarChart3, title: 'Reports', items: [
+    'Alege perioada: 7 zile, 30 de zile sau 3 luni. Ziua de azi este inclusă după ora 21:00.',
+    'Vezi câte zile ai înregistrat, câte au fost în țintă și media meselor pe zi.',
+    '„Daily average” arată media de calorii și macronutrienți pe zi înregistrată.',
+    'În graficul pe zile poți schimba indicatorul (calorii, proteine etc.). Culorile arată dacă ai fost sub, în țintă sau peste. Apasă pe o coloană ca să deschizi ziua respectivă.',
+  ] },
+  { icon: Target, title: 'Goal', items: [
+    'Setează țintele zilnice pentru calorii, proteine, carbohidrați și grăsimi, apoi apasă „Save”.',
+    '„Suggest with AI” te ghidează în 5 pași (sex, vârstă, înălțime și greutate, nivel de activitate, scop) și propune ținte. Le poți ajusta înainte de salvare.',
+    'După ce ai salvat cel puțin o țintă, poți activa „Scoring”, care adaugă pagina Scores în meniu.',
+    'Alege obiectivul (slăbire, menținere, creștere în greutate, masă musculară, recompoziție). Ținta rămâne aceeași; obiectivul schimbă doar cum este punctat surplusul sau deficitul. Butonul ⓘ explică fiecare variantă.',
+  ] },
+  { icon: Medal, title: 'Scores', items: [
+    'Apare în meniu doar când scorul este activ din Goal.',
+    'Fiecare zi primește un scor de la 0 la 100, în funcție de cât de aproape ai fost de ținte. Scorul unei zile se stabilește după ora 21:00.',
+    'Calendarul arată scorurile pe lună și media lunară. Îl poți partaja ca imagine.',
+    'Apasă pe o zi ca să o deschizi. Pe pagina Today, insigna de scor arată detaliile și modul de calcul.',
+  ] },
+  { icon: Scale, title: 'Weight', items: [
+    'Se activează din Settings › Menus › „Weight track”.',
+    'Introdu greutatea și data cântăririi. O singură înregistrare pe zi; una nouă o înlocuiește pe cea veche.',
+    'Între două cântăriri vezi diferența de greutate și media zilnică a macronutrienților, calculată doar din zilele complete cu mese înregistrate.',
+  ] },
+  { icon: Dumbbell, title: 'Workouts', items: [
+    'Se activează din Settings › Menus › „Workouts”.',
+    'Creează antrenamente („Create a workout”) cu nume, iconiță, exerciții (pe repetări sau pe timp) și notițe.',
+    'În calendar alegi ziua și apeși „Start a workout” ca să înregistrezi seturile, repetările și kilogramele. Vezi și ce ai făcut data trecută.',
+    'Cu „Select” poți exporta sau șterge mai multe antrenamente; „Import” le aduce înapoi dintr-un fișier.',
+  ] },
+  { icon: Settings, title: 'Settings › General', items: [
+    'Setările sunt împărțite în patru taburi: General, AI, Tokens și Data.',
+    'Menus: activează paginile opționale Weight și Workouts.',
+    '„Update app” descarcă ultima versiune a aplicației. Datele rămân pe dispozitiv.',
+  ] },
+  { icon: Sparkles, title: 'Settings › AI', items: [
+    'AI config: alege între cheia ta proprie (Google AI sau OpenAI, cu modelul dorit) și un proxy (URL, utilizator și cheie de acces). Doar una dintre variante este folosită.',
+    'Când folosești proxy, în antet vezi câte cereri AI mai ai azi.',
+    'Butonul 👁 din dreptul cheilor le afișează sau le ascunde. „Save settings” se activează doar când ai modificat ceva.',
+  ] },
+  { icon: Cpu, title: 'Settings › Tokens', items: [
+    'Arată consumul de tokeni AI: total, număr de cereri și tokeni generați.',
+    'Vezi consumul pe ultimele 7 zile și lista cererilor recente, cu modelul folosit.',
+  ] },
+  { icon: Database, title: 'Settings › Data', items: [
+    'Toate datele sunt salvate doar pe acest dispozitiv. Aici vezi cât spațiu ocupă fiecare tip de date.',
+    '„Export” salvează un fișier de backup cu toate datele; „Import” le restaurează. Fă un export înainte de a schimba telefonul sau browserul.',
+    'Poți șterge mese, cântăriri și antrenamente dintr-un interval de date. Înainte de confirmare vezi exact ce va fi șters.',
+  ] },
+];
 
-  const daily = usage?.daily || [];
-  const maxDaily = Math.max(...daily.map((day) => day.tokens), 1);
-
+function HelpView({ goal, quota, onNavigate, menuOpen, setMenuOpen, username, onLogout, toast }) {
   return (
-    <main className="app-shell usage-page">
+    <main className="app-shell help-page">
       <header className="topbar">
         <button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button>
-        <button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home">
-          <span className="brand-mark">DF</span>
-          <span>Daily Fuel</span>
-        </button>
+        <button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home"><span className="brand-mark">DF</span><span>Daily Fuel</span></button>
         <HeaderQuota quota={quota} />
       </header>
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} />
       <Toast toast={toast} />
-
-      <div className="reports-heading"><div><p className="eyebrow">AI requests</p><h1>Token usage</h1></div></div>
-      {usage && <>
-        <section className="report-summary-grid usage-summary">
-          <ReportStat label="Total tokens" value={usage.summary.total_tokens} />
-          <ReportStat label="Requests" value={usage.summary.requests} />
-          <ReportStat label="Output tokens" value={usage.summary.completion_tokens} />
-        </section>
-        <section className="chart-card usage-chart-card">
-          <div className="card-heading"><h2>Daily usage</h2><span>last 7 days</span></div>
-          {daily.length === 0 ? <p className="usage-empty">No estimates yet.</p> : <div className="usage-bars">{daily.slice().reverse().map((day) => <div className="usage-bar-column" key={day.date} title={`${day.date}: ${day.tokens.toLocaleString()} tokens`}><i style={{ height: `${Math.max((day.tokens / maxDaily) * 100, 4)}%` }} /><span>{day.date.slice(5)}</span></div>)}</div>}
-        </section>
-        <section className="chart-card recent-usage"><div className="card-heading"><h2>Recent requests</h2><span>model / tokens</span></div>{usage.recent.length === 0 ? <p className="usage-empty">No requests yet.</p> : <div className="usage-list">{usage.recent.map((item, index) => <div className="usage-row" key={`${item.created_at}-${index}`}><span>{item.model}</span><strong>{item.total_tokens.toLocaleString()}</strong><small>{formatUsageDate(item.created_at)}</small></div>)}</div>}</section>
-      </>}
+      <div className="reports-heading"><div><p className="eyebrow">Ghid</p><h1>Cum se folosește</h1></div></div>
+      <p className="help-intro">Deschide meniul din stânga sus ca să ajungi la oricare dintre paginile de mai jos.</p>
+      <p className="help-privacy"><ShieldCheck aria-hidden="true" /><span>Toate datele tale sunt salvate doar pe acest dispozitiv. Nimeni, nici măcar dezvoltatorul, nu le poate vedea. </span></p>
+      <div className="help-sections">
+        {helpSections.map(({ icon: Icon, title, items }) => (
+          <details className="help-section" key={title}>
+            <summary><span className="menu-icon"><Icon aria-hidden="true" /></span>{title}<ChevronDown className="help-chevron" aria-hidden="true" /></summary>
+            <ul>{items.map((item) => <li key={item}>{item}</li>)}</ul>
+          </details>
+        ))}
+      </div>
     </main>
   );
+}
+
+function TokensPanel({ usage }) {
+  const daily = usage?.daily || [];
+  const maxDaily = Math.max(...daily.map((day) => day.tokens), 1);
+  if (!usage) return null;
+  return <>
+    <section className="report-summary-grid usage-summary">
+      <ReportStat label="Total tokens" value={usage.summary.total_tokens} />
+      <ReportStat label="Requests" value={usage.summary.requests} />
+      <ReportStat label="Output tokens" value={usage.summary.completion_tokens} />
+    </section>
+    <section className="chart-card usage-chart-card">
+      <div className="card-heading"><h2>Daily usage</h2><span>last 7 days</span></div>
+      {daily.length === 0 ? <p className="usage-empty">No estimates yet.</p> : <div className="usage-bars">{daily.slice().reverse().map((day) => <div className="usage-bar-column" key={day.date} title={`${day.date}: ${day.tokens.toLocaleString()} tokens`}><i style={{ height: `${Math.max((day.tokens / maxDaily) * 100, 4)}%` }} /><span>{day.date.slice(5)}</span></div>)}</div>}
+    </section>
+    <section className="chart-card recent-usage"><div className="card-heading"><h2>Recent requests</h2><span>model / tokens</span></div>{usage.recent.length === 0 ? <p className="usage-empty">No requests yet.</p> : <div className="usage-list">{usage.recent.map((item, index) => <div className="usage-row" key={`${item.created_at}-${index}`}><span>{item.model}</span><strong>{item.total_tokens.toLocaleString()}</strong><small>{formatUsageDate(item.created_at)}</small></div>)}</div>}</section>
+  </>;
 }
 
 function AuthView({ onAuthenticated, onNotify }) {
