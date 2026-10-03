@@ -248,12 +248,13 @@ function scoreForDay(date, mealsByDate, goal, todayKey, now) {
   return meals.length && dayStatus(date, todayKey, now) === 'complete' ? calculateScore(sumNutrition(meals), goal).score : null;
 }
 
-// Completed days only: the range ends yesterday, because today's log is still in progress.
-function reportDays(period) {
+// Completed days only: the range ends yesterday, or today once it is complete (after DAY_COMPLETE_HOUR).
+function reportDays(period, includeToday) {
   const days = [];
   const count = { week: 7, month: 30, quarter: 90 }[period] || 7;
   const today = new Date();
-  for (let index = count; index >= 1; index -= 1) {
+  const last = includeToday ? 0 : 1;
+  for (let index = count - 1 + last; index >= last; index -= 1) {
     const date = new Date(today);
     date.setDate(today.getDate() - index);
     days.push(dateKey(date));
@@ -384,15 +385,16 @@ function App() {
   const pendingCount = meals.filter((meal) => !hasNutrition(meal)).length;
   const dayEstimateLabel = !meals.length ? 'No meals to estimate' : pendingCount ? `Estimate all ${pendingCount} ${pendingCount === 1 ? 'meal' : 'meals'} without values at once` : 'All meals already have values';
 
+  const reportIncludesToday = new Date().getHours() >= DAY_COMPLETE_HOUR;
   const report = useMemo(() => {
-    const days = reportDays(reportPeriod);
+    const days = reportDays(reportPeriod, reportIncludesToday);
     const daily = days.map((date) => ({
       date,
       meals: mealsByDate[date] || [],
       nutrition: sumNutrition(mealsByDate[date] || []),
     }));
     return { days: daily, total: sumNutrition(daily.flatMap((day) => day.meals)) };
-  }, [mealsByDate, reportPeriod]);
+  }, [mealsByDate, reportPeriod, reportIncludesToday]);
 
   function notify(message, type = 'error', action = null) {
     window.clearTimeout(toastTimer.current);
@@ -967,7 +969,7 @@ function ReportsView({ goal, quota, mealsByDate, onOpenDay, report, period, setP
       <Toast toast={toast} />
 
       <div className="reports-heading">
-        <div><p className="eyebrow">Overview · up to yesterday</p><h1>Reports</h1></div>
+        <div><p className="eyebrow">Overview · {new Date().getHours() >= DAY_COMPLETE_HOUR ? 'up to today' : `up to yesterday · today will be added at ${DAY_COMPLETE_HOUR}:00`}</p><h1>Reports</h1></div>
         <div className="period-toggle" role="group" aria-label="Report period">
           <button className={period === 'week' ? 'active' : ''} type="button" onClick={() => setPeriod('week')}>7 days</button>
           <button className={period === 'month' ? 'active' : ''} type="button" onClick={() => setPeriod('month')}>30 days</button>
