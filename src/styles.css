@@ -788,3 +788,9 @@ textarea::placeholder { color: #9aa09b; }
 .goal-period-date input::-webkit-date-and-time-value { text-align: left; }
 .goal-period-form > * { min-width: 0; }
 .goal-history-dates small.is-upcoming { background: #edf0ed; color: var(--muted); }
+/* Phones: five objectives as an even 3 + 2 grid instead of a ragged wrap. */
+@media (max-width: 430px) {
+  .objective-toggle { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3px; }
+  .objective-toggle button { grid-column: span 2; padding: 9px 4px; }
+  .objective-toggle button:nth-child(n + 4) { grid-column: span 3; }
+}
