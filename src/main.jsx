@@ -100,6 +100,23 @@ function fetchOpenAI(settings, prompt) {
   });
 }
 
+// Optional by-weight entry kept on a meal: grams eaten plus the label values per `base` grams.
+function cleanPortion(source) {
+  const grams = Number(source?.grams);
+  const base = Number(source?.base);
+  if (!(grams > 0) || !(base > 0)) return undefined;
+  const serving = Number(source.serving);
+  return { grams, base, per: cleanNutrition(source.per), ...(serving > 0 && { serving }) };
+}
+
+function portionFromPer(values, serving) {
+  return cleanPortion({ grams: values.portion, base: values.base, per: values, serving }) ?? null;
+}
+
+function perFromPortion(portion) {
+  return { base: String(portion.base), portion: String(portion.grams), ...Object.fromEntries(Object.entries(portion.per).map(([key, value]) => [key, String(value)])) };
+}
+
 function cleanNutrition(source) {
   return ['calories', 'proteins', 'carbs', 'fats'].reduce((nutrition, key) => {
     const value = Number(source?.[key]);
@@ -208,7 +225,7 @@ function pastMeals(mealsByDate) {
       const key = meal.text.trim().toLowerCase();
       if (!key) return;
       if (seen.has(key)) seen.get(key).count += 1;
-      else seen.set(key, { text: meal.text.trim(), nutrition: cleanNutrition(meal.nutrition), date, time: meal.time, count: 1 });
+      else seen.set(key, { text: meal.text.trim(), nutrition: cleanNutrition(meal.nutrition), portion: cleanPortion(meal.portion), date, time: meal.time, count: 1 });
     });
   });
   return [...seen.values()];
@@ -356,6 +373,7 @@ function App() {
   const [mealText, setMealText] = useState('');
   const [mealTime, setMealTime] = useState(currentHour);
   const [mealNutrition, setMealNutrition] = useState(blankNutrition);
+  const [mealPortion, setMealPortion] = useState(null);
   const [editMeal, setEditMeal] = useState(null);
   const [addMealOpen, setAddMealOpen] = useState(false);
   const [savedGoal, setGoal] = useState(() => { const saved = loadLocal('daily-fuel-goal', null); return saved && normalizeGoal(saved); });
@@ -480,13 +498,14 @@ function App() {
     setAddMealOpen(true);
   }
 
-  function insertMeal(text, nutrition) {
-    const newMeal = { id: crypto.randomUUID(), time: mealTime, text: text.trim(), nutrition: cleanNutrition(nutrition), estimating: false, error: '' };
+  function insertMeal(text, nutrition, portion) {
+    const newMeal = { id: crypto.randomUUID(), time: mealTime, text: text.trim(), nutrition: cleanNutrition(nutrition), portion: cleanPortion(portion), estimating: false, error: '' };
     setMealsByDate((current) => ({ ...current, [selectedDate]: sortMeals([...(current[selectedDate] || []), newMeal]) }));
     setNewMealId(newMeal.id);
     setMealText('');
     setMealTime(currentHour());
     setMealNutrition(blankNutrition);
+    setMealPortion(null);
     setAddMealOpen(false);
     return newMeal;
   }
@@ -494,13 +513,13 @@ function App() {
   function addMeal(event) {
     event.preventDefault();
     if (!mealText.trim()) return;
-    insertMeal(mealText, mealNutrition);
+    insertMeal(mealText, mealNutrition, mealPortion);
   }
 
   // One-tap re-add from search; offers undo since it skips the form.
   function addPastMeal(meal) {
     const date = selectedDate;
-    const { id } = insertMeal(meal.text, meal.nutrition);
+    const { id } = insertMeal(meal.text, meal.nutrition, meal.portion);
     notify('Meal added.', 'info', { label: 'Undo', onClick: () => setMealsByDate((current) => ({ ...current, [date]: (current[date] || []).filter((item) => item.id !== id) })) });
   }
 
@@ -512,12 +531,12 @@ function App() {
     try {
       if (useProxy) {
         const result = await estimateViaProxy([meal], settings);
-        updateMeal(id, { nutrition: result.nutritionById[id], estimating: false });
+        updateMeal(id, { nutrition: result.nutritionById[id], portion: undefined, estimating: false });
         trackUsage(result.usage, result.model);
         if (result.quota) setProxyQuota(result.quota);
       } else {
         const result = await estimateLocally(meal.text, settings);
-        updateMeal(id, { nutrition: result.nutrition, estimating: false });
+        updateMeal(id, { nutrition: result.nutrition, portion: undefined, estimating: false });
         trackUsage(result.usage, manualModel);
       }
     } catch (error) {
@@ -597,7 +616,7 @@ function App() {
   }
 
   function openEditMeal(meal) {
-    setEditMeal({ id: meal.id, text: meal.text, time: meal.time, nutrition: { ...meal.nutrition } });
+    setEditMeal({ id: meal.id, text: meal.text, time: meal.time, nutrition: { ...meal.nutrition }, portion: meal.portion ?? null });
   }
 
   function saveMealEdit(event) {
@@ -607,7 +626,8 @@ function App() {
     const original = meals.find((meal) => meal.id === editMeal.id);
     const { id, time } = editMeal;
     const nutrition = cleanNutrition(editMeal.nutrition);
-    setMealsByDate((current) => ({ ...current, [selectedDate]: sortMeals((current[selectedDate] || []).map((meal) => (meal.id === id ? { ...meal, text, time, nutrition } : meal))) }));
+    const portion = cleanPortion(editMeal.portion);
+    setMealsByDate((current) => ({ ...current, [selectedDate]: sortMeals((current[selectedDate] || []).map((meal) => (meal.id === id ? { ...meal, text, time, nutrition, portion } : meal))) }));
     setEditMeal(null);
     const nutritionUntouched = original && Object.keys(emptyNutrition).every((key) => cleanNutrition(original.nutrition)[key] === nutrition[key]);
     if (original && original.text !== text && nutritionUntouched && Object.values(nutrition).some(Boolean)) {
@@ -754,7 +774,7 @@ function App() {
       </div>
       <button className="add-meal-fab" type="button" onClick={openAddMeal} aria-label="Add meal">+</button>
       <MealDialog
-        draft={addMealOpen ? { text: mealText, time: mealTime, nutrition: mealNutrition } : null}
+        draft={addMealOpen ? { text: mealText, time: mealTime, nutrition: mealNutrition, portion: mealPortion } : null}
         collapsibleNutrition
         suggestions={previousMeals}
         clearable
@@ -762,7 +782,7 @@ function App() {
         onQuickAdd={addPastMeal}
         title={selectedDate === dateKey(new Date()) ? 'Add meal' : `Add meal · ${loggedLabel(selectedDate)}`}
         submitLabel="Add meal"
-        onChange={(patch) => { if ('text' in patch) setMealText(patch.text); if ('time' in patch) setMealTime(patch.time); if (patch.nutrition) setMealNutrition((current) => ({ ...current, ...patch.nutrition })); }}
+        onChange={(patch) => { if ('text' in patch) setMealText(patch.text); if ('time' in patch) setMealTime(patch.time); if (patch.nutrition) setMealNutrition((current) => ({ ...current, ...patch.nutrition })); if ('portion' in patch) setMealPortion(patch.portion); }}
         onClose={() => setAddMealOpen(false)}
         onSubmit={addMeal}
       />
@@ -2042,6 +2062,7 @@ function DataPanel({ mealsByDate, setMealsByDate, goal, setGoal, weights, setWei
           time: String(meal.time || '12:00'),
           text: String(meal.text || '').trim(),
           nutrition: { ...emptyNutrition, ...(meal.nutrition || {}) },
+          portion: cleanPortion(meal.portion),
           estimating: false,
           error: '',
         })).filter((meal) => meal.text)];
@@ -2293,19 +2314,34 @@ function MealDialog({ draft, title, submitLabel, collapsibleNutrition = false, s
   const [beforePick, setBeforePick] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [serving, setServing] = useState(null);
+  // Name of the scanned product, so the portion can be kept in the text as it changes.
+  const [product, setProduct] = useState(null);
   const [suggestionsCollapsed, setSuggestionsCollapsed] = useState(() => loadLocal('daily-fuel-suggestions-collapsed', false));
   useEffect(() => saveLocal('daily-fuel-suggestions-collapsed', suggestionsCollapsed), [suggestionsCollapsed]);
   // Each time the dialog opens, start collapsed unless the draft already has values.
   useEffect(() => {
     if (open) setNutritionOpen(!collapsibleNutrition || Object.values(draft.nutrition || {}).some((value) => value !== '' && Number(value) !== 0));
-    if (open) { setEntryMode('total'); setPerValues(blankPerValues); setBeforePick(null); setServing(null); }
+    if (open) {
+      // A meal saved by weight reopens by weight, so changing the grams still rescales from the label.
+      const saved = draft.portion;
+      setEntryMode(saved ? 'per' : 'total');
+      setPerValues(saved ? perFromPortion(saved) : blankPerValues);
+      setServing(saved?.serving ?? null);
+      setProduct(saved ? productNameIn(draft.text, saved) : null);
+      setBeforePick(null);
+    }
     if (!open) setScanning(false);
   }, [open]);
   // Per-amount values are kept locally; the draft always holds the scaled totals.
   function updatePer(patch) {
     const next = { ...perValues, ...patch };
     setPerValues(next);
-    onChange({ nutrition: scaleNutrition(next) });
+    const keepText = product && 'portion' in patch && shown.text === productText(product, perValues.portion);
+    onChange({ nutrition: scaleNutrition(next), portion: portionFromPer(next, serving), ...(keepText && { text: productText(product, next.portion) }) });
+  }
+  function changeMode(mode) {
+    setEntryMode(mode);
+    onChange({ portion: mode === 'per' ? portionFromPer(perValues, serving) : null });
   }
   const textRef = useRef(null);
   // Grow with the text; CSS max-height caps it, after which it scrolls.
@@ -2319,12 +2355,15 @@ function MealDialog({ draft, title, submitLabel, collapsibleNutrition = false, s
   if (!shown) return null;
   const matches = suggestions ? matchMeals(suggestions, shown.text) : [];
   function snapshot(source) {
-    return { source, text: shown.text, nutrition: shown.nutrition, nutritionOpen, entryMode, perValues, serving };
+    return { source, text: shown.text, nutrition: shown.nutrition, portion: shown.portion ?? null, nutritionOpen, entryMode, perValues, serving, product };
   }
   function pickSuggestion(meal) {
     setBeforePick(snapshot('a previous meal'));
-    onChange({ text: meal.text, nutrition: Object.fromEntries(Object.entries(meal.nutrition).map(([key, value]) => [key, value ? String(value) : ''])) });
-    setEntryMode('total');
+    onChange({ text: meal.text, nutrition: Object.fromEntries(Object.entries(meal.nutrition).map(([key, value]) => [key, value ? String(value) : ''])), portion: meal.portion ?? null });
+    setEntryMode(meal.portion ? 'per' : 'total');
+    setPerValues(meal.portion ? perFromPortion(meal.portion) : blankPerValues);
+    setServing(meal.portion?.serving ?? null);
+    setProduct(meal.portion ? productNameIn(meal.text, meal.portion) : null);
     if (hasNutrition(meal)) setNutritionOpen(true);
   }
   const hasInput = shown.text.trim() || Object.values(shown.nutrition || {}).some((value) => value !== '') || Object.entries(perValues).some(([key, value]) => key !== 'base' && value !== '');
@@ -2332,33 +2371,38 @@ function MealDialog({ draft, title, submitLabel, collapsibleNutrition = false, s
   function fillFromProduct(product) {
     setBeforePick(snapshot(product.per100 ? 'a barcode' : 'a barcode · no nutrition data'));
     setScanning(false);
-    const text = product.name.slice(0, mealTextMaxLength);
+    const name = product.name.slice(0, mealTextMaxLength - 12);
+    setProduct(null);
     if (!product.per100) {
-      onChange({ text });
+      onChange({ text: name, portion: null });
       return;
     }
     const next = { base: '100', portion: product.servingGrams ? String(product.servingGrams) : '', ...Object.fromEntries(Object.entries(product.per100).map(([key, value]) => [key, String(value)])) };
+    const text = productText(name, next.portion);
+    setProduct(name);
     setPerValues(next);
     setServing(product.servingGrams);
     setEntryMode('per');
     setNutritionOpen(true);
-    onChange({ text, nutrition: scaleNutrition(next) });
+    onChange({ text, nutrition: scaleNutrition(next), portion: portionFromPer(next, product.servingGrams) });
   }
   function clearForm() {
-    onChange({ text: '', time: currentHour(), nutrition: blankNutrition });
+    onChange({ text: '', time: currentHour(), nutrition: blankNutrition, portion: null });
     setPerValues(blankPerValues);
     setServing(null);
+    setProduct(null);
     setEntryMode('total');
     setNutritionOpen(!collapsibleNutrition);
     setBeforePick(null);
     setScanning(false);
   }
   function undoPick() {
-    onChange({ text: beforePick.text, nutrition: beforePick.nutrition });
+    onChange({ text: beforePick.text, nutrition: beforePick.nutrition, portion: beforePick.portion });
     setNutritionOpen(beforePick.nutritionOpen);
     setEntryMode(beforePick.entryMode);
     setPerValues(beforePick.perValues);
     setServing(beforePick.serving);
+    setProduct(beforePick.product);
     setBeforePick(null);
   }
   function submitOnShortcut(event) {
@@ -2409,8 +2453,8 @@ function MealDialog({ draft, title, submitLabel, collapsibleNutrition = false, s
             <div className="nutrition-head">
               <h3 id={`${id}-nutrition`}>Nutrition</h3>
               <div className="period-toggle" role="group" aria-label="How to enter values">
-                <button className={entryMode === 'total' ? 'active' : ''} type="button" onClick={() => setEntryMode('total')} aria-pressed={entryMode === 'total'}>Total</button>
-                <button className={entryMode === 'per' ? 'active' : ''} type="button" onClick={() => setEntryMode('per')} aria-pressed={entryMode === 'per'}>By weight</button>
+                <button className={entryMode === 'total' ? 'active' : ''} type="button" onClick={() => changeMode('total')} aria-pressed={entryMode === 'total'}>Total</button>
+                <button className={entryMode === 'per' ? 'active' : ''} type="button" onClick={() => changeMode('per')} aria-pressed={entryMode === 'per'}>By weight</button>
               </div>
             </div>
             {entryMode === 'total' ? <div className="macro-inputs">
@@ -2453,6 +2497,17 @@ const macroFields = [
 
 function MacroInput({ label, unit, value, onChange }) {
   return <label className="macro-input">{label}<span className="macro-field"><input type="text" inputMode="decimal" value={value} onChange={(event) => onChange(decimalInput(event.target.value))} placeholder="0" /><small>{unit}</small></span></label>;
+}
+
+// Keeps the amount in the meal text, so a later edit or AI re-estimate still knows the portion.
+function productText(name, portion) {
+  return Number(portion) > 0 ? `${name} (${portion} g)` : name;
+}
+
+// Recovers the product name from text written by productText, so the grams keep syncing on edit.
+function productNameIn(text, portion) {
+  const suffix = ` (${portion.grams} g)`;
+  return text.endsWith(suffix) ? text.slice(0, -suffix.length) : null;
 }
 
 const blankPerValues = { base: '100', portion: '', ...blankNutrition };
