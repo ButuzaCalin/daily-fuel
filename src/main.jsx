@@ -2479,7 +2479,7 @@ function MealDialog({ draft, title, submitLabel, collapsibleNutrition = false, s
           </fieldset>}
           <div className="dialog-actions">
             {clearable && <button className="clear-meal-form" type="button" onClick={clearForm} disabled={!hasInput}><Eraser aria-hidden="true" />Clear</button>}
-            {onReestimate && <button className="reestimate-meal" type="button" onClick={onReestimate} disabled={!shown.text.trim()} title="Replace values with a new AI estimate"><RefreshCw aria-hidden="true" />{hasNutrition(shown) ? 'Re-estimate' : 'Estimate'}</button>}
+            {onReestimate && <button className="reestimate-meal" type="button" onClick={onReestimate} disabled={!shown.text.trim()} title="Replace values with a new AI estimate" aria-label={hasNutrition(shown) ? 'Re-estimate with AI' : 'Estimate with AI'}><Sparkles aria-hidden="true" />{hasNutrition(shown) ? 'Re-estimate' : 'Estimate'}</button>}
             <button className="confirm-add" type="submit" disabled={!shown.text.trim()}>{submitLabel}</button>
           </div>
         </form>
