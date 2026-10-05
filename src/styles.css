@@ -794,3 +794,21 @@ textarea::placeholder { color: #9aa09b; }
   .objective-toggle button { grid-column: span 2; padding: 9px 4px; }
   .objective-toggle button:nth-child(n + 4) { grid-column: span 3; }
 }
+
+/* Install prompt: a dismissible card at the top so it never covers the add-meal button or toasts. */
+.install-prompt { position: fixed; z-index: 8; top: calc(12px + env(safe-area-inset-top)); right: 0; left: 0; display: flex; align-items: flex-start; gap: 12px; width: min(420px, calc(100% - 32px)); margin: 0 auto; border: 1px solid var(--line); border-radius: 10px; padding: 14px; background: var(--surface); box-shadow: 0 10px 28px rgb(34 42 37 / 14%); color: var(--ink); animation: install-in 280ms var(--ease-out); }
+.install-prompt[data-closing] { animation: install-out 180ms var(--ease-out) forwards; }
+.install-icon { flex: none; width: 40px; height: 40px; border-radius: 9px; }
+.install-body { flex: 1; min-width: 0; }
+.install-body h2 { margin: 0 0 3px; font-size: 15px; }
+.install-body p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.install-body p strong { color: var(--ink); font-weight: 600; }
+.install-body p svg { width: 15px; height: 15px; vertical-align: -3px; color: #2f7bf6; }
+.install-action { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; border: 0; border-radius: 6px; padding: 8px 13px; background: var(--green); color: white; font-size: 13px; font-weight: 600; }
+.install-installed { margin-top: 8px; border: 0; padding: 0; background: transparent; color: var(--green); font-size: 13px; font-weight: 600; }
+.install-action svg { width: 15px; height: 15px; }
+.install-close { display: grid; flex: none; width: 28px; height: 28px; margin: -4px -4px 0 0; place-items: center; border: 0; border-radius: 5px; padding: 0; background: transparent; color: var(--muted); }
+.install-close svg { width: 16px; height: 16px; }
+@keyframes install-in { from { opacity: 0; transform: translateY(-12px) scale(.98); } }
+@keyframes install-out { to { opacity: 0; transform: translateY(-8px) scale(.98); } }
+@media (prefers-reduced-motion: reduce) { .install-prompt, .install-prompt[data-closing] { animation-duration: 1ms; } }

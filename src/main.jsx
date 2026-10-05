@@ -6,6 +6,7 @@ import { calculateScore, dayProgress, dayStatus, DAY_COMPLETE_HOUR, macroLabels,
 import { BarcodeScanner } from './BarcodeScanner.jsx';
 import { dateKey, decimalInput, formatDate, loadLocal, saveLocal, shiftDate, useEscape, usePresence } from './shared.js';
 import { WorkoutsView } from './Workouts.jsx';
+import { InstallPrompt } from './InstallPrompt.jsx';
 import './styles.css';
 
 if ('serviceWorker' in navigator) {
@@ -2465,4 +2466,4 @@ function scaleNutrition({ base, portion, ...values }) {
 function TimePicker({ value, onChange }) {
   return <div className="time-picker"><Clock aria-hidden="true" /><strong>{value}</strong><input aria-label="Meal time" type="time" value={value} onChange={(event) => onChange(event.target.value)} /></div>;
 }
-createRoot(document.getElementById('root')).render(<StrictMode><App /></StrictMode>);
+createRoot(document.getElementById('root')).render(<StrictMode><App /><InstallPrompt /></StrictMode>);
