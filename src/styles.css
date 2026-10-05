@@ -777,9 +777,14 @@ textarea::placeholder { color: #9aa09b; }
 .goal-history-dates { display: flex; align-items: center; gap: 8px; font-size: 14px; }
 .goal-history-dates small { border-radius: 4px; padding: 2px 6px; background: #eef5f0; color: var(--green); font-size: 11px; font-weight: 600; }
 .goal-history-targets { color: var(--muted); font-size: 12px; }
-.goal-period-form { grid-template-columns: repeat(2, 1fr); gap: 14px 12px; }
+.goal-period-form { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; }
 .goal-period-form .goal-period-date, .goal-period-form .goal-period-objective, .goal-period-form .dialog-actions, .goal-period-hint { grid-column: 1 / -1; }
 .goal-period-form .manual-input { font-size: 12px; }
 .goal-period-hint { margin: 0; color: var(--muted); font-size: 12px; }
 @media (hover: hover) and (pointer: fine) { .goal-history-list button:hover { border-color: #b8d2bf; } }
 .goal-period-hint[data-error] { color: #b34f43; }
+/* iOS Safari gives date inputs a native intrinsic width that ignores width: 100%; same fix as .settings-form. */
+.goal-period-date input { display: block; min-width: 0; max-width: 100%; -webkit-appearance: none; appearance: none; min-height: 34px; }
+.goal-period-date input::-webkit-date-and-time-value { text-align: left; }
+.goal-period-form > * { min-width: 0; }
+.goal-history-dates small.is-upcoming { background: #edf0ed; color: var(--muted); }
