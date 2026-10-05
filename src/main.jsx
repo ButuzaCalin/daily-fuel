@@ -245,7 +245,7 @@ function sumNutrition(meals) {
 // Final score for a completed day with logged values, otherwise null.
 function scoreForDay(date, mealsByDate, goal, todayKey, now) {
   const meals = mealsByDate[date] || [];
-  return meals.length && dayStatus(date, todayKey, now) === 'complete' ? calculateScore(sumNutrition(meals), goal).score : null;
+  return meals.length && dayStatus(date, todayKey, now) === 'complete' ? calculateScore(sumNutrition(meals), goalOn(goal, date)).score : null;
 }
 
 // Completed days only: the range ends yesterday, or today once it is complete (after DAY_COMPLETE_HOUR).
@@ -357,7 +357,7 @@ function App() {
   const [mealNutrition, setMealNutrition] = useState(blankNutrition);
   const [editMeal, setEditMeal] = useState(null);
   const [addMealOpen, setAddMealOpen] = useState(false);
-  const [goal, setGoal] = useState(() => loadLocal('daily-fuel-goal', null));
+  const [goal, setGoal] = useState(() => { const saved = loadLocal('daily-fuel-goal', null); return saved && normalizeGoal(saved); });
   const [weights, setWeights] = useState(() => loadLocal('daily-fuel-weights', []));
   const [workoutTemplates, setWorkoutTemplates] = useState(() => loadLocal('daily-fuel-workout-templates', []));
   const [workoutLogs, setWorkoutLogs] = useState(() => loadLocal('daily-fuel-workout-logs', {}));
@@ -388,6 +388,7 @@ function App() {
   }, [usage]);
 
   const total = useMemo(() => sumNutrition(meals), [meals]);
+  const dayGoal = goalOn(goal, selectedDate);
   const pendingCount = meals.filter((meal) => !hasNutrition(meal)).length;
   const dayEstimateLabel = !meals.length ? 'No meals to estimate' : pendingCount ? `Estimate all ${pendingCount} ${pendingCount === 1 ? 'meal' : 'meals'} without values at once` : 'All meals already have values';
 
@@ -733,19 +734,19 @@ function App() {
           <div className="summary-heading">
             <p className="eyebrow">Daily total</p>
             <span className="summary-date">{selectedDate === dateKey(new Date()) ? 'Today' : formatDate(selectedDate)}</span>
-            {scoring && <DayScore total={total} goal={goal} meals={meals} status={dayStatus(selectedDate, dateKey(now), now)} onOpen={() => setScoreOpen(true)} />}
+            {scoring && <DayScore total={total} goal={dayGoal} meals={meals} status={dayStatus(selectedDate, dateKey(now), now)} onOpen={() => setScoreOpen(true)} />}
             <button className="estimate-button daily-estimate-button" type="button" onClick={estimateDay} disabled={!pendingCount || meals.some((meal) => meal.estimating)} aria-label={dayEstimateLabel} title={dayEstimateLabel}>
               {meals.some((meal) => meal.estimating) ? <LoaderCircle className="ai-loading" aria-hidden="true" /> : <Sparkles className="ai-icon" aria-hidden="true" />}
               <span className="daily-estimate-label">{pendingCount ? 'Estimate all' : 'Up to date'}</span>
               {pendingCount > 0 && <span className="daily-estimate-count">{pendingCount}</span>}
             </button>
           </div>
-          <div className="calorie-total"><div><strong>{Math.round(total.calories)}</strong><span>kcal</span></div>{goal?.calories > 0 && <strong className="calorie-goal">/ {Math.round(goal.calories)}<small> kcal</small></strong>}</div>
-          {goal?.calories > 0 && <GoalProgress value={total.calories} goal={goal.calories} color="green" />}
+          <div className="calorie-total"><div><strong>{Math.round(total.calories)}</strong><span>kcal</span></div>{dayGoal?.calories > 0 && <strong className="calorie-goal">/ {Math.round(dayGoal.calories)}<small> kcal</small></strong>}</div>
+          {dayGoal?.calories > 0 && <GoalProgress value={total.calories} goal={dayGoal.calories} color="green" />}
           <div className="macro-grid">
-            <Macro label="Protein" value={total.proteins} goal={goal?.proteins} color="green" />
-            <Macro label="Carbs" value={total.carbs} goal={goal?.carbs} color="yellow" />
-            <Macro label="Fat" value={total.fats} goal={goal?.fats} color="coral" />
+            <Macro label="Protein" value={total.proteins} goal={dayGoal?.proteins} color="green" />
+            <Macro label="Carbs" value={total.carbs} goal={dayGoal?.carbs} color="yellow" />
+            <Macro label="Fat" value={total.fats} goal={dayGoal?.fats} color="coral" />
           </div>
         </aside>
       </div>
@@ -763,7 +764,7 @@ function App() {
         onClose={() => setAddMealOpen(false)}
         onSubmit={addMeal}
       />
-      <ScoreDialog open={scoring && scoreOpen} total={total} goal={goal} meals={meals} pendingCount={pendingCount} status={dayStatus(selectedDate, dateKey(now), now)} now={now} onClose={() => setScoreOpen(false)} />
+      <ScoreDialog open={scoring && scoreOpen} total={total} goal={dayGoal} meals={meals} pendingCount={pendingCount} status={dayStatus(selectedDate, dateKey(now), now)} now={now} onClose={() => setScoreOpen(false)} />
       <MealDialog draft={editMeal} title="Edit meal" submitLabel="Save" onChange={(patch) => setEditMeal((current) => ({ ...current, ...patch, nutrition: { ...current.nutrition, ...patch.nutrition } }))} onClose={() => setEditMeal(null)} onSubmit={saveMealEdit} onReestimate={reestimateEdit} />
     </main>
   );
@@ -950,7 +951,7 @@ function ReportsView({ goal, quota, mealsByDate, onOpenDay, report, period, setP
   const averageMax = Math.max(average.proteins, average.carbs, average.fats, 1);
   const mealCount = report.days.reduce((sum, day) => sum + day.meals.length, 0);
   const calorieGoal = goal?.calories || 0;
-  const onTargetDays = report.days.filter((day) => day.meals.length && goalTone(day.nutrition.calories, calorieGoal) === 'on').length;
+  const onTargetDays = report.days.filter((day) => day.meals.length && goalTone(day.nutrition.calories, goalOn(goal, day.date)?.calories) === 'on').length;
   const stats = [
     { label: 'Days logged', value: loggedDays, suffix: `/ ${report.days.length}` },
     calorieGoal > 0 && { label: 'On target', value: onTargetDays, suffix: `/ ${loggedDays}` },
@@ -999,7 +1000,7 @@ function ReportsView({ goal, quota, mealsByDate, onOpenDay, report, period, setP
               const label = `${formatDate(day.date)}: ${logged ? `${Math.round(value).toLocaleString()} ${metricInfo.suffix}` : 'nothing logged'}`;
               return (
                 <button key={day.date} className="bar-column" type="button" onClick={() => onOpenDay(day.date)} aria-label={`${label}. Open day`} title={label}>
-                  {logged ? <i className={`tone-${goalTone(value, goalValue, metric)}`} style={{ height: percentOf(value) }} /> : <i className="bar-empty" />}
+                  {logged ? <i className={`tone-${goalTone(value, goalOn(goal, day.date)?.[metric], metric)}`} style={{ height: percentOf(value) }} /> : <i className="bar-empty" />}
                   {period === 'week' && logged && <small style={{ bottom: percentOf(value) }}>{compactNumber(value)}</small>}
                 </button>
               );
@@ -1492,11 +1493,34 @@ function MacroBar({ label, value, goal, color, max }) {
 
 const goalTargetKeys = ['calories', 'proteins', 'carbs', 'fats'];
 
-// Scoring can only stay on while protein, carbs and fat all have targets.
+function goalTargets(value) {
+  return { ...Object.fromEntries(goalTargetKeys.map((key) => [key, Math.max(0, Number(value?.[key]) || 0)])), objective: objectiveKey(value?.objective) };
+}
+
+// Goals are kept as periods, each used from its `from` date until the next one starts; the oldest also covers
+// earlier days. Goals saved before periods existed become a single period starting today.
+function goalPeriods(value) {
+  const saved = Array.isArray(value?.periods) ? value.periods : null;
+  const periods = saved
+    ? saved.filter((period) => /^\d{4}-\d{2}-\d{2}$/.test(period?.from)).map((period) => ({ from: period.from, ...goalTargets(period) }))
+    : goalTargetKeys.some((key) => Number(value?.[key]) > 0) ? [{ from: dateKey(new Date()), ...goalTargets(value) }] : [];
+  return [...new Map(periods.map((period) => [period.from, period])).values()].sort((first, second) => first.from.localeCompare(second.from));
+}
+
+// The top-level targets mirror the latest period (start dates can't be in the future, so it's the current goal).
+// Scoring can only stay on while at least one target is set.
 function normalizeGoal(value) {
-  const targets = Object.fromEntries(goalTargetKeys.map((key) => [key, Math.max(0, Number(value?.[key]) || 0)]));
+  const periods = goalPeriods(value);
+  const targets = goalTargets(periods.at(-1));
   const anyTarget = goalTargetKeys.some((key) => targets[key] > 0);
-  return { ...targets, objective: objectiveKey(value?.objective), scoring: Boolean(value?.scoring && anyTarget), weightTracking: Boolean(value?.weightTracking), workouts: Boolean(value?.workouts) };
+  return { ...targets, periods, scoring: Boolean(value?.scoring && anyTarget), weightTracking: Boolean(value?.weightTracking), workouts: Boolean(value?.workouts) };
+}
+
+// The goal with the targets and objective that applied on `date`.
+function goalOn(goal, date) {
+  if (!goal?.periods?.length) return goal;
+  const period = goal.periods.findLast((item) => item.from <= date) || goal.periods[0];
+  return { ...goal, ...goalTargets(period) };
 }
 
 // Goal edits are held in a draft until saved from the save bar.
@@ -1511,18 +1535,48 @@ function GoalView({ goal, quota, setGoal, onEstimateGoal, onNavigate, menuOpen, 
   const scoringOn = scoringAvailable(current);
   const [objectiveInfoOpen, setObjectiveInfoOpen] = useState(false);
   const [goalWizardOpen, setGoalWizardOpen] = useState(false);
+  const [periodEdit, setPeriodEdit] = useState(null);
+  const latest = current.periods.at(-1);
+
+  // Reload the form when the current goal changes elsewhere (e.g. a new goal from the history).
+  const currentKey = JSON.stringify(goalTargets(current));
+  useEffect(() => {
+    setDraft(toDraft(current));
+    setDraftObjective(current.objective);
+  }, [currentKey]);
 
   function updateGoal(patch) {
     setGoal(normalizeGoal({ ...current, ...patch }));
   }
 
+  function savePeriods(periods) {
+    const next = normalizeGoal({ ...current, periods });
+    setGoal(next);
+    return next;
+  }
+
+  // Edits the current goal in place; days before its start keep their own goal.
   function saveTargets(event) {
     event.preventDefault();
-    const next = normalizeGoal({ ...current, objective: draftObjective, ...Object.fromEntries(goalTargetKeys.map((key) => [key, targets[key]])) });
-    setGoal(next);
+    const period = { from: latest?.from || dateKey(new Date()), ...goalTargets({ ...targets, objective: draftObjective }) };
+    const next = savePeriods([...current.periods.filter((item) => item.from !== period.from), period]);
     setDraft(toDraft(next));
     setDraftObjective(next.objective);
     notify(current.scoring && !next.scoring ? 'Targets saved. Scoring turned off.' : 'Targets saved.', 'success');
+  }
+
+  // `moved` is the current goal shifted to start a day earlier, when a new goal takes over its start day.
+  function savePeriod(period, originalFrom, moved) {
+    savePeriods([...current.periods.filter((item) => item.from !== originalFrom && item.from !== period.from), ...(moved ? [moved] : []), period]);
+    setPeriodEdit(null);
+    notify(originalFrom ? 'Goal updated.' : 'New goal saved.', 'success');
+  }
+
+  function deletePeriod(from) {
+    const previous = current.periods;
+    savePeriods(previous.filter((item) => item.from !== from));
+    setPeriodEdit(null);
+    notify('Goal deleted.', 'info', { label: 'Undo', onClick: () => setGoal((value) => normalizeGoal({ ...value, periods: previous })) });
   }
 
   function applyAiGoal(values, objective) {
@@ -1542,7 +1596,7 @@ function GoalView({ goal, quota, setGoal, onEstimateGoal, onNavigate, menuOpen, 
       <div className="reports-heading"><div><p className="eyebrow">Daily target</p><h1>Goal</h1></div></div>
       <div className="goal-sections">
         <form className="goal-form" onSubmit={saveTargets}>
-          <div className="goal-section-heading goal-target-heading"><div><h2>Targets</h2><p>Set and save at least one target to activate scoring and see daily progress.</p></div><button className="goal-ai-button" type="button" onClick={() => setGoalWizardOpen(true)}><Sparkles aria-hidden="true" />Suggest with AI</button></div>
+          <div className="goal-section-heading goal-target-heading"><div><h2>Targets</h2><p>{latest ? `Current goal, used ${current.periods.length > 1 ? `since ${formatDate(latest.from)}` : 'for all days'}. To keep earlier days as they were, start a new goal below.` : 'Set and save at least one target to activate scoring and see daily progress.'}</p></div><button className="goal-ai-button" type="button" onClick={() => setGoalWizardOpen(true)}><Sparkles aria-hidden="true" />Suggest with AI</button></div>
           <ManualInput label="Calories (kcal)" value={draft.calories} onChange={(value) => setDraft((current) => ({ ...current, calories: value }))} />
           <ManualInput label="Protein (g)" value={draft.proteins} onChange={(value) => setDraft((current) => ({ ...current, proteins: value }))} />
           <ManualInput label="Carbs (g)" value={draft.carbs} onChange={(value) => setDraft((current) => ({ ...current, carbs: value }))} />
@@ -1570,10 +1624,99 @@ function GoalView({ goal, quota, setGoal, onEstimateGoal, onNavigate, menuOpen, 
             </div>
           )}
         </section>
+        {latest && (
+          <section className="goal-form goal-history">
+            <div className="goal-section-heading goal-target-heading"><div><h2>Goal history</h2><p>Each day is scored and reported against the goal it had.</p></div><button className="goal-ai-button" type="button" onClick={() => setPeriodEdit({ from: dateKey(new Date()), ...goalTargets(current), isNew: true })}><Plus aria-hidden="true" />New goal</button></div>
+            <ul className="goal-history-list">
+              {[...current.periods].reverse().map((period, index, list) => (
+                <li key={period.from}>
+                  <button type="button" onClick={() => setPeriodEdit(period)} aria-label={`Edit goal from ${formatDate(period.from)}`}>
+                    <span className="goal-history-dates"><strong>{periodRange(period, list[index - 1], index === list.length - 1)}</strong>{index === 0 && <small>Current</small>}</span>
+                    <span className="goal-history-targets">{goalSummary(period)}{scoringOn && ` · ${objectives[period.objective].label}`}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+        <GoalPeriodDialog period={periodEdit} periods={current.periods} showObjective={scoringOn} onSave={savePeriod} onDelete={deletePeriod} onClose={() => setPeriodEdit(null)} />
         <ObjectiveInfoDialog open={objectiveInfoOpen} selected={draftObjective} onSelect={(objective) => { setDraftObjective(objective); setObjectiveInfoOpen(false); }} onClose={() => setObjectiveInfoOpen(false)} />
         <GoalWizardDialog open={goalWizardOpen} selected={current.objective} onClose={() => setGoalWizardOpen(false)} onGenerate={onEstimateGoal} onApply={applyAiGoal} />
       </div>
     </main>
+  );
+}
+
+// The oldest goal also covers the days before its start, so it reads "Until …".
+function periodRange(period, next, oldest) {
+  if (!next) return oldest ? 'All days' : `Since ${formatDate(period.from)}`;
+  return oldest ? `Until ${formatDate(shiftDate(next.from, -1))}` : `${formatDate(period.from)} – ${formatDate(shiftDate(next.from, -1))}`;
+}
+
+function goalSummary(period) {
+  const parts = [period.calories > 0 && `${Math.round(period.calories)} kcal`, ...metrics.slice(1).filter(({ key }) => period[key] > 0).map(({ key, label }) => `${label} ${Math.round(period[key])}g`)].filter(Boolean);
+  return parts.length ? parts.join(' · ') : 'No targets';
+}
+
+// Adds a goal starting on a chosen day, or edits/deletes an existing one; `period.isNew` marks a new goal.
+function GoalPeriodDialog({ period, periods, showObjective, onSave, onDelete, onClose }) {
+  const [shown, closing] = usePresence(period, 150);
+  const id = useId();
+  const [draft, setDraft] = useState(null);
+  useEscape(Boolean(period), onClose);
+
+  useLayoutEffect(() => {
+    if (period) setDraft({ from: period.from, objective: period.objective, ...Object.fromEntries(goalTargetKeys.map((key) => [key, period[key] ? String(period[key]) : ''])) });
+  }, [period]);
+
+  if (!shown || !draft) return null;
+  const originalFrom = shown.isNew ? null : shown.from;
+  const today = dateKey(new Date());
+  const targets = goalTargets(draft);
+  const error = !/^\d{4}-\d{2}-\d{2}$/.test(draft.from) ? 'Choose a start date.'
+    : draft.from > today ? 'The start date can\'t be in the future.'
+    : draft.from !== originalFrom && periods.some((item) => item.from === draft.from) && !(shown.isNew && draft.from === periods.at(-1)?.from) ? `Another goal already starts on ${formatDate(draft.from)}.`
+    : !goalTargetKeys.some((key) => targets[key] > 0) ? 'Set at least one target.' : '';
+  // A new goal starting on the current goal's start day moves the current goal back a day so earlier days keep it;
+  // only when that day already belongs to the previous goal (the current one began today) is it replaced.
+  const latest = periods.at(-1);
+  const takesCurrentDay = shown.isNew && draft.from === latest?.from;
+  const movedFrom = takesCurrentDay && shiftDate(latest.from, -1);
+  const moved = takesCurrentDay && !(periods.at(-2)?.from >= movedFrom) ? { ...latest, from: movedFrom } : null;
+  const replacesCurrent = takesCurrentDay && !moved;
+  const set = (patch) => setDraft((current) => ({ ...current, ...patch }));
+
+  function submit(event) {
+    event.preventDefault();
+    if (error) return;
+    onSave({ from: draft.from, ...targets }, takesCurrentDay ? draft.from : originalFrom, moved);
+  }
+
+  return (
+    <div className="dialog-layer" data-closing={closing || undefined} role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="add-meal-dialog" role="dialog" aria-modal="true" aria-labelledby={`${id}-title`}>
+        <div className="dialog-heading"><h2 id={`${id}-title`}>{shown.isNew ? 'New goal' : 'Edit goal'}</h2><button type="button" onClick={onClose} aria-label="Close"><X /></button></div>
+        <form className="meal-form goal-period-form" onSubmit={submit}>
+          <label className="manual-input goal-period-date">Starts on<input type="date" max={today} value={draft.from} onChange={(event) => set({ from: event.target.value })} /></label>
+          <ManualInput label="Calories (kcal)" value={draft.calories} onChange={(value) => set({ calories: value })} />
+          <ManualInput label="Protein (g)" value={draft.proteins} onChange={(value) => set({ proteins: value })} />
+          <ManualInput label="Carbs (g)" value={draft.carbs} onChange={(value) => set({ carbs: value })} />
+          <ManualInput label="Fat (g)" value={draft.fats} onChange={(value) => set({ fats: value })} />
+          {showObjective && (
+            <div className="goal-objective goal-period-objective" role="radiogroup" aria-label="Objective">
+              <span>Objective</span>
+              <div className="objective-toggle">{Object.entries(objectives).map(([key, objective]) => <button className={draft.objective === key ? 'active' : ''} type="button" role="radio" aria-checked={draft.objective === key} onClick={() => set({ objective: key })} key={key}>{objective.label}</button>)}</div>
+            </div>
+          )}
+          <p className="goal-period-hint" data-error={error || undefined}>{error || (replacesCurrent ? 'This replaces the current goal, which also started on this day.' : moved ? `Used from this day on. Your current goal stays on days up to ${formatDate(movedFrom)}.` : 'Used from this day until the next goal starts.')}</p>
+          <div className="dialog-actions">
+            {!shown.isNew && periods.length > 1 && <button className="clear-meal-form" type="button" onClick={() => onDelete(shown.from)}><Trash2 aria-hidden="true" />Delete</button>}
+            <button type="button" onClick={onClose}>Cancel</button>
+            <button className="confirm-add" type="submit" disabled={Boolean(error)}>Save</button>
+          </div>
+        </form>
+      </section>
+    </div>
   );
 }
 
@@ -1980,18 +2123,22 @@ const helpSections = [
     'Alege perioada: 7 zile, 30 de zile sau 3 luni. Ziua de azi este inclusă după ora 21:00.',
     'Vezi câte zile ai înregistrat, câte au fost în țintă și media meselor pe zi.',
     '„Daily average” arată media de calorii și macronutrienți pe zi înregistrată.',
-    'În graficul pe zile poți schimba indicatorul (calorii, proteine etc.). Culorile arată dacă ai fost sub, în țintă sau peste. Apasă pe o coloană ca să deschizi ziua respectivă.',
+    'În graficul pe zile poți schimba indicatorul (calorii, proteine etc.). Culorile arată dacă ai fost sub, în țintă sau peste ținta din ziua respectivă; linia de țintă și „Daily average” folosesc obiectivul curent. Apasă pe o coloană ca să deschizi ziua respectivă.',
   ] },
   { icon: Target, title: 'Goal', items: [
-    'Setează țintele zilnice pentru calorii, proteine, carbohidrați și grăsimi, apoi apasă „Save”.',
+    'Setează țintele zilnice pentru calorii, proteine, carbohidrați și grăsimi, apoi apasă „Save”. Modificările se aplică obiectivului curent.',
     '„Suggest with AI” te ghidează în 5 pași (sex, vârstă, înălțime și greutate, nivel de activitate, scop) și propune ținte. Le poți ajusta înainte de salvare.',
     'După ce ai salvat cel puțin o țintă, poți activa „Scoring”, care adaugă pagina Scores în meniu.',
     'Alege obiectivul (slăbire, menținere, creștere în greutate, masă musculară, recompoziție). Ținta rămâne aceeași; obiectivul schimbă doar cum este punctat surplusul sau deficitul. Butonul ⓘ explică fiecare variantă.',
+    'Ca să schimbi ținta fără să afectezi zilele trecute, apasă „New goal” în „Goal history” și alege data de la care se aplică (implicit azi). Fiecare zi este punctată și raportată după obiectivul pe care îl avea atunci.',
+    'Un obiectiv se aplică de la data lui de start până când începe următorul. Cel mai vechi obiectiv se aplică și zilelor dinaintea lui.',
+    'Apasă pe un obiectiv din „Goal history” ca să-i modifici data de start, țintele sau obiectivul, ori ca să-l ștergi (cu Undo).',
   ] },
   { icon: Medal, title: 'Scores', items: [
     'Apare în meniu doar când scorul este activ din Goal.',
     'Fiecare zi primește un scor de la 0 la 100, în funcție de cât de aproape ai fost de ținte. Scorul unei zile se stabilește după ora 21:00.',
     'Calendarul arată scorurile pe lună și media lunară. Îl poți partaja ca imagine.',
+    'Fiecare zi este punctată după obiectivul activ în ziua respectivă, deci un obiectiv nou nu schimbă scorurile trecute.',
     'Apasă pe o zi ca să o deschizi. Pe pagina Today, insigna de scor arată detaliile și modul de calcul.',
   ] },
   { icon: Scale, title: 'Weight', items: [

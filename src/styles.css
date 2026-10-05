@@ -769,3 +769,17 @@ textarea::placeholder { color: #9aa09b; }
   .settings-discard:hover { color: var(--ink); }
 }
 @media (max-width: 480px) { .settings-pair { grid-template-columns: 1fr; } }
+
+/* Goal history */
+.goal-history-list { display: grid; grid-column: 1 / -1; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.goal-history-list button { display: grid; gap: 3px; width: 100%; border: 1px solid var(--line); border-radius: 7px; padding: 10px 12px; background: white; color: var(--ink); text-align: left; transition: transform 140ms var(--ease-out), border-color 140ms ease; }
+.goal-history-list button:active { transform: scale(.99); }
+.goal-history-dates { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.goal-history-dates small { border-radius: 4px; padding: 2px 6px; background: #eef5f0; color: var(--green); font-size: 11px; font-weight: 600; }
+.goal-history-targets { color: var(--muted); font-size: 12px; }
+.goal-period-form { grid-template-columns: repeat(2, 1fr); gap: 14px 12px; }
+.goal-period-form .goal-period-date, .goal-period-form .goal-period-objective, .goal-period-form .dialog-actions, .goal-period-hint { grid-column: 1 / -1; }
+.goal-period-form .manual-input { font-size: 12px; }
+.goal-period-hint { margin: 0; color: var(--muted); font-size: 12px; }
+@media (hover: hover) and (pointer: fine) { .goal-history-list button:hover { border-color: #b8d2bf; } }
+.goal-period-hint[data-error] { color: #b34f43; }
