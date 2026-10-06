@@ -69,6 +69,10 @@ h2 { margin: 0; letter-spacing: -.03em; }
 .section-heading { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
 .section-heading h2 { font-size: 22px; }
 .meal-count { display: grid; width: 22px; height: 22px; place-items: center; border-radius: 50%; background: #e7eee9; color: var(--green); font-size: 11px; }
+.meal-sort { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; border: 0; border-radius: 6px; padding: 6px 8px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 600; transition: transform 140ms var(--ease-out), color 140ms ease; }
+.meal-sort svg { width: 15px; height: 15px; }
+.meal-sort:active { transform: scale(.97); }
+@media (hover: hover) and (pointer: fine) { .meal-sort:hover { color: var(--ink); } }
 .time-picker { position: relative; display: inline-flex; min-width: 108px; height: 40px; align-items: center; gap: 9px; border: 1px solid var(--line); border-radius: 7px; padding: 0 11px; background: white; color: var(--ink); }
 .time-picker svg { width: 16px; height: 16px; color: var(--green); }
 .time-picker strong { font-size: 16px; font-weight: 600; letter-spacing: .02em; }
@@ -537,6 +541,10 @@ textarea::placeholder { color: #9aa09b; }
 .goal-wizard-actions button:disabled { cursor: not-allowed; opacity: .5; }
 @media (hover: hover) and (pointer: fine) { .goal-ai-button:hover { background: #dcebe1; } .goal-wizard-options button:not(.active):hover { border-color: #b8d2bf; } }
 @media (max-width: 430px) { .goal-target-heading { align-items: flex-start; } .goal-ai-button { padding: 8px; } .goal-wizard-question { min-height: 190px; } }
+.goal-new-callout { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px dashed #b8d2bf; border-radius: 8px; background: #f6faf7; }
+.goal-new-callout span { display: grid; gap: 2px; }
+.goal-new-callout strong { font-size: 14px; }
+.goal-new-callout small { color: var(--muted); font-size: 12px; }
 .goal-section-heading + .scoring-toggle { border-top: 0; padding-top: 0; }
 .weight-form h2 { font-size: 18px; }
 .weight-form .auth-submit { margin-top: 0; }

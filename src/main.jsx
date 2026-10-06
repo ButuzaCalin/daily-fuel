@@ -1,6 +1,6 @@
 import { StrictMode, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BarChart3, ChevronDown, CircleHelp, Dumbbell, Eye, EyeOff, ShieldCheck, SlidersHorizontal, ChevronLeft, ChevronRight, Clock, Cpu, Database, Eraser, History, Home, Info, LoaderCircle, Medal, Menu as MenuIcon, Plus, RefreshCw, Scale, ScanBarcode, Settings, Share2, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, BarChart3, ChevronDown, CircleHelp, Dumbbell, Eye, EyeOff, ShieldCheck, SlidersHorizontal, ChevronLeft, ChevronRight, Clock, Cpu, Database, Eraser, History, Home, Info, LoaderCircle, Medal, Menu as MenuIcon, Plus, RefreshCw, Scale, ScanBarcode, Settings, Share2, Sparkles, Target, Trash2, Undo2, X } from 'lucide-react';
 import { toBlob } from 'html-to-image';
 import { calculateScore, dayProgress, dayStatus, DAY_COMPLETE_HOUR, macroLabels, metrics, objectiveKey, objectives, scoreLabel, scoringAvailable } from './score.js';
 import { BarcodeScanner } from './BarcodeScanner.jsx';
@@ -41,7 +41,7 @@ document.addEventListener('gesturestart', (event) => event.preventDefault());
 const emptyNutrition ={ calories: 0, proteins: 0, carbs: 0, fats: 0 };
 const blankNutrition = { calories: '', proteins: '', carbs: '', fats: '' };
 const mealTextMaxLength = 300;
-const defaultSettings = { aiMode: 'manual', proxyUrl: '', proxyUsername: '', proxyKey: '', provider: 'google', googleKey: '', googleModel: 'gemini-3.5-flash-lite', openaiKey: '', openaiModel: 'gpt-4o-mini' };
+const defaultSettings = { aiMode: 'manual', proxyUrl: '', proxyUsername: '', proxyKey: '', provider: 'google', googleKey: '', googleModel: 'gemini-3.5-flash-lite', openaiKey: '', openaiModel: 'gpt-4o-mini', mealOrder: 'asc' };
 const aiModeLabels = { manual: 'Manual Config', proxy: 'Proxy Config' };
 
 // Only one AI config may hold credentials at a time: keep the active one, reset the other.
@@ -393,6 +393,8 @@ function App() {
   const scoring = scoringAvailable(goal);
   const now = useNow(scoring);
   const meals = sortMeals(mealsByDate[selectedDate] || []);
+  const mealOrder = settings.mealOrder;
+  const shownMeals = mealOrder === 'desc' ? [...meals].reverse() : meals;
   const previousMeals = useMemo(() => pastMeals(mealsByDate), [mealsByDate]);
 
   useEffect(() => saveLocal('daily-fuel-meals', mealsByDate), [mealsByDate]);
@@ -725,6 +727,11 @@ function App() {
           <div className="section-heading">
             <h2>Meals</h2>
             <span className="meal-count">{meals.length}</span>
+            {meals.length > 1 && (
+              <button className="meal-sort" type="button" onClick={() => setSettings((current) => ({ ...current, mealOrder: current.mealOrder === 'desc' ? 'asc' : 'desc' }))} title={mealOrder === 'desc' ? 'Newest first' : 'Oldest first'} aria-label={`Sorted ${mealOrder === 'desc' ? 'newest' : 'oldest'} first. Change order`}>
+                {mealOrder === 'desc' ? <ArrowDownWideNarrow aria-hidden="true" /> : <ArrowUpNarrowWide aria-hidden="true" />}{mealOrder === 'desc' ? 'Newest first' : 'Oldest first'}
+              </button>
+            )}
           </div>
 
           <div className="meal-list">
@@ -733,7 +740,7 @@ function App() {
                 <p>No meals logged {selectedDate === dateKey(new Date()) ? 'today' : 'on this day'}</p>
                 <button className="empty-add" type="button" onClick={openAddMeal}>Add a meal</button>
               </div>
-            ) : meals.map((meal) => (
+            ) : shownMeals.map((meal) => (
               <article className={`meal-card${meal.id === newMealId ? ' is-new' : ''}`} data-estimating={meal.estimating || undefined} onAnimationEnd={(event) => { if (event.target === event.currentTarget) setNewMealId(null); }} key={meal.id}>
                 <div className="meal-time">{meal.time}</div>
                 <div className="meal-main">
@@ -1607,6 +1614,10 @@ function GoalView({ goal, quota, setGoal, onEstimateGoal, onNavigate, menuOpen, 
     notify('Goal deleted.', 'info', { label: 'Undo', onClick: () => setGoal((value) => normalizeGoal({ ...value, periods: previous })) });
   }
 
+  function startNewGoal() {
+    setPeriodEdit({ from: today, ...goalTargets(current), isNew: true });
+  }
+
   function applyAiGoal(values, objective) {
     setDraft(toDraft(values));
     setDraftObjective(objective);
@@ -1624,11 +1635,17 @@ function GoalView({ goal, quota, setGoal, onEstimateGoal, onNavigate, menuOpen, 
       <div className="reports-heading"><div><p className="eyebrow">Daily target</p><h1>Goal</h1></div></div>
       <div className="goal-sections">
         <form className="goal-form" onSubmit={saveTargets}>
-          <div className="goal-section-heading goal-target-heading"><div><h2>Targets</h2><p>{active ? `Current goal, used ${current.periods[0] === active ? 'for all days until the next goal' : `since ${formatDate(active.from)}`}. To keep earlier days as they were, start a new goal below.` : 'Set and save at least one target to activate scoring and see daily progress.'}</p></div><button className="goal-ai-button" type="button" onClick={() => setGoalWizardOpen(true)}><Sparkles aria-hidden="true" />Suggest with AI</button></div>
+          <div className="goal-section-heading goal-target-heading"><div><h2>Targets</h2><p>{active ? `Current goal, used ${current.periods[0] === active ? 'for all days until the next goal' : `since ${formatDate(active.from)}`}. Edits here also change past days.` : 'Set and save at least one target to activate scoring and see daily progress.'}</p></div><button className="goal-ai-button" type="button" onClick={() => setGoalWizardOpen(true)}><Sparkles aria-hidden="true" />Suggest with AI</button></div>
           <ManualInput label="Calories (kcal)" value={draft.calories} onChange={(value) => setDraft((current) => ({ ...current, calories: value }))} />
           <ManualInput label="Protein (g)" value={draft.proteins} onChange={(value) => setDraft((current) => ({ ...current, proteins: value }))} />
           <ManualInput label="Carbs (g)" value={draft.carbs} onChange={(value) => setDraft((current) => ({ ...current, carbs: value }))} />
           <ManualInput label="Fat (g)" value={draft.fats} onChange={(value) => setDraft((current) => ({ ...current, fats: value }))} />
+          {active && (
+            <div className="goal-new-callout">
+              <span><strong>Changing your plan?</strong><small>Start a new goal so earlier days keep their targets.</small></span>
+              <button className="goal-ai-button" type="button" onClick={startNewGoal}><Plus aria-hidden="true" />Start new goal</button>
+            </div>
+          )}
           {changed && (
             <div className="save-bar" role="region" aria-label="Unsaved changes">
               <span>Unsaved changes</span>
@@ -1637,6 +1654,21 @@ function GoalView({ goal, quota, setGoal, onEstimateGoal, onNavigate, menuOpen, 
             </div>
           )}
         </form>
+        {active && (
+          <section className="goal-form goal-history">
+            <div className="goal-section-heading"><h2>Goal history</h2><p>Each day is scored and reported against the goal it had.</p></div>
+            <ul className="goal-history-list">
+              {[...current.periods].reverse().map((period, index, list) => (
+                <li key={period.from}>
+                  <button type="button" onClick={() => setPeriodEdit(period)} aria-label={`Edit goal from ${formatDate(period.from)}`}>
+                    <span className="goal-history-dates"><strong>{periodRange(period, list[index - 1], index === list.length - 1, today)}</strong>{period === active ? <small>Current</small> : period.from > today && <small className="is-upcoming">Upcoming</small>}</span>
+                    <span className="goal-history-targets">{goalSummary(period)}{scoringOn && ` · ${objectives[period.objective].label}`}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         <section className="goal-form">
           <div className="goal-section-heading"><h2>Daily score</h2><p>Adds the Scores page to the menu.</p></div>
           <label className="scoring-toggle">
@@ -1652,21 +1684,6 @@ function GoalView({ goal, quota, setGoal, onEstimateGoal, onNavigate, menuOpen, 
             </div>
           )}
         </section>
-        {active && (
-          <section className="goal-form goal-history">
-            <div className="goal-section-heading goal-target-heading"><div><h2>Goal history</h2><p>Each day is scored and reported against the goal it had.</p></div><button className="goal-ai-button" type="button" onClick={() => setPeriodEdit({ from: today, ...goalTargets(current), isNew: true })}><Plus aria-hidden="true" />New goal</button></div>
-            <ul className="goal-history-list">
-              {[...current.periods].reverse().map((period, index, list) => (
-                <li key={period.from}>
-                  <button type="button" onClick={() => setPeriodEdit(period)} aria-label={`Edit goal from ${formatDate(period.from)}`}>
-                    <span className="goal-history-dates"><strong>{periodRange(period, list[index - 1], index === list.length - 1, today)}</strong>{period === active ? <small>Current</small> : period.from > today && <small className="is-upcoming">Upcoming</small>}</span>
-                    <span className="goal-history-targets">{goalSummary(period)}{scoringOn && ` · ${objectives[period.objective].label}`}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
         <GoalPeriodDialog period={periodEdit} periods={current.periods} active={active} showObjective={scoringOn} onSave={savePeriod} onDelete={deletePeriod} onClose={() => setPeriodEdit(null)} />
         <ObjectiveInfoDialog open={objectiveInfoOpen} selected={draftObjective} onSelect={(objective) => { setDraftObjective(objective); setObjectiveInfoOpen(false); }} onClose={() => setObjectiveInfoOpen(false)} />
         <GoalWizardDialog open={goalWizardOpen} selected={current.objective} onClose={() => setGoalWizardOpen(false)} onGenerate={onEstimateGoal} onApply={applyAiGoal} />
@@ -1942,7 +1959,7 @@ function AiPanel({ settings, setSettings, notify }) {
   );
 }
 
-function GeneralPanel({ goal, setGoal, notify }) {
+function GeneralPanel({ goal, setGoal, settings, setSettings, notify }) {
   const [updating, setUpdating] = useState(false);
   // Menu switches live on the goal so existing data and backups keep working.
   const menus = normalizeGoal(goal);
@@ -1967,6 +1984,12 @@ function GeneralPanel({ goal, setGoal, notify }) {
         <input type="checkbox" role="switch" checked={menus.workouts} onChange={(event) => toggleMenu({ workouts: event.target.checked })} />
         <span><strong>Workouts</strong><small>Save workouts and log your sets and reps on a calendar.</small></span>
       </label>
+    </section>
+    <section className="settings-form settings-menus">
+      <div className="goal-section-heading"><h2>Meals</h2><p>Order of meals in the day list.</p></div>
+      <div className="objective-toggle" role="radiogroup" aria-label="Meal order">
+        {[['asc', 'Oldest first'], ['desc', 'Newest first']].map(([key, label]) => <button className={settings.mealOrder === key ? 'active' : ''} type="button" role="radio" aria-checked={settings.mealOrder === key} onClick={() => setSettings((current) => ({ ...current, mealOrder: key }))} key={key}>{label}</button>)}
+      </div>
     </section>
     <section className="settings-form settings-update">
       <div className="goal-section-heading"><h2>App</h2><p>Get the latest version. Your meals, goals and settings stay on this device.</p></div>
