@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { defaultSettings, exclusiveAiSettings } from '../ai/settings.js';
 import { pruneUsage } from '../ai/usage.js';
 import { normalizeGoal } from '../goal/goal.js';
 import { cleanPortion, emptyNutrition } from '../meals/nutrition.js';
 import { dateKey, shiftDate } from '../../lib/date.js';
 import { formatBytes, plural } from '../../lib/format.js';
+import { requestPersistentStorage } from '../../lib/storage.js';
+import { backupAgeLabel, lastBackupAt, markBackedUp } from './backup.js';
 
 // Sizes come from current state (what saveLocal writes), since localStorage is only updated after render.
 // Browsers store strings as UTF-16, so each character takes 2 bytes.
@@ -43,6 +45,9 @@ export function DataPanel({ mealsByDate, setMealsByDate, goal, setGoal, weights,
   const [start, setStart] = useState(today);
   const [end, setEnd] = useState(today);
   const [clearKinds, setClearKinds] = useState({ meals: true, weights: false, workoutLogs: false });
+  const [lastBackup, setLastBackup] = useState(lastBackupAt);
+  const [persisted, setPersisted] = useState(null);
+  useEffect(() => { requestPersistentStorage().then(setPersisted); }, []);
   const storage = storageUsage({
     'daily-fuel-meals': { label: 'Meals', value: mealsByDate },
     'daily-fuel-weights': { label: 'Weights', value: weights },
@@ -67,6 +72,8 @@ export function DataPanel({ mealsByDate, setMealsByDate, goal, setGoal, weights,
     link.download = `daily-fuel-backup-${dateKey(new Date())}.json`;
     link.click();
     URL.revokeObjectURL(url);
+    markBackedUp();
+    setLastBackup(lastBackupAt());
     notify('Backup exported.', 'success');
   }
 
@@ -134,7 +141,7 @@ export function DataPanel({ mealsByDate, setMealsByDate, goal, setGoal, weights,
       },
     });
   }
-  return <><section className="settings-form storage-form"><div className="storage-heading"><h2>Storage</h2><strong>{formatBytes(storage.total)}</strong></div><div className="storage-list">{storage.items.map((item) => <div key={item.key}><span>{item.label}</span><strong>{formatBytes(item.bytes)}</strong></div>)}</div></section><section className="settings-form migration-form"><div><h2>Backup</h2><p>Save your data before updating the app or switching devices, or restore it from a previous backup.</p></div><div className="migration-actions"><button className="auth-submit" type="button" onClick={exportData}>Export</button><label className="import-button">Import<input type="file" accept="application/json,.json" onChange={importData} /></label></div></section><form className="settings-form clear-form" onSubmit={clearRange}>
+  return <><section className="settings-form storage-form"><div className="storage-heading"><h2>Storage</h2><strong>{formatBytes(storage.total)}</strong></div><div className="storage-list">{storage.items.map((item) => <div key={item.key}><span>{item.label}</span><strong>{formatBytes(item.bytes)}</strong></div>)}</div></section><section className="settings-form migration-form"><div><h2>Backup</h2><p>Your data is only stored on this device. Export a backup regularly, and before switching devices, or restore one you saved earlier.</p><p className="backup-status"><strong>{backupAgeLabel(lastBackup)}</strong>{persisted !== null && <span>{persisted ? 'Storage is protected from automatic cleanup.' : 'The browser may clear data if the device runs low on space.'}</span>}</p></div><div className="migration-actions"><button className="auth-submit" type="button" onClick={exportData}>Export</button><label className="import-button">Import<input type="file" accept="application/json,.json" onChange={importData} /></label></div></section><form className="settings-form clear-form" onSubmit={clearRange}>
     <h2>Clear data</h2>
     <p>Delete logged data within a date range. You can undo right after.</p>
     <div className="clear-presets" role="group" aria-label="Quick ranges">

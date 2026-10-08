@@ -172,6 +172,8 @@ textarea::placeholder { color: #9aa09b; }
 .migration-form { margin-bottom: 16px; }
 .migration-form h2 { font-size: 18px; }
 .migration-form p { margin: 7px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.backup-status { display: grid; gap: 2px; }
+.backup-status strong { color: var(--ink); font-weight: 600; }
 .migration-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .migration-actions .auth-submit { margin-top: 0; font-size: 13px; }
 .import-button { display: inline-flex !important; position: relative; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 6px; padding: 11px; background: #edf0ed; color: var(--ink) !important; font-size: 13px !important; font-weight: 600; cursor: pointer; }

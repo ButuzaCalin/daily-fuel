@@ -23,11 +23,12 @@ import { ScoreDialog } from './features/score/ScoreDialog.jsx';
 import { ScoresView } from './features/score/ScoresView.jsx';
 import { DAY_COMPLETE_HOUR, dayStatus, scoringAvailable } from './features/score/score.js';
 import { SettingsView } from './features/settings/SettingsView.jsx';
+import { takeBackupReminder } from './features/settings/backup.js';
 import { WeightView } from './features/weight/WeightView.jsx';
 import { WorkoutsView } from './features/workouts/WorkoutsView.jsx';
 import { useNow } from './hooks/useNow.js';
 import { dateKey, formatDate, shiftDate } from './lib/date.js';
-import { loadLocal, saveLocal } from './lib/storage.js';
+import { loadLocal, requestPersistentStorage, saveLocal } from './lib/storage.js';
 
 export function App() {
   const [selectedDate, setSelectedDate] = useState(dateKey(new Date()));
@@ -137,6 +138,16 @@ export function App() {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  useEffect(() => {
+    requestPersistentStorage();
+    const oldestDate = [...Object.keys(mealsByDate), ...weights.map((entry) => entry.date), ...Object.keys(workoutLogs)].sort()[0];
+    const timer = window.setTimeout(() => {
+      const reminder = takeBackupReminder(oldestDate);
+      if (reminder) notify(reminder, 'info', { label: 'Back up', onClick: () => navigate('data-handling') });
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, []); // Once per app open.
 
   const weightTracking = Boolean(goal?.weightTracking);
   const workoutsEnabled = Boolean(goal?.workouts);
