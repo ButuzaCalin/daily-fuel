@@ -4,6 +4,7 @@
 // Deviation is relative to the target (−0.1 = 10% under). Each side of a curve scores 100 up to
 // `plateau`, then eases down as 100·exp(−((|d| − plateau) / w)^k). Tune scoring here, not in the algorithm.
 const standard = { plateau: 0, w: 0.41, k: 1.7 }; // 180g target: 170 → ~97, 160 → ~90, 150 → ~80, 135 → ~65
+
 const tolerant = { plateau: 0.05, w: 0.41, k: 1.7 };
 
 export const scoringConfig = {
@@ -56,6 +57,7 @@ export const macroLabels = { proteins: 'Protein', carbs: 'Carbs', fats: 'Fat' };
 
 // Today counts as complete from this hour; earlier days are always complete.
 export const DAY_COMPLETE_HOUR = 21;
+
 // Eating window used by the Day Progress pace indicator.
 const DAY_START_HOUR = 7;
 

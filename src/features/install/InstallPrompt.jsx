@@ -1,14 +1,19 @@
 import { useEffect, useState } from 'react';
 import { Download, Share, SquarePlus, X } from 'lucide-react';
-import { loadLocal, saveLocal, usePresence } from './shared.js';
+import { usePresence } from '../../hooks/usePresence.js';
+import { loadLocal, saveLocal } from '../../lib/storage.js';
 
 const DISMISS_KEY = 'daily-fuel-install-dismissed';
+
 const INSTALLED_KEY = 'daily-fuel-install-hidden';
+
 const SNOOZE_DAYS = 14;
+
 const SHOW_DELAY = 2500;
 
 // Chrome can fire this before React mounts, so capture it at import time.
 let deferredPrompt = null;
+
 const listeners = new Set();
 window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();
