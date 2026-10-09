@@ -3,6 +3,18 @@ import { dateKey, formatDate, shiftDate } from '../../lib/date.js';
 
 export const goalTargetKeys = ['calories', 'proteins', 'carbs', 'fats'];
 
+const kcalPerGram = { proteins: 4, carbs: 4, fats: 9 };
+
+// With three targets filled in, the fourth follows from kcal = 4·protein + 4·carbs + 9·fat.
+export function suggestTarget(draft) {
+  const empty = goalTargetKeys.filter((key) => !(Number(draft[key]) > 0));
+  if (empty.length !== 1) return null;
+  const [key] = empty;
+  const macroKcal = Object.entries(kcalPerGram).reduce((sum, [macro, kcal]) => sum + (macro === key ? 0 : Number(draft[macro]) * kcal), 0);
+  const value = key === 'calories' ? macroKcal : (Number(draft.calories) - macroKcal) / kcalPerGram[key];
+  return value >= 1 ? { key, value: Math.round(value) } : null;
+}
+
 export function goalTargets(value) {
   return { ...Object.fromEntries(goalTargetKeys.map((key) => [key, Math.max(0, Number(value?.[key]) || 0)])), objective: objectiveKey(value?.objective) };
 }

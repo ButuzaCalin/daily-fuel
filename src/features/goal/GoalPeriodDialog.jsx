@@ -1,7 +1,7 @@
 import { useId, useLayoutEffect, useState } from 'react';
 import { Trash2, X } from 'lucide-react';
 import { ManualInput } from '../../components/ManualInput.jsx';
-import { goalTargetKeys, goalTargets } from './goal.js';
+import { goalTargetKeys, goalTargets, suggestTarget } from './goal.js';
 import { objectives } from '../score/score.js';
 import { useEscape } from '../../hooks/useEscape.js';
 import { usePresence } from '../../hooks/usePresence.js';
@@ -22,6 +22,7 @@ export function GoalPeriodDialog({ period, periods, active, showObjective, onSav
   const originalFrom = shown.isNew ? null : shown.from;
   const today = dateKey(new Date());
   const targets = goalTargets(draft);
+  const suggested = suggestTarget(draft);
   const error = !/^\d{4}-\d{2}-\d{2}$/.test(draft.from) ? 'Choose a start date.'
     : draft.from !== originalFrom && periods.some((item) => item.from === draft.from) && !(shown.isNew && draft.from === active?.from) ? `Another goal already starts on ${formatDate(draft.from)}.`
     : !goalTargetKeys.some((key) => targets[key] > 0) ? 'Set at least one target.' : '';
@@ -45,10 +46,10 @@ export function GoalPeriodDialog({ period, periods, active, showObjective, onSav
         <div className="dialog-heading"><h2 id={`${id}-title`}>{shown.isNew ? 'New goal' : 'Edit goal'}</h2><button type="button" onClick={onClose} aria-label="Close"><X /></button></div>
         <form className="meal-form goal-period-form" onSubmit={submit}>
           <label className="manual-input goal-period-date">Starts on<input type="date" value={draft.from} onChange={(event) => set({ from: event.target.value })} /></label>
-          <ManualInput label="Calories (kcal)" value={draft.calories} onChange={(value) => set({ calories: value })} />
-          <ManualInput label="Protein (g)" value={draft.proteins} onChange={(value) => set({ proteins: value })} />
-          <ManualInput label="Carbs (g)" value={draft.carbs} onChange={(value) => set({ carbs: value })} />
-          <ManualInput label="Fat (g)" value={draft.fats} onChange={(value) => set({ fats: value })} />
+          <ManualInput label="Calories (kcal)" value={draft.calories} suggestion={suggested?.key === 'calories' ? suggested.value : null} onChange={(value) => set({ calories: value })} />
+          <ManualInput label="Protein (g)" value={draft.proteins} suggestion={suggested?.key === 'proteins' ? suggested.value : null} onChange={(value) => set({ proteins: value })} />
+          <ManualInput label="Carbs (g)" value={draft.carbs} suggestion={suggested?.key === 'carbs' ? suggested.value : null} onChange={(value) => set({ carbs: value })} />
+          <ManualInput label="Fat (g)" value={draft.fats} suggestion={suggested?.key === 'fats' ? suggested.value : null} onChange={(value) => set({ fats: value })} />
           {showObjective && (
             <div className="goal-objective goal-period-objective" role="radiogroup" aria-label="Objective">
               <span>Objective</span>

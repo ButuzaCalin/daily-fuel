@@ -7,7 +7,7 @@ import { Toast } from '../../components/Toast.jsx';
 import { GoalPeriodDialog } from './GoalPeriodDialog.jsx';
 import { GoalWizardDialog } from './GoalWizardDialog.jsx';
 import { ObjectiveInfoDialog } from './ObjectiveInfoDialog.jsx';
-import { activePeriod, goalSummary, goalTargetKeys, goalTargets, normalizeGoal, periodRange } from './goal.js';
+import { activePeriod, goalSummary, goalTargetKeys, goalTargets, normalizeGoal, periodRange, suggestTarget } from './goal.js';
 import { objectives, scoringAvailable } from '../score/score.js';
 import { dateKey, formatDate } from '../../lib/date.js';
 
@@ -18,6 +18,7 @@ export function GoalView({ goal, quota, setGoal, onEstimateGoal, onNavigate, men
   const [draft, setDraft] = useState(() => toDraft(current));
   const [draftObjective, setDraftObjective] = useState(current.objective);
   const targets = normalizeGoal(draft);
+  const suggested = suggestTarget(draft);
   const changed = goalTargetKeys.some((key) => targets[key] !== current[key]) || draftObjective !== current.objective;
   const targetSaved = goalTargetKeys.some((key) => current[key] > 0);
   const scoringOn = scoringAvailable(current);
@@ -90,10 +91,10 @@ export function GoalView({ goal, quota, setGoal, onEstimateGoal, onNavigate, men
       <div className="goal-sections">
         <form className="goal-form" onSubmit={saveTargets}>
           <div className="goal-section-heading goal-target-heading"><div><h2>Targets</h2><p>{active ? `Current goal, used ${current.periods[0] === active ? 'for all days until the next goal' : `since ${formatDate(active.from)}`}. Edits here also change past days.` : 'Set and save at least one target to activate scoring and see daily progress.'}</p></div><button className="goal-ai-button" type="button" onClick={() => setGoalWizardOpen(true)}><Sparkles aria-hidden="true" />Suggest with AI</button></div>
-          <ManualInput label="Calories (kcal)" value={draft.calories} onChange={(value) => setDraft((current) => ({ ...current, calories: value }))} />
-          <ManualInput label="Protein (g)" value={draft.proteins} onChange={(value) => setDraft((current) => ({ ...current, proteins: value }))} />
-          <ManualInput label="Carbs (g)" value={draft.carbs} onChange={(value) => setDraft((current) => ({ ...current, carbs: value }))} />
-          <ManualInput label="Fat (g)" value={draft.fats} onChange={(value) => setDraft((current) => ({ ...current, fats: value }))} />
+          <ManualInput label="Calories (kcal)" value={draft.calories} suggestion={suggested?.key === 'calories' ? suggested.value : null} onChange={(value) => setDraft((current) => ({ ...current, calories: value }))} />
+          <ManualInput label="Protein (g)" value={draft.proteins} suggestion={suggested?.key === 'proteins' ? suggested.value : null} onChange={(value) => setDraft((current) => ({ ...current, proteins: value }))} />
+          <ManualInput label="Carbs (g)" value={draft.carbs} suggestion={suggested?.key === 'carbs' ? suggested.value : null} onChange={(value) => setDraft((current) => ({ ...current, carbs: value }))} />
+          <ManualInput label="Fat (g)" value={draft.fats} suggestion={suggested?.key === 'fats' ? suggested.value : null} onChange={(value) => setDraft((current) => ({ ...current, fats: value }))} />
           {active && (
             <div className="goal-new-callout">
               <span><strong>Changing your plan?</strong><small>Start a new goal so earlier days keep their targets.</small></span>
