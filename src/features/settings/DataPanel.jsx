@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { defaultSettings, exclusiveAiSettings } from '../ai/settings.js';
 import { pruneUsage } from '../ai/usage.js';
 import { normalizeGoal } from '../goal/goal.js';
-import { cleanPortion, emptyNutrition } from '../meals/nutrition.js';
+import { mealFields } from '../meals/meals.js';
 import { dateKey, shiftDate } from '../../lib/date.js';
 import { formatBytes, plural } from '../../lib/format.js';
 import { requestPersistentStorage } from '../../lib/storage.js';
@@ -90,9 +90,7 @@ export function DataPanel({ mealsByDate, setMealsByDate, goal, setGoal, weights,
         return [date, meals.map((meal) => ({
           id: String(meal.id || crypto.randomUUID()),
           time: String(meal.time || '12:00'),
-          text: String(meal.text || '').trim(),
-          nutrition: { ...emptyNutrition, ...(meal.nutrition || {}) },
-          portion: cleanPortion(meal.portion),
+          ...mealFields(Array.isArray(meal.items) ? { items: meal.items } : { text: String(meal.text || ''), nutrition: meal.nutrition, portion: meal.portion, source: meal.source }),
           estimating: false,
           error: '',
         })).filter((meal) => meal.text)];

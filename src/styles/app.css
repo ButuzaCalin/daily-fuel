@@ -822,3 +822,35 @@ textarea::placeholder { color: #9aa09b; }
 @keyframes install-in { from { opacity: 0; transform: translateY(-12px) scale(.98); } }
 @keyframes install-out { to { opacity: 0; transform: translateY(-8px) scale(.98); } }
 @media (prefers-reduced-motion: reduce) { .install-prompt, .install-prompt[data-closing] { animation-duration: 1ms; } }
+
+/* Meals made of several items */
+.meal-item-list { display: grid; gap: 6px; min-width: 0; margin: 0; padding: 0; list-style: none; }
+.meal-item { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.meal-item.is-open { display: grid; gap: 10px; padding: 10px; border: 1px solid var(--green); border-radius: 10px; background: #f7faf8; }
+.meal-item-row { display: flex; flex: 1; align-items: center; gap: 8px; min-width: 0; min-height: 44px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: white; color: var(--ink); font-size: 14px; text-align: left; }
+.meal-item-row > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meal-item-row .is-placeholder { color: var(--muted); font-style: italic; }
+.meal-item-row small { flex: none; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.source-badge { display: grid; flex: none; width: 16px; height: 16px; place-items: center; color: var(--muted); }
+.source-badge svg { width: 14px; height: 14px; }
+.source-badge[data-source="ai"], .source-badge[data-source="scan"] { color: var(--green); }
+.meal-item-remove { display: grid; flex: none; width: 34px; height: 34px; place-items: center; border: 0; border-radius: 6px; background: transparent; color: var(--muted); }
+.meal-item-remove svg { width: 15px; height: 15px; }
+.meal-item-actions { display: flex; justify-content: space-between; gap: 8px; }
+.meal-item-actions button { display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 6px; padding: 7px 12px; background: #edf0ed; color: var(--ink); font-size: 13px; }
+.meal-item-actions button:first-child { padding-inline: 6px; background: transparent; color: var(--muted); }
+.meal-item-actions button:last-child { background: var(--green); color: white; font-weight: 600; }
+.meal-item-actions svg { width: 14px; height: 14px; }
+.dialog-actions .add-meal-item { display: inline-flex; align-items: center; gap: 6px; }
+.add-meal-item svg { width: 15px; height: 15px; color: var(--green); }
+.meal-items-total { margin: 0; text-align: right; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.meal-items-total strong { color: var(--ink); font-size: 14px; }
+.meal-card-items { display: grid; gap: 2px; }
+.meal-card-items > span { display: flex; justify-content: space-between; gap: 10px; }
+.meal-card-items small { flex: none; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+@media (hover: hover) and (pointer: fine) {
+  .meal-item-row:hover { border-color: var(--green); }
+  .meal-item-remove:hover { background: #fff1ee; color: #8e3e34; }
+  .meal-item-actions button:first-child:hover { background: #fff1ee; color: #8e3e34; }
+  .meal-item-actions button:last-child:hover { background: #285d3d; }
+}

@@ -58,3 +58,6 @@ export function scaleNutrition({ base, portion, ...values }) {
   const valid = portion !== '' && Number(base) > 0 && Number.isFinite(factor);
   return Object.fromEntries(Object.entries(values).map(([key, value]) => [key, valid && value !== '' ? String(Math.round(Number(value) * factor * 10) / 10) : '']));
 }
+
+// Where an entry's values came from; shown as a badge next to each item of a meal.
+export const valueSources = ['scan', 'manual', 'ai'];

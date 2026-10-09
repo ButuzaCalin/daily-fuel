@@ -14,8 +14,8 @@ import { goalOn, normalizeGoal } from './features/goal/goal.js';
 import { HelpView } from './features/help/HelpView.jsx';
 import { MealDialog } from './features/meals/MealDialog.jsx';
 import { MealNutrition } from './features/meals/MealNutrition.jsx';
-import { clearEstimating, currentHour, loggedLabel, pastMeals, sortMeals } from './features/meals/meals.js';
-import { blankNutrition, cleanNutrition, cleanPortion, emptyNutrition, hasNutrition, sumNutrition } from './features/meals/nutrition.js';
+import { applyEstimates, clearEstimating, currentHour, draftFromMeal, loggedLabel, mealFields, mealFromDraft, pastMeals, pendingEntries, reestimableEntries, sortMeals, withFreshIds } from './features/meals/meals.js';
+import { blankNutrition, cleanNutrition, emptyNutrition, hasNutrition, sumNutrition } from './features/meals/nutrition.js';
 import { ReportsView } from './features/reports/ReportsView.jsx';
 import { reportDays } from './features/reports/reports.js';
 import { DayScore } from './features/score/DayScore.jsx';
@@ -33,10 +33,7 @@ import { loadLocal, requestPersistentStorage, saveLocal } from './lib/storage.js
 export function App() {
   const [selectedDate, setSelectedDate] = useState(dateKey(new Date()));
   const [mealsByDate, setMealsByDate] = useState(() => clearEstimating(loadLocal('daily-fuel-meals', {})));
-  const [mealText, setMealText] = useState('');
-  const [mealTime, setMealTime] = useState(currentHour);
-  const [mealNutrition, setMealNutrition] = useState(blankNutrition);
-  const [mealPortion, setMealPortion] = useState(null);
+  const [mealDraft, setMealDraft] = useState(blankDraft);
   const [editMeal, setEditMeal] = useState(null);
   const [addMealOpen, setAddMealOpen] = useState(false);
   const [savedGoal, setGoal] = useState(() => { const saved = loadLocal('daily-fuel-goal', null); return saved && normalizeGoal(saved); });
@@ -74,7 +71,7 @@ export function App() {
 
   const total = useMemo(() => sumNutrition(meals), [meals]);
   const dayGoal = goalOn(goal, selectedDate);
-  const pendingCount = meals.filter((meal) => !hasNutrition(meal)).length;
+  const pendingCount = meals.filter((meal) => pendingEntries(meal).length).length;
   const dayEstimateLabel = !meals.length ? 'No meals to estimate' : pendingCount ? `Estimate all ${pendingCount} ${pendingCount === 1 ? 'meal' : 'meals'} without values at once` : 'All meals already have values';
 
   const reportIncludesToday = new Date().getHours() >= DAY_COMPLETE_HOUR;
@@ -169,51 +166,62 @@ export function App() {
 
   // Keeps an unfinished draft when reopening, but a fresh one starts at the current hour.
   function openAddMeal() {
-    if (!mealText.trim()) setMealTime(currentHour());
+    if (!mealDraft.text.trim() && !mealDraft.items) setMealDraft((current) => ({ ...current, time: currentHour() }));
     setAddMealOpen(true);
   }
 
-  function insertMeal(text, nutrition, portion) {
-    const newMeal = { id: crypto.randomUUID(), time: mealTime, text: text.trim(), nutrition: cleanNutrition(nutrition), portion: cleanPortion(portion), estimating: false, error: '' };
+  function insertMeal(fields) {
+    const newMeal = { id: crypto.randomUUID(), time: mealDraft.time, ...fields, estimating: false, error: '' };
     setMealsByDate((current) => ({ ...current, [selectedDate]: sortMeals([...(current[selectedDate] || []), newMeal]) }));
     setNewMealId(newMeal.id);
-    setMealText('');
-    setMealTime(currentHour());
-    setMealNutrition(blankNutrition);
-    setMealPortion(null);
+    setMealDraft(blankDraft());
     setAddMealOpen(false);
     return newMeal;
   }
 
   function addMeal(event) {
     event.preventDefault();
-    if (!mealText.trim()) return;
-    insertMeal(mealText, mealNutrition, mealPortion);
+    const fields = mealFromDraft(mealDraft);
+    if (!fields.text) return;
+    insertMeal(fields);
   }
 
   // One-tap re-add from search; offers undo since it skips the form.
   function addPastMeal(meal) {
     const date = selectedDate;
-    const { id } = insertMeal(meal.text, meal.nutrition, meal.portion);
+    const { id } = insertMeal(mealFields(meal.items ? { items: withFreshIds(meal.items) } : meal));
     notify('Meal added.', 'info', { label: 'Undo', onClick: () => setMealsByDate((current) => ({ ...current, [date]: (current[date] || []).filter((item) => item.id !== id) })) });
   }
 
+  // Each entry is a meal, or one item of a meal; all go out in a single request.
+  async function requestEstimates(entries) {
+    if (useProxy) return estimateViaProxy(entries, settings);
+    if (entries.length === 1) {
+      const result = await estimateLocally(entries[0].text, settings);
+      return { nutritionById: { [entries[0].id]: result.nutrition }, usage: result.usage };
+    }
+    return estimateDayLocally(entries, settings);
+  }
+
+  function entriesToEstimate(meal, entries) {
+    return entries.map((entry) => ({ id: entry.id, time: meal.time, text: entry.text }));
+  }
+
   async function estimateMeal(meal) {
+    const entries = reestimableEntries(meal);
+    if (!entries.length) return;
     if (!aiConfigured) return promptForKey();
     if (quotaExhausted()) return;
     const { id } = meal;
     updateMeal(id, { estimating: true, error: '' });
     try {
-      if (useProxy) {
-        const result = await estimateViaProxy([meal], settings);
-        updateMeal(id, { nutrition: result.nutritionById[id], portion: undefined, estimating: false });
-        trackUsage(result.usage, result.model);
-        if (result.quota) setProxyQuota(result.quota);
-      } else {
-        const result = await estimateLocally(meal.text, settings);
-        updateMeal(id, { nutrition: result.nutrition, portion: undefined, estimating: false });
-        trackUsage(result.usage, manualModel);
-      }
+      const result = await requestEstimates(entriesToEstimate(meal, entries));
+      setMealsByDate((current) => ({
+        ...current,
+        [selectedDate]: (current[selectedDate] || []).map((item) => (item.id === id ? { ...applyEstimates(item, result.nutritionById), estimating: false, error: '' } : item)),
+      }));
+      trackUsage(result.usage, result.model || manualModel);
+      if (result.quota) setProxyQuota(result.quota);
     } catch (error) {
       updateMeal(id, { estimating: false, error: error.message });
       if (error.quota) setProxyQuota(error.quota);
@@ -221,19 +229,21 @@ export function App() {
     }
   }
 
-  // Estimates only meals that have no values yet; meals already estimated or filled in by hand are left alone.
+  // Estimates only meals (or items) that have no values yet; ones already estimated or filled in by hand are left alone.
   async function estimateDay() {
-    const pending = meals.filter((meal) => !hasNutrition(meal));
+    const pending = meals.filter((meal) => pendingEntries(meal).length);
     if (!pending.length || meals.some((meal) => meal.estimating)) return;
     if (!aiConfigured) return promptForKey();
     if (quotaExhausted()) return;
 
     updateMealEstimation(pending, { estimating: true, error: '' });
     try {
-      const result = useProxy ? await estimateViaProxy(pending, settings) : await estimateDayLocally(pending, settings);
+      const entries = pending.flatMap((meal) => entriesToEstimate(meal, pendingEntries(meal)));
+      const result = useProxy ? await estimateViaProxy(entries, settings) : await estimateDayLocally(entries, settings);
+      const ids = new Set(pending.map((meal) => meal.id));
       setMealsByDate((current) => ({
         ...current,
-        [selectedDate]: (current[selectedDate] || []).map((meal) => (result.nutritionById[meal.id] ? { ...meal, nutrition: result.nutritionById[meal.id], estimating: false, error: '' } : meal)),
+        [selectedDate]: (current[selectedDate] || []).map((meal) => (ids.has(meal.id) ? { ...applyEstimates(meal, result.nutritionById), estimating: false, error: '' } : meal)),
       }));
       trackUsage(result.usage, result.model || manualModel);
       if (result.quota) setProxyQuota(result.quota);
@@ -291,34 +301,33 @@ export function App() {
   }
 
   function openEditMeal(meal) {
-    setEditMeal({ id: meal.id, text: meal.text, time: meal.time, nutrition: { ...meal.nutrition }, portion: meal.portion ?? null });
+    setEditMeal({ id: meal.id, time: meal.time, ...draftFromMeal(meal) });
   }
 
   function saveMealEdit(event) {
     event.preventDefault();
-    const text = editMeal?.text.trim();
+    const fields = mealFromDraft(editMeal);
+    const { text, nutrition } = fields;
     if (!text) return;
     const original = meals.find((meal) => meal.id === editMeal.id);
     const { id, time } = editMeal;
-    const nutrition = cleanNutrition(editMeal.nutrition);
-    const portion = cleanPortion(editMeal.portion);
-    setMealsByDate((current) => ({ ...current, [selectedDate]: sortMeals((current[selectedDate] || []).map((meal) => (meal.id === id ? { ...meal, text, time, nutrition, portion } : meal))) }));
+    setMealsByDate((current) => ({ ...current, [selectedDate]: sortMeals((current[selectedDate] || []).map((meal) => (meal.id === id ? { ...meal, ...fields, time } : meal))) }));
     setEditMeal(null);
     const nutritionUntouched = original && Object.keys(emptyNutrition).every((key) => cleanNutrition(original.nutrition)[key] === nutrition[key]);
-    if (original && original.text !== text && nutritionUntouched && Object.values(nutrition).some(Boolean)) {
+    if (original && !original.items && !fields.items && original.text !== text && nutritionUntouched && Object.values(nutrition).some(Boolean)) {
       notify('Meal updated. Nutrition may be out of date.', 'info', { label: 'Re-estimate', onClick: () => estimateMeal({ ...original, text, time }) });
     }
   }
 
-  // Saves the edited text/time, then replaces the nutrition with a fresh AI estimate.
+  // Saves the edit, then replaces the estimable values with a fresh AI estimate.
   function reestimateEdit() {
-    const text = editMeal?.text.trim();
+    const fields = editMeal && mealFromDraft(editMeal);
     const original = meals.find((meal) => meal.id === editMeal?.id);
-    if (!text || !original) return;
-    const { id, time } = editMeal;
-    setMealsByDate((current) => ({ ...current, [selectedDate]: sortMeals((current[selectedDate] || []).map((meal) => (meal.id === id ? { ...meal, text, time } : meal))) }));
+    if (!fields?.text || !original) return;
+    const saved = { ...original, ...fields, time: editMeal.time };
+    setMealsByDate((current) => ({ ...current, [selectedDate]: sortMeals((current[selectedDate] || []).map((meal) => (meal.id === saved.id ? saved : meal))) }));
     setEditMeal(null);
-    estimateMeal({ ...original, text, time });
+    estimateMeal(saved);
   }
 
   function logout() { setMenuOpen(false); }
@@ -417,13 +426,19 @@ export function App() {
               <article className={`meal-card${meal.id === newMealId ? ' is-new' : ''}`} data-estimating={meal.estimating || undefined} onAnimationEnd={(event) => { if (event.target === event.currentTarget) setNewMealId(null); }} key={meal.id}>
                 <div className="meal-time">{meal.time}</div>
                 <div className="meal-main">
-                  <button className="meal-text" type="button" onClick={() => openEditMeal(meal)} title="Edit meal">{meal.text}</button>
+                  <button className="meal-text" type="button" onClick={() => openEditMeal(meal)} title="Edit meal">
+                    {meal.items ? <span className="meal-card-items">{meal.items.map((item) => <span key={item.id}><span>{item.text}</span><small>{hasNutrition(item) ? `${Math.round(item.nutrition.calories)} kcal` : '—'}</small></span>)}</span> : meal.text}
+                  </button>
                 </div>
                 <div className="meal-actions">
-                  <button className={`estimate-button${hasNutrition(meal) ? ' is-reestimate' : ''}`} type="button" onClick={() => estimateMeal(meal)} disabled={meal.estimating} title={hasNutrition(meal) ? 'Re-estimate with AI (replaces current values)' : 'Estimate with AI'}>
-                    {meal.estimating ? <LoaderCircle className="ai-loading" aria-hidden="true" /> : hasNutrition(meal) ? <RefreshCw className="ai-icon" aria-hidden="true" /> : <Sparkles className="ai-icon" aria-hidden="true" />}
-                    <span className="sr-only">{meal.estimating ? 'Estimating' : hasNutrition(meal) ? 'Re-estimate nutrition with AI' : 'Estimate nutrition with AI'}</span>
-                  </button>
+                  {(() => {
+                    const pending = pendingEntries(meal).length > 0;
+                    const label = pending ? (meal.items && hasNutrition(meal) ? 'Estimate items without values' : 'Estimate with AI') : meal.items ? 'Re-estimate AI values (scanned and typed values are kept)' : 'Re-estimate with AI (replaces current values)';
+                    return <button className={`estimate-button${pending ? '' : ' is-reestimate'}`} type="button" onClick={() => estimateMeal(meal)} disabled={meal.estimating || !reestimableEntries(meal).length} title={label}>
+                      {meal.estimating ? <LoaderCircle className="ai-loading" aria-hidden="true" /> : pending ? <Sparkles className="ai-icon" aria-hidden="true" /> : <RefreshCw className="ai-icon" aria-hidden="true" />}
+                      <span className="sr-only">{meal.estimating ? 'Estimating' : label}</span>
+                    </button>;
+                  })()}
                   <button className="remove-button" type="button" onClick={() => removeMeal(meal)} aria-label={`Delete ${meal.text}`} title="Delete meal"><Trash2 /></button>
                 </div>
                 <MealNutrition nutrition={meal.nutrition} />
@@ -454,7 +469,7 @@ export function App() {
       </div>
       <button className="add-meal-fab" type="button" onClick={openAddMeal} aria-label="Add meal">+</button>
       <MealDialog
-        draft={addMealOpen ? { text: mealText, time: mealTime, nutrition: mealNutrition, portion: mealPortion } : null}
+        draft={addMealOpen ? mealDraft : null}
         collapsibleNutrition
         suggestions={previousMeals}
         clearable
@@ -462,12 +477,21 @@ export function App() {
         onQuickAdd={addPastMeal}
         title={selectedDate === dateKey(new Date()) ? 'Add meal' : `Add meal · ${loggedLabel(selectedDate)}`}
         submitLabel="Add meal"
-        onChange={(patch) => { if ('text' in patch) setMealText(patch.text); if ('time' in patch) setMealTime(patch.time); if (patch.nutrition) setMealNutrition((current) => ({ ...current, ...patch.nutrition })); if ('portion' in patch) setMealPortion(patch.portion); }}
+        onChange={(patch) => setMealDraft((current) => mergeDraft(current, patch))}
         onClose={() => setAddMealOpen(false)}
         onSubmit={addMeal}
       />
       <ScoreDialog open={scoring && scoreOpen} total={total} goal={dayGoal} meals={meals} pendingCount={pendingCount} status={dayStatus(selectedDate, dateKey(now), now)} now={now} onClose={() => setScoreOpen(false)} />
-      <MealDialog draft={editMeal} title="Edit meal" submitLabel="Save" onChange={(patch) => setEditMeal((current) => ({ ...current, ...patch, nutrition: { ...current.nutrition, ...patch.nutrition } }))} onClose={() => setEditMeal(null)} onSubmit={saveMealEdit} onReestimate={reestimateEdit} />
+      <MealDialog draft={editMeal} title="Edit meal" submitLabel="Save" onChange={(patch) => setEditMeal((current) => mergeDraft(current, patch))} onClose={() => setEditMeal(null)} onSubmit={saveMealEdit} onReestimate={reestimateEdit} />
     </main>
   );
+}
+
+function blankDraft() {
+  return { text: '', time: currentHour(), nutrition: blankNutrition, portion: null, source: null, items: null };
+}
+
+// Editors send partial nutrition (one macro at a time), so it merges rather than replaces.
+function mergeDraft(current, patch) {
+  return { ...current, ...patch, nutrition: patch.nutrition ? { ...current.nutrition, ...patch.nutrition } : current.nutrition };
 }
