@@ -459,9 +459,9 @@ export function App() {
             </button>
           </div>
           <div className="calorie-total"><div><strong>{Math.round(total.calories)}</strong><span>kcal</span></div>{dayGoal?.calories > 0 && <strong className="calorie-goal">/ {Math.round(dayGoal.calories)}<small> kcal</small></strong>}</div>
-          {dayGoal?.calories > 0 && <GoalProgress value={total.calories} goal={dayGoal.calories} color="green" />}
+          {dayGoal?.calories > 0 && <GoalProgress value={total.calories} goal={dayGoal.calories} color="neutral" />}
           <div className="macro-grid">
-            <Macro label="Protein" value={total.proteins} goal={dayGoal?.proteins} color="blue" />
+            <Macro label="Protein" value={total.proteins} goal={dayGoal?.proteins} color="green" />
             <Macro label="Carbs" value={total.carbs} goal={dayGoal?.carbs} color="yellow" />
             <Macro label="Fat" value={total.fats} goal={dayGoal?.fats} color="coral" />
           </div>
