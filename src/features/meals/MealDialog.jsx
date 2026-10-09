@@ -14,7 +14,7 @@ export function MealDialog({ draft, title, submitLabel, collapsibleNutrition = f
   const [editorKey, setEditorKey] = useState(0);
   const [openItem, setOpenItem] = useState(null);
   const [localInput, setLocalInput] = useState(false);
-  // The single-entry draft before a previous meal with items replaced it, so the pick can be undone.
+  // The draft before a previous meal replaced it or an item was removed, so either can be undone.
   const [beforeItems, setBeforeItems] = useState(null);
   useEffect(() => {
     if (!open) return;
@@ -44,10 +44,13 @@ export function MealDialog({ draft, title, submitLabel, collapsibleNutrition = f
     const next = blankItem();
     onChange({ items: [...items, next] });
     setOpenItem(next.id);
+    setBeforeItems(null);
   }
   function removeItem(itemId) {
+    const removed = items.find((item) => item.id === itemId);
     const rest = items.filter((item) => item.id !== itemId);
     if (openItem === itemId) setOpenItem(null);
+    setBeforeItems(removed.text.trim() || hasValues(removed.nutrition) ? { label: `Removed ${removed.text.trim() || 'item'}`, draft: { text: shown.text, nutrition: shown.nutrition, portion: shown.portion ?? null, source: shown.source ?? null, items } } : null);
     if (rest.length > 1) {
       onChange({ items: rest });
       return;
@@ -58,13 +61,14 @@ export function MealDialog({ draft, title, submitLabel, collapsibleNutrition = f
     setEditorKey((key) => key + 1);
   }
   function pickMeal(meal) {
-    setBeforeItems({ text: shown.text, nutrition: shown.nutrition, portion: shown.portion ?? null, source: shown.source ?? null, items: null });
+    setBeforeItems({ label: 'Filled from a previous meal', draft: { text: shown.text, nutrition: shown.nutrition, portion: shown.portion ?? null, source: shown.source ?? null, items: null } });
     onChange({ text: '', items: withFreshIds(meal.items), nutrition: blankNutrition, portion: null, source: null });
     setOpenItem(null);
   }
-  function undoPickMeal() {
-    onChange(beforeItems);
+  function undoItemsChange() {
+    onChange(beforeItems.draft);
     setBeforeItems(null);
+    setOpenItem(null);
     setEditorKey((key) => key + 1);
   }
   function clearForm() {
@@ -88,8 +92,8 @@ export function MealDialog({ draft, title, submitLabel, collapsibleNutrition = f
           <div className="dialog-heading-actions"><TimePicker value={shown.time} onChange={(time) => onChange({ time })} /><button type="button" onClick={onClose} aria-label="Close"><X /></button></div>
         </div>
         <form className="meal-form" onSubmit={onSubmit}>
+          {beforeItems && <div className="suggestion-undo"><span>{beforeItems.label}</span><button type="button" onClick={undoItemsChange}><Undo2 aria-hidden="true" />Undo</button></div>}
           {items ? <>
-            {beforeItems && <div className="suggestion-undo"><span>Filled from a previous meal</span><button type="button" onClick={undoPickMeal}><Undo2 aria-hidden="true" />Undo</button></div>}
             <ul className="meal-item-list" aria-label="Items">
               {items.map((item) => (item.id === openItem ? (
                 <li className="meal-item is-open" key={item.id}>
@@ -106,7 +110,7 @@ export function MealDialog({ draft, title, submitLabel, collapsibleNutrition = f
                     <small>{hasValues(item.nutrition) ? `${Math.round(Number(item.nutrition.calories) || 0)} kcal` : 'no values'}</small>
                     <SourceBadge source={hasValues(item.nutrition) ? item.source : null} />
                   </button>
-                  <button className="meal-item-remove" type="button" onClick={() => removeItem(item.id)} aria-label={`Remove ${item.text.trim() || 'item'}`} title="Remove item"><X aria-hidden="true" /></button>
+                  <button className="meal-item-remove" type="button" onClick={() => removeItem(item.id)} aria-label={`Remove ${item.text.trim() || 'item'}`} title="Remove item"><Trash2 aria-hidden="true" /></button>
                 </li>
               )))}
             </ul>
