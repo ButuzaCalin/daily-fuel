@@ -61,7 +61,7 @@ export function ReportsView({ goal, quota, mealsByDate, onOpenDay, report, perio
         {stats.map((stat) => <ReportStat key={stat.label} {...stat} />)}
       </section>
 
-      <section className="chart-card macro-card"><div className="card-heading"><h2>Daily average</h2><span>per logged day</span></div><AverageCalories value={average.calories} goal={goal?.calories} /><MacroBar label="Protein" value={average.proteins} goal={goal?.proteins} color="green" max={averageMax} /><MacroBar label="Carbs" value={average.carbs} goal={goal?.carbs} color="yellow" max={averageMax} /><MacroBar label="Fat" value={average.fats} goal={goal?.fats} color="coral" max={averageMax} /></section>
+      <section className="chart-card macro-card"><div className="card-heading"><h2>Daily average</h2><span>per logged day</span></div><AverageCalories value={average.calories} goal={goal?.calories} /><MacroBar label="Protein" value={average.proteins} goal={goal?.proteins} color="blue" max={averageMax} /><MacroBar label="Carbs" value={average.carbs} goal={goal?.carbs} color="yellow" max={averageMax} /><MacroBar label="Fat" value={average.fats} goal={goal?.fats} color="coral" max={averageMax} /></section>
 
       <section className="chart-card report-chart-card">
         <div className="card-heading chart-heading"><h2>{metricInfo.label} per day</h2><div className="metric-toggle" role="group" aria-label="Chart metric">{Object.entries(reportMetrics).map(([key, item]) => <button className={metric === key ? 'active' : ''} type="button" onClick={() => setMetric(key)} key={key}>{item.label}</button>)}</div></div>

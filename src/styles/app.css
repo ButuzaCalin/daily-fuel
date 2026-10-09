@@ -109,6 +109,7 @@ textarea::placeholder { color: #9aa09b; }
 .meal-stat strong { color: var(--ink); font-size: 13px; font-weight: 600; }
 .meal-stat.is-kcal strong { font-size: 16px; font-weight: 700; letter-spacing: -.01em; }
 .meal-stat[class*='macro-']::before { content: ''; flex: none; align-self: center; width: 6px; height: 6px; margin-right: 1px; border-radius: 50%; background: var(--green); }
+.meal-stat.macro-blue::before { background: #6b4a9e; }
 .meal-stat.macro-yellow::before { background: #c99b24; }
 .meal-stat.macro-coral::before { background: #c66b59; }
 .meal-card .remove-button { border-color: transparent; background: transparent; color: var(--muted); }
@@ -132,6 +133,7 @@ textarea::placeholder { color: #9aa09b; }
 .macro-grid { display: grid; gap: 12px; border-top: 1px solid var(--line); padding-top: 18px; }
 .macro { display: flex; gap: 10px; align-items: center; }
 .macro-bar { width: 4px; height: 28px; border-radius: 3px; background: var(--green); }
+.macro-blue .macro-bar { background: #6b4a9e; }
 .macro-yellow .macro-bar { background: #c99b24; }
 .macro-coral .macro-bar { background: #c66b59; }
 .macro div { display: flex; flex-direction: column; gap: 2px; }
@@ -141,6 +143,7 @@ textarea::placeholder { color: #9aa09b; }
 .macro div > span { color: var(--muted); font-size: 12px; }
 .progress-track { display: block; height: 5px; margin-top: 7px; overflow: hidden; border-radius: 4px; background: #edf0ed; }
 .progress-track i, .macro-track i { display: block; width: 100%; height: 100%; border-radius: inherit; background: var(--green); transition: transform 400ms var(--ease-out); }
+.macro-blue .progress-track i { background: #6b4a9e; }
 .macro-yellow .progress-track i { background: #c99b24; }
 .macro-coral .progress-track i { background: #c66b59; }
 .goal-progress { margin: 0 0 22px; padding-top: 0; border-top: 0; }
@@ -252,6 +255,7 @@ textarea::placeholder { color: #9aa09b; }
 .macro-bar-row strong { font-weight: 600; }
 .macro-bar-row strong small { color: var(--muted); font-weight: 400; }
 .macro-track { display: block; height: 7px; overflow: hidden; border-radius: 5px; background: #edf0ed; }
+.macro-track-blue i { background: #6b4a9e; }
 .macro-track-yellow i { background: #c99b24; }
 .macro-track-coral i { background: #c66b59; }
 .usage-summary { max-width: 680px; }
