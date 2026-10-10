@@ -1,6 +1,6 @@
 export const defaultSettings = { aiMode: 'manual', proxyUrl: '', proxyUsername: '', proxyKey: '', provider: 'google', googleKey: '', googleModel: 'gemini-3.5-flash-lite', openaiKey: '', openaiModel: 'gpt-4o-mini', mealOrder: 'asc' };
 
-export const aiModeLabels = { manual: 'Manual Config', proxy: 'Proxy Config' };
+export const aiModeLabels = { proxy: 'Setup code', manual: 'Own API key' };
 
 // Only one AI config may hold credentials at a time: keep the active one, reset the other.
 export function exclusiveAiSettings(settings) {

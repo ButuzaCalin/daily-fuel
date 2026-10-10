@@ -18,7 +18,16 @@ The app sends meal estimates as `{ username, meals: [...] }` and goal suggestion
 
 ## Add a user
 
-Run in the SQL editor. The access key is stored as a SHA-256 hash:
+The easy way generates the key, the SQL and a one-tap setup link:
+
+```sh
+PROXY_URL=https://<your-project-ref>.supabase.co/functions/v1/estimate APP_URL=https://dailyfuel.shop \
+  npm run proxy-user -- florin 20   # daily limit is optional (default 7)
+```
+
+Run the printed SQL in the SQL editor, then send the user the setup link. Running it again for the same username replaces their key.
+
+By hand (the access key is stored as a SHA-256 hash):
 
 ```sql
 insert into public.proxy_users (username, access_key_hash)
@@ -32,8 +41,13 @@ The access key is required: `access_key_hash` can't be null, and the function re
 
 ## App settings
 
-Settings → AI config → Proxy Config:
+The user opens the setup link (`/#setup=DF1.…`). The app saves the proxy settings and checks them against the quota endpoint.
+
+- **Android / desktop Chrome, Edge, Samsung Internet, Firefox**: the installed app shares the browser's storage, so it's already set up after install.
+- **iPhone, iPad, Safari "Add to Dock"**: the Home Screen app has its own storage. The app shows a dialog to copy the setup code. After installing, the user taps **Paste setup code** on the home screen card or in Settings → AI.
+
+Manual fallback: Settings → AI → Setup code → *Enter details manually*:
 
 - **Proxy URL**: `https://<your-project-ref>.supabase.co/functions/v1/estimate`
 - **Username**: the username from `proxy_users`
-- **Access key** (required): the plain key you hashed above
+- **Access key**: the plain key you hashed above

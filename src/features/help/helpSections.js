@@ -49,8 +49,9 @@ export const helpSections = [
     '„Update app” descarcă ultima versiune a aplicației. Datele rămân pe dispozitiv.',
   ] },
   { icon: Sparkles, title: 'Settings › AI', items: [
-    'AI config: alege între cheia ta proprie (Google AI sau OpenAI, cu modelul dorit) și un proxy (URL, utilizator și cheie de acces). Doar una dintre variante este folosită.',
-    'Când folosești proxy, în antet vezi câte cereri AI mai ai azi.',
+    'AI config: alege între „Setup code” (codul sau linkul primit) și „Own API key” (cheia ta Google AI sau OpenAI, cu modelul dorit). Doar una dintre variante este folosită.',
+    'Dacă ai primit un link de configurare, deschide-l pe telefon. Pe iPhone, după „Add to Home Screen”, deschide aplicația și apasă „Paste setup code”.',
+    'Când folosești un setup code, în antet vezi câte cereri AI mai ai azi.',
     'Butonul 👁 din dreptul cheilor le afișează sau le ascunde. „Save settings” se activează doar când ai modificat ceva.',
   ] },
   { icon: Cpu, title: 'Settings › Tokens', items: [

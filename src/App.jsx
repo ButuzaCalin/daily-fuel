@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, Home, LoaderCircle, Menu as MenuIcon, RefreshCw, Sparkles, Trash2, Undo2 } from 'lucide-react';
+import { sharesStorageWithInstalledApp } from './app/pwa.js';
 import { routeFromPath, routePaths } from './app/routes.js';
 import { HeaderQuota } from './components/HeaderQuota.jsx';
 import { Menu } from './components/Menu.jsx';
@@ -7,6 +8,9 @@ import { Toast } from './components/Toast.jsx';
 import { GoalProgress, Macro } from './components/progress.jsx';
 import { estimateDayLocally, estimateGoalLocally, estimateLocally } from './features/ai/direct.js';
 import { estimateGoalViaProxy, estimateViaProxy, fetchProxyQuota, formatResetTime } from './features/ai/proxy.js';
+import { SetupCard } from './features/ai/SetupCard.jsx';
+import { SetupHandoffDialog } from './features/ai/SetupHandoffDialog.jsx';
+import { takeLinkedSetup } from './features/ai/setupCode.js';
 import { defaultSettings, exclusiveAiSettings, isAiConfigured } from './features/ai/settings.js';
 import { pruneUsage, recordUsage } from './features/ai/usage.js';
 import { GoalView } from './features/goal/GoalView.jsx';
@@ -41,7 +45,11 @@ export function App() {
   const [weights, setWeights] = useState(() => loadLocal('daily-fuel-weights', []));
   const [workoutTemplates, setWorkoutTemplates] = useState(() => loadLocal('daily-fuel-workout-templates', []));
   const [workoutLogs, setWorkoutLogs] = useState(() => loadLocal('daily-fuel-workout-logs', {}));
-  const [settings, setSettings] = useState(() => exclusiveAiSettings({ ...defaultSettings, ...loadLocal('daily-fuel-settings', {}) }));
+  const [linkedSetup] = useState(takeLinkedSetup);
+  const [settings, setSettings] = useState(() => exclusiveAiSettings({ ...defaultSettings, ...loadLocal('daily-fuel-settings', {}), ...linkedSetup?.settings }));
+  const [handoffCode, setHandoffCode] = useState(null);
+  const [connecting, setConnecting] = useState(false);
+  const [setupCardHidden, setSetupCardHidden] = useState(() => loadLocal('daily-fuel-setup-card-hidden', false));
   const [usage, setUsage] = useState(() => pruneUsage(loadLocal('daily-fuel-usage', { records: [] })));
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
@@ -96,7 +104,7 @@ export function App() {
   const aiConfigured = isAiConfigured(settings);
 
   function promptForKey() {
-    notify(useProxy ? 'Add your proxy URL and username in Settings first.' : 'Add your AI key in Settings first.', 'error', { label: 'Open settings', onClick: () => navigate('ai') });
+    notify(useProxy ? 'Add your setup code in Settings first.' : 'Add your AI key in Settings first.', 'error', { label: 'Open settings', onClick: () => navigate('ai') });
   }
 
   function trackUsage(usage, model) {
@@ -122,6 +130,38 @@ export function App() {
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [useProxy, aiConfigured, settings.proxyUrl, settings.proxyUsername, settings.proxyKey]);
+
+  // A setup link is saved right away (an installed Chrome app shares this storage), then checked.
+  useEffect(() => {
+    if (!linkedSetup) return;
+    if (!linkedSetup.settings) {
+      notify('This setup link is not valid. Ask for a new one.');
+      return;
+    }
+    if (!sharesStorageWithInstalledApp()) setHandoffCode(linkedSetup.code);
+    fetchProxyQuota(linkedSetup.settings)
+      .then((quota) => notify(quota ? `AI is ready. ${quota.remaining} of ${quota.limit} requests left today.` : 'AI is ready.', 'success'))
+      .catch((error) => notify(`AI setup didn't work: ${error.message}`));
+  }, []); // Once per app open.
+
+  // A pasted setup code is only saved once the proxy accepts it.
+  async function connectSetupCode(proxySettings) {
+    setConnecting(true);
+    try {
+      const quota = await fetchProxyQuota(proxySettings);
+      setSettings((current) => exclusiveAiSettings({ ...current, ...proxySettings }));
+      notify(quota ? `AI is ready. ${quota.remaining} of ${quota.limit} requests left today.` : 'AI is ready.', 'success');
+    } catch (error) {
+      notify(`That setup code didn't work: ${error.message}`);
+    } finally {
+      setConnecting(false);
+    }
+  }
+
+  function hideSetupCard() {
+    saveLocal('daily-fuel-setup-card-hidden', true);
+    setSetupCardHidden(true);
+  }
 
   // Skip the round trip when the proxy already told us today's requests are used up.
   function quotaExhausted() {
@@ -403,6 +443,8 @@ export function App() {
       </header>
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={navigate} onLogout={logout} username="Local device" goal={goal} />
       <Toast toast={toast} />
+      <SetupHandoffDialog code={handoffCode} onClose={() => setHandoffCode(null)} />
+      {!aiConfigured && !setupCardHidden && <SetupCard onCode={connectSetupCode} busy={connecting} notify={notify} onOpenSettings={() => navigate('ai')} onDismiss={hideSetupCard} />}
 
       <div className="content-grid">
         <section className="journal-panel">

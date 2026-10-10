@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Download, Share, SquarePlus, X } from 'lucide-react';
 import { usePresence } from '../../hooks/usePresence.js';
 import { loadLocal, saveLocal } from '../../lib/storage.js';
+import { isStandalone, platform } from '../../app/pwa.js';
 
 const DISMISS_KEY = 'daily-fuel-install-dismissed';
 
@@ -20,19 +21,6 @@ window.addEventListener('beforeinstallprompt', (event) => {
   deferredPrompt = event;
   listeners.forEach((listener) => listener());
 });
-
-function isStandalone() {
-  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-}
-
-// iPadOS reports itself as a Mac, so touch support tells the two apart.
-function platform() {
-  const ua = navigator.userAgent;
-  const touchMac = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
-  if (/iPhone|iPad|iPod/.test(ua) || touchMac) return 'ios';
-  if (/Macintosh/.test(ua) && /Safari/.test(ua) && !/Chrome|Chromium|Edg|Firefox|OPR/.test(ua)) return 'mac-safari';
-  return 'other';
-}
 
 function snoozed() {
   const dismissedAt = loadLocal(DISMISS_KEY, 0);
