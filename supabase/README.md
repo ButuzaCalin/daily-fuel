@@ -51,3 +51,22 @@ Manual fallback: Settings → AI → Setup code → *Enter details manually*:
 - **Proxy URL**: `https://<your-project-ref>.supabase.co/functions/v1/estimate`
 - **Username**: the username from `proxy_users`
 - **Access key**: the plain key you hashed above
+
+## Invites
+
+Users listed in `public.inviters` see **My invites** in the app menu and can create setup links themselves (default 5 each). The link can be copied until the invited user first uses it (the plain key is then cleared from the database). Every invited user who isn't cancelled holds a slot; removing an unused invite frees it. **Cancel access** sets `active = false` on the invited user, and every request from them is rejected.
+
+```sh
+supabase db push   # adds invited_by, active, invite_key to proxy_users and the inviters table; existing users are unchanged
+supabase functions deploy estimate --no-verify-jwt   # redeploy: it now rejects cancelled users and claims invites
+supabase functions deploy invites --no-verify-jwt
+```
+
+Push the migration before deploying the functions. The app calls the invites function at a hardcoded URL (`INVITES_URL` in `src/features/invites/invites.js`). Invite links use the inviter's own estimate URL from their setup.
+
+```sql
+insert into public.inviters (username) values ('florin');                       -- 5 invites
+update public.inviters set max_invites = 10 where username = 'florin';
+update public.proxy_users set active = true where username = 'someone';           -- undo a cancel
+select username, invited_by, active from public.proxy_users;  -- who invited whom
+```

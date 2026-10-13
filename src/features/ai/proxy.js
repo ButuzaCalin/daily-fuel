@@ -1,13 +1,19 @@
 import { goalTargetKeys } from '../goal/goal.js';
 import { cleanNutrition } from '../meals/nutrition.js';
 
+// In dev, Supabase function calls go through the Vite proxy (vite.config.js) to get past the functions' CORS origin check.
+function devUrl(url) {
+  return import.meta.env.DEV ? url.replace(/^https:\/\/inddklcpihbaobalkwrs\.supabase\.co\/functions\/v1/, '/supabase-functions') : url;
+}
+
 // Proxy contract (see supabase/functions/estimate): POST { username, meals: [...] } or { username, goalProfile };
 // both estimate requests use one quota slot. { username, action: 'quota' } reads the quota without using it.
 // The proxy owns the prompt and the provider key, so neither lives on the device.
-async function callProxy(settings, payload) {
+// Other functions on the same backend (invites) take the same username and access key, so they pass their own url.
+export async function callProxy(settings, payload, url = settings.proxyUrl) {
   let response;
   try {
-    response = await fetch(settings.proxyUrl, {
+    response = await fetch(devUrl(url), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${settings.proxyKey}` },
       body: JSON.stringify({ username: settings.proxyUsername, ...payload }),

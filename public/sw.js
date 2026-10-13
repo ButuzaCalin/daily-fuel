@@ -38,13 +38,15 @@ self.addEventListener('fetch', (event) => {
   const requestUrl = new URL(event.request.url);
   if (event.request.method !== 'GET' || requestUrl.origin !== self.location.origin || requestUrl.pathname.startsWith('/api/')) return;
 
+  // Every route is the same app, so a page the host doesn't know (404) or no network falls back to the cached app.
   if (event.request.mode === 'navigate') {
     event.respondWith(fetch(event.request).then((response) => {
       if (response.ok) {
         const copy = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put('/', copy));
+        return response;
       }
-      return response;
+      return caches.match('/').then((cached) => cached || response);
     }).catch(() => caches.match('/')));
     return;
   }

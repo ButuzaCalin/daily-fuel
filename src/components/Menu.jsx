@@ -1,10 +1,12 @@
-import { BarChart3, CircleHelp, Dumbbell, Home, Medal, Scale, Settings, Target, X } from 'lucide-react';
+import { BarChart3, CircleHelp, Dumbbell, Home, Medal, Scale, Settings, Target, UserPlus, X } from 'lucide-react';
+import { useCanInvite } from '../features/invites/invites.js';
 import { scoringAvailable } from '../features/score/score.js';
 import { useEscape } from '../hooks/useEscape.js';
 import { usePresence } from '../hooks/usePresence.js';
 
 export function Menu({ open, onClose, onNavigate, onLogout, username, goal }) {
   const [visible, closing] = usePresence(open, 200);
+  const canInvite = useCanInvite();
   useEscape(open, onClose);
   if (!visible) return null;
   return (
@@ -26,6 +28,7 @@ export function Menu({ open, onClose, onNavigate, onLogout, username, goal }) {
             </div>
           )}
           <div className="menu-group menu-group-secondary">
+            {canInvite && <button type="button" onClick={() => onNavigate('invites')}><span className="menu-link-label"><span className="menu-icon"><UserPlus /></span>My invites</span><span aria-hidden="true">&rarr;</span></button>}
             <button type="button" onClick={() => onNavigate('settings')}><span className="menu-link-label"><span className="menu-icon"><Settings /></span>Settings</span><span aria-hidden="true">&rarr;</span></button>
             <button type="button" onClick={() => onNavigate('help')}><span className="menu-link-label"><span className="menu-icon"><CircleHelp /></span>How to use</span><span aria-hidden="true">&rarr;</span></button>
           </div>

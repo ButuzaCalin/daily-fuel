@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, Home, LoaderCircle, Menu as MenuIcon, RefreshCw, Sparkles, Trash2, Undo2 } from 'lucide-react';
-import { sharesStorageWithInstalledApp } from './app/pwa.js';
+import { isStandalone, sharesStorageWithInstalledApp } from './app/pwa.js';
 import { routeFromPath, routePaths } from './app/routes.js';
 import { HeaderQuota } from './components/HeaderQuota.jsx';
 import { Menu } from './components/Menu.jsx';
@@ -16,6 +16,8 @@ import { pruneUsage, recordUsage } from './features/ai/usage.js';
 import { GoalView } from './features/goal/GoalView.jsx';
 import { goalOn, normalizeGoal } from './features/goal/goal.js';
 import { HelpView } from './features/help/HelpView.jsx';
+import { InvitesView } from './features/invites/InvitesView.jsx';
+import { fetchInvites, setCanInvite } from './features/invites/invites.js';
 import { MealDialog } from './features/meals/MealDialog.jsx';
 import { MealNutrition } from './features/meals/MealNutrition.jsx';
 import { applyEstimates, clearEstimating, currentHour, draftFromMeal, loggedLabel, mealFields, mealFromDraft, pastMeals, pendingEntries, reestimableEntries, sortMeals, withFreshIds } from './features/meals/meals.js';
@@ -129,6 +131,17 @@ export function App() {
       cancelled = true;
       document.removeEventListener('visibilitychange', handleVisibility);
     };
+  }, [useProxy, aiConfigured, settings.proxyUrl, settings.proxyUsername, settings.proxyKey]);
+
+  // Ask the invites function whether this user may invite, to show "My invites" in the menu. Offline keeps the last answer.
+  useEffect(() => {
+    if (!useProxy || !aiConfigured) {
+      setCanInvite(false);
+      return undefined;
+    }
+    let cancelled = false;
+    fetchInvites(settings).then((result) => { if (!cancelled) setCanInvite(Boolean(result.inviter)); }).catch(() => {});
+    return () => { cancelled = true; };
   }, [useProxy, aiConfigured, settings.proxyUrl, settings.proxyUsername, settings.proxyKey]);
 
   // A setup link is saved right away (an installed Chrome app shares this storage), then checked.
@@ -399,6 +412,9 @@ export function App() {
   if (['settings', 'ai', 'usage', 'data-handling'].includes(route)) {
     return <SettingsView tab={route} goal={goal} setGoal={setGoal} proxyQuota={useProxy ? proxyQuota : null} settings={settings} setSettings={setSettings} usage={usage} setUsage={setUsage} mealsByDate={mealsByDate} setMealsByDate={setMealsByDate} weights={weights} setWeights={setWeights} workoutTemplates={workoutTemplates} setWorkoutTemplates={setWorkoutTemplates} workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
   }
+  if (route === 'invites') {
+    return <InvitesView settings={settings} goal={goal} quota={useProxy ? proxyQuota : null} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
+  }
   if (route === 'help') {
     return <HelpView goal={goal} quota={useProxy ? proxyQuota : null} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
   }
@@ -444,7 +460,7 @@ export function App() {
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={navigate} onLogout={logout} username="Local device" goal={goal} />
       <Toast toast={toast} />
       <SetupHandoffDialog code={handoffCode} onClose={() => setHandoffCode(null)} />
-      {!aiConfigured && !setupCardHidden && <SetupCard onCode={connectSetupCode} busy={connecting} notify={notify} onOpenSettings={() => navigate('ai')} onDismiss={hideSetupCard} />}
+      {!aiConfigured && !setupCardHidden && isStandalone() && <SetupCard onCode={connectSetupCode} busy={connecting} notify={notify} onOpenSettings={() => navigate('ai')} onDismiss={hideSetupCard} />}
 
       <div className="content-grid">
         <section className="journal-panel">

@@ -9,11 +9,12 @@ export const routePaths = {
   goal: '/goal',
   settings: '/settings',
   'data-handling': '/settings/data',
+  invites: '/invites',
   help: '/help',
 };
 
 // Tokens and Data handling used to be their own pages.
-const legacyPaths = { '/usage': 'usage', '/data-handling': 'data-handling' };
+export const legacyPaths = { '/usage': 'usage', '/data-handling': 'data-handling' };
 
 export function routeFromPath(pathname) {
   if (legacyPaths[pathname]) return legacyPaths[pathname];
