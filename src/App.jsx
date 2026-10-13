@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, Home, LoaderCircle, Menu as MenuIcon, RefreshCw, Sparkles, Trash2, Undo2 } from 'lucide-react';
-import { isStandalone, sharesStorageWithInstalledApp } from './app/pwa.js';
+import { isStandalone } from './app/pwa.js';
 import { routeFromPath, routePaths } from './app/routes.js';
 import { HeaderQuota } from './components/HeaderQuota.jsx';
 import { Menu } from './components/Menu.jsx';
@@ -48,8 +48,10 @@ export function App() {
   const [workoutTemplates, setWorkoutTemplates] = useState(() => loadLocal('daily-fuel-workout-templates', []));
   const [workoutLogs, setWorkoutLogs] = useState(() => loadLocal('daily-fuel-workout-logs', {}));
   const [linkedSetup] = useState(takeLinkedSetup);
-  const [settings, setSettings] = useState(() => exclusiveAiSettings({ ...defaultSettings, ...loadLocal('daily-fuel-settings', {}), ...linkedSetup?.settings }));
-  const [handoffCode, setHandoffCode] = useState(null);
+  // AI is only set up in the installed app; in a browser tab the link just leads to installing it.
+  const [setupInApp] = useState(() => isStandalone());
+  const [settings, setSettings] = useState(() => exclusiveAiSettings({ ...defaultSettings, ...loadLocal('daily-fuel-settings', {}), ...(setupInApp ? linkedSetup?.settings : null) }));
+  const [handoffLink, setHandoffLink] = useState(null);
   const [connecting, setConnecting] = useState(false);
   const [setupCardHidden, setSetupCardHidden] = useState(() => loadLocal('daily-fuel-setup-card-hidden', false));
   const [usage, setUsage] = useState(() => pruneUsage(loadLocal('daily-fuel-usage', { records: [] })));
@@ -144,14 +146,18 @@ export function App() {
     return () => { cancelled = true; };
   }, [useProxy, aiConfigured, settings.proxyUrl, settings.proxyUsername, settings.proxyKey]);
 
-  // A setup link is saved right away (an installed Chrome app shares this storage), then checked.
+  // In the installed app a setup link is saved right away, then checked. In a browser tab it isn't used:
+  // the dialog has the user copy it, install the app and paste it there.
   useEffect(() => {
     if (!linkedSetup) return;
     if (!linkedSetup.settings) {
       notify('This setup link is not valid. Ask for a new one.');
       return;
     }
-    if (!sharesStorageWithInstalledApp()) setHandoffCode(linkedSetup.code);
+    if (!setupInApp) {
+      setHandoffLink(`${window.location.origin}/#setup=${linkedSetup.code}`);
+      return;
+    }
     fetchProxyQuota(linkedSetup.settings)
       .then((quota) => notify(quota ? `AI is ready. ${quota.remaining} of ${quota.limit} requests left today.` : 'AI is ready.', 'success'))
       .catch((error) => notify(`AI setup didn't work: ${error.message}`));
@@ -459,7 +465,7 @@ export function App() {
       </header>
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={navigate} onLogout={logout} username="Local device" goal={goal} />
       <Toast toast={toast} />
-      <SetupHandoffDialog code={handoffCode} onClose={() => setHandoffCode(null)} />
+      <SetupHandoffDialog link={handoffLink} onClose={() => setHandoffLink(null)} />
       {!aiConfigured && !setupCardHidden && isStandalone() && <SetupCard onCode={connectSetupCode} busy={connecting} notify={notify} onOpenSettings={() => navigate('ai')} onDismiss={hideSetupCard} />}
 
       <div className="content-grid">

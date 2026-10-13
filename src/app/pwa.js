@@ -1,3 +1,5 @@
+import { useSyncExternalStore } from 'react';
+
 // Production registers the service worker; dev removes any stale one so Vite changes are never cached.
 export function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
@@ -40,8 +42,33 @@ export function platform() {
   return 'other';
 }
 
-// Apple's Home Screen and Dock apps get their own storage, so what a Safari tab saves doesn't reach them.
-// Chrome, Edge, Samsung Internet and Firefox share storage between the browser and the installed app.
-export function sharesStorageWithInstalledApp() {
-  return isStandalone() || platform() === 'other';
+// Chrome, Edge and Samsung Internet offer their own install dialog. The event can fire before React mounts,
+// so it is captured at import time.
+let installPrompt = null;
+const installListeners = new Set();
+const notifyInstall = () => installListeners.forEach((listener) => listener());
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault();
+  installPrompt = event;
+  notifyInstall();
+});
+window.addEventListener('appinstalled', () => {
+  installPrompt = null;
+  notifyInstall();
+});
+
+// Whether the browser's install dialog is available right now.
+export function useCanInstall() {
+  return useSyncExternalStore((listener) => {
+    installListeners.add(listener);
+    return () => installListeners.delete(listener);
+  }, () => Boolean(installPrompt));
+}
+
+export async function promptInstall() {
+  const prompt = installPrompt;
+  if (!prompt) return;
+  installPrompt = null;
+  notifyInstall();
+  await prompt.prompt();
 }
