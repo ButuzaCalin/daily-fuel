@@ -1,6 +1,9 @@
+import { isNative } from '../lib/files.js';
+
 // Production registers the service worker; dev removes any stale one so Vite changes are never cached.
+// The native app ships its files in the bundle, so it never needs one.
 export function registerServiceWorker() {
-  if (!('serviceWorker' in navigator)) return;
+  if (isNative || !('serviceWorker' in navigator)) return;
   window.addEventListener('load', async () => {
     if (import.meta.env.PROD) {
       await navigator.serviceWorker.register('/sw.js').catch(() => {});
@@ -28,7 +31,7 @@ export async function updateApp() {
 }
 
 export function isStandalone() {
-  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  return isNative || window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
 
 // iPadOS reports itself as a Mac, so touch support tells the two apart.

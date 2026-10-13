@@ -4,6 +4,7 @@ import { pruneUsage } from '../ai/usage.js';
 import { normalizeGoal } from '../goal/goal.js';
 import { mealFields } from '../meals/meals.js';
 import { dateKey, shiftDate } from '../../lib/date.js';
+import { saveFile } from '../../lib/files.js';
 import { formatBytes, plural } from '../../lib/format.js';
 import { requestPersistentStorage } from '../../lib/storage.js';
 import { backupAgeLabel, lastBackupAt, markBackedUp } from './backup.js';
@@ -58,7 +59,7 @@ export function DataPanel({ mealsByDate, setMealsByDate, goal, setGoal, weights,
     'daily-fuel-goal': { label: 'Goal', value: goal },
   });
 
-  function exportData() {
+  async function exportData() {
     const backup = {
       app: 'daily-fuel',
       version: 1,
@@ -66,12 +67,12 @@ export function DataPanel({ mealsByDate, setMealsByDate, goal, setGoal, weights,
       data: { mealsByDate, goal, weights, workoutTemplates, workoutLogs, settings, usage },
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `daily-fuel-backup-${dateKey(new Date())}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
+    try {
+      await saveFile(blob, `daily-fuel-backup-${dateKey(new Date())}.json`);
+    } catch (error) {
+      if (error.name !== 'AbortError') notify(error.message || 'Could not export the backup.');
+      return;
+    }
     markBackedUp();
     setLastBackup(lastBackupAt());
     notify('Backup exported.', 'success');

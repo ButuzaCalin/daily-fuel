@@ -4,25 +4,34 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"node server.js\" \"vite\"",
+    "dev": "vite",
     "build": "vite build",
-    "start": "node server.js",
+    "preview": "vite preview",
+    "sync": "vite build && cap sync",
+    "ios": "vite build && cap sync ios && cap open ios",
+    "android": "vite build && cap sync android && cap open android",
+    "assets": "capacitor-assets generate --ios --android --iconBackgroundColor '#f7f7f5' --splashBackgroundColor '#f7f7f5'",
     "proxy-user": "node scripts/proxy-user.js"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
-    "@vitejs/plugin-react": "latest",
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/filesystem": "^8.1.4",
+    "@capacitor/ios": "^8.5.3",
+    "@capacitor/share": "^8.0.3",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.4",
     "@zxing/browser": "^0.2.1",
     "@zxing/library": "^0.23.0",
-    "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^13.0.3",
-    "concurrently": "latest",
-    "express": "latest",
     "html-to-image": "^1.11.13",
     "lucide-react": "^1.47.0",
-    "openai": "latest",
-    "react": "latest",
-    "react-dom": "latest",
-    "vite": "latest"
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.3",
+    "@vitejs/plugin-react": "^6.1.1",
+    "vite": "^8.3.0"
   }
 }

@@ -7,6 +7,7 @@ import { scoreForDay } from './history.js';
 import { DAY_COMPLETE_HOUR, dayStatus, scoreLabel } from './score.js';
 import { useNow } from '../../hooks/useNow.js';
 import { dateKey } from '../../lib/date.js';
+import { shareFile } from '../../lib/files.js';
 
 // Month grid (Monday first) with each completed day's score; tapping a day opens it.
 export function ScoreCalendar({ goal, mealsByDate, onOpenDay, notify }) {
@@ -33,18 +34,7 @@ export function ScoreCalendar({ goal, mealsByDate, onOpenDay, notify }) {
       const blob = await toBlob(posterRef.current, { width: 1080, height: 1920, pixelRatio: 1 });
       if (!blob) throw new Error('Could not create the calendar image.');
       const filename = `daily-fuel-scores-${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}.png`;
-      const file = new File([blob], filename, { type: 'image/png' });
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file] });
-      } else {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        link.click();
-        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-        notify('Calendar image downloaded.', 'success');
-      }
+      if (await shareFile(blob, filename) === 'downloaded') notify('Calendar image downloaded.', 'success');
     } catch (error) {
       if (error.name !== 'AbortError') notify(error.message || 'Could not share the calendar image.');
     } finally {

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { updateApp } from '../../app/pwa.js';
 import { normalizeGoal } from '../goal/goal.js';
+import { isNative } from '../../lib/files.js';
 
 export function GeneralPanel({ goal, setGoal, notify }) {
   const [updating, setUpdating] = useState(false);
@@ -29,9 +30,9 @@ export function GeneralPanel({ goal, setGoal, notify }) {
         <span><strong>Workouts</strong><small>Save workouts and log your sets and reps on a calendar.</small></span>
       </label>
     </section>
-    <section className="settings-form settings-update">
+    {!isNative && <section className="settings-form settings-update">
       <div className="goal-section-heading"><h2>App</h2><p>Get the latest version. Your meals, goals and settings stay on this device.</p></div>
       <button className="auth-submit" type="button" onClick={handleUpdate} disabled={updating}><RefreshCw className={updating ? 'is-spinning' : undefined} aria-hidden="true" />{updating ? 'Updating…' : 'Update app'}</button>
-    </section>
+    </section>}
   </>;
 }

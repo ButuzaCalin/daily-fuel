@@ -4,9 +4,23 @@
 
 ```sh
 npm install
-npm run dev     # API server (server.js) + Vite dev server
-npm run build   # production build into dist/
+npm run dev     # Vite dev server
+npm run build   # production web build into dist/
 ```
+
+## Native apps (Capacitor)
+
+The iOS and Android apps wrap the web build. Native projects live in `ios/` and `android/`.
+
+```sh
+npm run ios       # build, sync and open Xcode
+npm run android   # build, sync and open Android Studio
+npm run sync      # build and copy web files into both native projects
+npm run assets    # regenerate app icons/splash from assets/
+```
+
+Requires Xcode for iOS and Android Studio (with the Android SDK) for Android.
+If the AI proxy restricts origins (`ALLOWED_ORIGIN`), add `capacitor://localhost` (iOS) and `https://localhost` (Android).
 
 ## Project structure
 
@@ -30,7 +44,6 @@ src/
     settings/       settings screen and its panels
     help/           help screen
     install/        "install the app" prompt
-    auth/           login view (currently unused)
   styles/app.css    global styles
 ```
 
