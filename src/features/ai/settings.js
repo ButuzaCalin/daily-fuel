@@ -1,4 +1,4 @@
-export const defaultSettings = { aiMode: 'manual', proxyUrl: '', proxyUsername: '', proxyKey: '', provider: 'google', googleKey: '', googleModel: 'gemini-3.5-flash-lite', openaiKey: '', openaiModel: 'gpt-4o-mini', mealOrder: 'asc', navigation: 'classic' };
+export const defaultSettings = { aiMode: 'manual', proxyUrl: '', proxyUsername: '', proxyKey: '', provider: 'google', googleKey: '', googleModel: 'gemini-3.5-flash-lite', openaiKey: '', openaiModel: 'gpt-4o-mini', mealOrder: 'asc', navigation: 'dock' };
 
 export const aiModeLabels = { proxy: 'Setup code', manual: 'Own API key' };
 

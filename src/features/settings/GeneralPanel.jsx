@@ -18,12 +18,12 @@ export function GeneralPanel({ goal, setGoal, settings, setSettings, notify }) {
       notify(error.message || 'The update failed.', 'error');
     }
   }
-  const navigation = settings?.navigation === 'dock' ? 'dock' : 'classic';
+  const navigation = settings?.navigation === 'legacy' ? 'legacy' : 'dock';
   return <>
     <section className="settings-form settings-navigation">
       <div className="goal-section-heading"><h2>Navigation</h2><p>{navigation === 'dock' ? 'Pages sit in a bar at the bottom of the screen, within reach of your thumb.' : 'Pages open from the menu button in the top left corner.'}</p></div>
       <div className="objective-toggle" role="radiogroup" aria-label="Navigation">
-        {[['classic', 'Classic menu'], ['dock', 'Bottom dock']].map(([value, label]) => <button className={navigation === value ? 'active' : ''} type="button" role="radio" aria-checked={navigation === value} onClick={() => setSettings((current) => ({ ...current, navigation: value }))} key={value}>{label}</button>)}
+        {[['dock', 'Bottom dock'], ['legacy', 'Legacy']].map(([value, label]) => <button className={navigation === value ? 'active' : ''} type="button" role="radio" aria-checked={navigation === value} onClick={() => setSettings((current) => ({ ...current, navigation: value }))} key={value}>{label}</button>)}
       </div>
       {navigation === 'dock' && <DockOrder goal={goal} order={settings.dockOrder} onChange={(dockOrder) => setSettings((current) => ({ ...current, dockOrder }))} />}
     </section>

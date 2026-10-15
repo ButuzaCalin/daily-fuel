@@ -404,9 +404,10 @@ export function App() {
 
   function logout() { setMenuOpen(false); }
 
-  useLayoutEffect(() => { document.documentElement.dataset.nav = settings.navigation === 'dock' ? 'dock' : 'classic'; }, [settings.navigation]);
+  useLayoutEffect(() => { document.documentElement.dataset.nav = settings.navigation === 'legacy' ? 'legacy' : 'dock'; }, [settings.navigation]);
 
-  const dockNav = settings.navigation === 'dock';
+  // The dock is the default; anything but an explicit 'legacy' choice (including the old 'classic' value) gets it.
+  const dockNav = settings.navigation !== 'legacy';
   const dock = dockNav && route !== 'not-found' ? <Dock route={route} goal={goal} order={settings.dockOrder} onNavigate={navigate} /> : null;
   return <>{renderPage()}{dock}</>;
 
