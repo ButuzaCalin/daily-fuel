@@ -913,7 +913,7 @@ textarea::placeholder { color: #9aa09b; }
 .settings-navigation .objective-toggle button { grid-column: auto; }
 
 /* Bottom dock navigation (Settings → General → Navigation). Everything pinned to the bottom moves up above it. */
-:root[data-nav="dock"] { --dock-space: calc(62px + env(safe-area-inset-bottom)); }
+:root[data-nav="dock"] { --dock-bottom: max(12px, env(safe-area-inset-bottom)); --dock-space: calc(66px + var(--dock-bottom)); }
 :root[data-nav="dock"] .topbar .menu-button { display: none; }
 :root[data-nav="dock"] .home-header .menu-button { visibility: hidden; }
 :root[data-nav="dock"] .app-shell { padding-top: calc(var(--header-height) + 6px); padding-bottom: calc(48px + var(--dock-space)); }
@@ -924,8 +924,8 @@ textarea::placeholder { color: #9aa09b; }
 :root[data-nav="dock"] .app-shell:has(.day-bar) .toast { bottom: calc(80px + var(--dock-space)); }
 :root[data-nav="dock"] .save-bar { bottom: calc(12px + var(--dock-space)); }
 
-.dock { position: fixed; z-index: 6; right: 0; bottom: 0; left: 0; padding: 6px 8px env(safe-area-inset-bottom); background: rgb(255 255 255 / 92%); border-top: 1px solid var(--line); box-shadow: 0 -6px 18px rgb(34 42 37 / 6%); backdrop-filter: saturate(1.6) blur(14px); -webkit-backdrop-filter: saturate(1.6) blur(14px); }
-.dock-items { display: flex; justify-content: space-around; width: min(100%, 520px); margin: 0 auto; }
+.dock { position: fixed; z-index: 6; right: 0; bottom: var(--dock-bottom); left: 0; width: min(100% - 24px, 520px); margin: 0 auto; padding: 6px 6px 0; border: 1px solid var(--line); border-radius: 24px; background: rgb(255 255 255 / 92%); box-shadow: 0 10px 30px rgb(34 42 37 / 14%); backdrop-filter: saturate(1.6) blur(14px); -webkit-backdrop-filter: saturate(1.6) blur(14px); }
+.dock-items { display: flex; justify-content: space-around; }
 .dock-items button { display: grid; flex: 1 1 0; justify-items: center; gap: 3px; min-width: 0; border: 0; padding: 2px 0 6px; background: transparent; color: var(--muted); font-size: 10.5px; font-weight: 600; -webkit-user-select: none; user-select: none; }
 .dock-icon { display: grid; width: 52px; height: 30px; place-items: center; border-radius: 999px; transition: background-color 200ms ease, color 200ms ease, transform 150ms var(--ease-out); }
 .dock-icon svg { width: 21px; height: 21px; stroke-width: 2; }
@@ -981,8 +981,3 @@ textarea::placeholder { color: #9aa09b; }
 .dock-order-list[data-reordering] .dock-order-row[data-dragging] { z-index: 1; transition: none; box-shadow: 0 8px 20px rgb(34 42 37 / 14%); }
 .dock-order-list[data-reordering], .dock-order-list[data-reordering] * { cursor: grabbing; user-select: none; -webkit-user-select: none; }
 @media (hover: hover) and (pointer: fine) { .dock-order-row:not(.is-locked) .dock-order-handle:hover { background: #f3f6f3; color: var(--muted); } }
-/* iOS: lift the dock a little off the home indicator. */
-@supports (-webkit-touch-callout: none) {
-  :root[data-nav="dock"] { --dock-space: calc(70px + env(safe-area-inset-bottom)); }
-  .dock { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
-}
