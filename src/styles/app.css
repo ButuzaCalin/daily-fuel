@@ -926,12 +926,13 @@ textarea::placeholder { color: #9aa09b; }
 :root[data-nav="dock"] .app-shell:has(.add-meal-fab) .toast { bottom: calc(80px + var(--dock-space)); }
 :root[data-nav="dock"] .save-bar { bottom: calc(12px + var(--dock-space)); }
 
-.dock { position: fixed; z-index: 6; right: 0; bottom: var(--dock-bottom); left: 0; width: min(100% - 24px, 520px); margin: 0 auto; padding: 6px 6px 0; border: 1px solid rgb(255 255 255 / 6%); border-radius: 24px; background: rgb(27 36 31 / 90%); box-shadow: 0 12px 32px rgb(20 28 23 / 28%); backdrop-filter: saturate(1.6) blur(14px); -webkit-backdrop-filter: saturate(1.6) blur(14px); }
+.dock { position: fixed; z-index: 6; right: 0; bottom: var(--dock-bottom); left: 0; width: min(100% - 24px, 520px); margin: 0 auto; padding: 6px 6px 0; border: 1px solid #cfe0d4; border-radius: 24px; background: rgb(226 238 229 / 86%); box-shadow: 0 12px 30px rgb(52 112 77 / 18%); backdrop-filter: saturate(1.6) blur(14px); -webkit-backdrop-filter: saturate(1.6) blur(14px); }
 .dock-items { display: flex; justify-content: space-around; }
-.dock-items button { display: grid; flex: 1 1 0; justify-items: center; gap: 3px; min-width: 0; border: 0; padding: 2px 0 6px; background: transparent; color: rgb(255 255 255 / 58%); font-size: 10.5px; font-weight: 600; -webkit-user-select: none; user-select: none; }
+.dock-items button { display: grid; flex: 1 1 0; justify-items: center; gap: 3px; min-width: 0; border: 0; padding: 2px 0 6px; background: transparent; color: #5f7d69; font-size: 10.5px; font-weight: 600; -webkit-user-select: none; user-select: none; }
 .dock-icon { display: grid; width: 52px; height: 30px; place-items: center; border-radius: 999px; transition: background-color 200ms ease, color 200ms ease, transform 150ms var(--ease-out); }
 .dock-icon svg { width: 21px; height: 21px; stroke-width: 2; }
-.dock-items button.active { color: white; }
+.dock-items button.active { color: var(--green); }
+.dock-items button.active .dock-icon { color: white; }
 .dock-items button.active .dock-icon { background: var(--green); }
 .dock-items button:active .dock-icon { transform: scale(.92); }
 
@@ -948,7 +949,7 @@ textarea::placeholder { color: #9aa09b; }
 .dock-sheet-grid button.active .dock-sheet-icon { background: var(--green); color: white; }
 @keyframes sheet-in { from { opacity: 0; transform: translateY(16px) scale(.98); } }
 @keyframes sheet-out { to { opacity: 0; transform: translateY(10px) scale(.98); } }
-@media (hover: hover) and (pointer: fine) { .dock-items button:not(.active):hover { color: rgb(255 255 255 / 85%); } .dock-sheet-grid button:not(.active):hover { background: #f5f7f5; } }
+@media (hover: hover) and (pointer: fine) { .dock-items button:not(.active):hover { color: var(--green); } .dock-sheet-grid button:not(.active):hover { background: #f5f7f5; } }
 @media (prefers-reduced-motion: reduce) { .dock-sheet, .dock-sheet-layer { animation: none; } }
 
 /* Dock mode on Today: the date is the header title and opens the calendar. */
