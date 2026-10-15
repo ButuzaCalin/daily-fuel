@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronLeft, ChevronRight, Home, LoaderCircle, Menu as MenuIcon, Plus, RefreshCw, Sparkles, Trash2, Undo2 } from 'lucide-react';
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Home, LoaderCircle, Menu as MenuIcon, RefreshCw, Sparkles, Trash2, Undo2 } from 'lucide-react';
 import { isStandalone } from './app/pwa.js';
 import { routeFromPath, routePaths } from './app/routes.js';
 import { HeaderQuota } from './components/HeaderQuota.jsx';
@@ -481,8 +481,20 @@ export function App() {
     return (
       <main className="app-shell">
         {dockNav ? (
-          <header className="topbar">
-            <button className="brand" type="button" onClick={() => setSelectedDate(dateKey(new Date()))} aria-label="Daily Fuel, back to today"><span>Daily Fuel</span></button>
+          <header className="topbar day-topbar">
+            {/* Dock mode: the date is the title and opens a calendar; days change by swiping the page. */}
+            <div className="day-title">
+              <label className="day-title-picker">
+                <span className="day-title-icon"><CalendarDays aria-hidden="true" /></span>
+                <span className="day-title-text">
+                  <strong>{relativeDay(selectedDate)}</strong>
+                  <small>{relativeDay(selectedDate) === formatDate(selectedDate) ? 'Swipe to change day' : formatDate(selectedDate)}</small>
+                </span>
+                <ChevronDown className="day-title-chevron" aria-hidden="true" />
+                <input aria-label="Select date" type="date" value={selectedDate} onChange={(event) => event.target.value && setSelectedDate(event.target.value)} />
+              </label>
+              {selectedDate !== dateKey(new Date()) && <button className="today-button" type="button" onClick={() => setSelectedDate(dateKey(new Date()))} title="Back to today"><Undo2 aria-hidden="true" />Today</button>}
+            </div>
             <HeaderQuota quota={useProxy ? proxyQuota : null} />
           </header>
         ) : (
@@ -562,12 +574,7 @@ export function App() {
             </div>
           </aside>
         </div>
-        {dockNav ? (
-          <div className="day-bar">
-            {datePicker}
-            <button className="day-bar-add" type="button" onClick={openAddMeal} aria-label="Add meal"><Plus aria-hidden="true" /></button>
-          </div>
-        ) : <button className="add-meal-fab" type="button" onClick={openAddMeal} aria-label="Add meal">+</button>}
+        <button className="add-meal-fab" type="button" onClick={openAddMeal} aria-label="Add meal">+</button>
         <MealDialog
           draft={addMealOpen ? mealDraft : null}
           collapsibleNutrition

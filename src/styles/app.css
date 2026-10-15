@@ -915,13 +915,15 @@ textarea::placeholder { color: #9aa09b; }
 /* Bottom dock navigation (Settings → General → Navigation). Everything pinned to the bottom moves up above it. */
 :root[data-nav="dock"] { --dock-bottom: max(18px, calc(env(safe-area-inset-bottom) + 6px)); --dock-space: calc(66px + var(--dock-bottom)); }
 :root[data-nav="dock"] .topbar .menu-button { display: none; }
+:root[data-nav="dock"] .topbar { min-height: calc(59px + env(safe-area-inset-top)); }
 :root[data-nav="dock"] .home-header .menu-button { visibility: hidden; }
 :root[data-nav="dock"] .app-shell { padding-top: calc(var(--header-height) + 6px); padding-bottom: calc(48px + var(--dock-space)); }
 :root[data-nav="dock"] .summary-panel { top: calc(var(--header-height) + 6px); }
 :root[data-nav="dock"] .reports-heading { padding-top: 0; }
-:root[data-nav="dock"] .app-shell:has(.day-bar) { padding-bottom: calc(96px + var(--dock-space)); }
+:root[data-nav="dock"] .app-shell:has(.add-meal-fab) { padding-bottom: calc(88px + var(--dock-space)); }
+:root[data-nav="dock"] .add-meal-fab { bottom: calc(14px + var(--dock-space)); }
 :root[data-nav="dock"] .toast { bottom: calc(16px + var(--dock-space)); }
-:root[data-nav="dock"] .app-shell:has(.day-bar) .toast { bottom: calc(80px + var(--dock-space)); }
+:root[data-nav="dock"] .app-shell:has(.add-meal-fab) .toast { bottom: calc(80px + var(--dock-space)); }
 :root[data-nav="dock"] .save-bar { bottom: calc(12px + var(--dock-space)); }
 
 .dock { position: fixed; z-index: 6; right: 0; bottom: var(--dock-bottom); left: 0; width: min(100% - 24px, 520px); margin: 0 auto; padding: 6px 6px 0; border: 1px solid var(--line); border-radius: 24px; background: rgb(255 255 255 / 92%); box-shadow: 0 10px 30px rgb(34 42 37 / 14%); backdrop-filter: saturate(1.6) blur(14px); -webkit-backdrop-filter: saturate(1.6) blur(14px); }
@@ -949,16 +951,21 @@ textarea::placeholder { color: #9aa09b; }
 @media (hover: hover) and (pointer: fine) { .dock-items button:not(.active):hover { color: var(--ink); } .dock-sheet-grid button:not(.active):hover { background: #f5f7f5; } }
 @media (prefers-reduced-motion: reduce) { .dock-sheet, .dock-sheet-layer { animation: none; } }
 
-/* Dock mode on Today: the day selector and the add button share one floating bar just above the dock. */
-.day-bar { position: fixed; z-index: 4; right: 0; bottom: calc(6px + var(--dock-space, 0px)); left: 0; display: flex; align-items: center; width: min(100% - 24px, 440px); margin: 0 auto; padding: 5px 5px 5px 10px; gap: 12px; border: 1px solid var(--line); border-radius: 999px; background: rgb(255 255 255 / 94%); box-shadow: 0 8px 24px rgb(34 42 37 / 12%); backdrop-filter: saturate(1.6) blur(14px); -webkit-backdrop-filter: saturate(1.6) blur(14px); }
-.day-bar .date-picker { flex: 1; justify-content: center; gap: 26px; min-width: 0; }
-.day-bar .date-display { flex: 0 1 140px; width: auto; gap: 1px; }
-.day-bar .date-label, .day-bar .today-button { line-height: 16px; height: 16px; }
-.day-bar .date-display strong { font-size: 14px; }
-.day-bar-add { display: grid; flex: none; width: 44px; height: 44px; place-items: center; border: 0; border-radius: 50%; padding: 0; background: var(--green); color: white; box-shadow: 0 4px 12px rgb(52 112 77 / 30%); transition: transform 150ms var(--ease-out); }
-.day-bar-add svg { width: 22px; height: 22px; stroke-width: 2.5; }
-.day-bar-add:active { transform: scale(.92); }
-@media (hover: hover) and (pointer: fine) { .day-bar-add:hover { background: #285d3d; } }
+/* Dock mode on Today: the date is the header title and opens the calendar. */
+.day-topbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.day-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.day-title-picker { position: relative; display: inline-flex; align-items: center; gap: 10px; min-width: 0; height: 38px; margin-left: -4px; padding: 0 10px 0 4px; border-radius: 10px; cursor: pointer; transition: background-color 150ms ease; }
+.day-title-picker:has(input:focus-visible) { box-shadow: var(--focus-ring); }
+.day-title-picker:active { background: #f1f5f2; }
+.day-title-picker input { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; opacity: 0; }
+.day-title-icon { display: grid; flex: none; width: 30px; height: 30px; place-items: center; border-radius: 8px; background: #edf3ee; color: var(--green); }
+.day-title-icon svg { width: 16px; height: 16px; }
+.day-title-text { display: grid; min-width: 0; line-height: 1.1; }
+.day-title-text strong { overflow: hidden; font-size: 15px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.day-title-text small { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.day-title-chevron { flex: none; width: 15px; height: 15px; color: var(--muted); }
+.day-title .today-button { flex: none; height: 26px; padding: 0 10px; }
+@media (hover: hover) and (pointer: fine) { .day-title-picker:hover { background: #f5f8f5; } }
 
 .dock-order { display: grid; gap: 8px; }
 .dock-order-heading { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
