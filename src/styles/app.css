@@ -901,3 +901,8 @@ textarea::placeholder { color: #9aa09b; }
 .confirm-dialog p { margin: 8px 0 18px; color: var(--muted); font-size: 14px; line-height: 1.45; }
 .dialog-actions .confirm-danger { background: #b34f43; color: white; font-weight: 600; }
 @media (hover: hover) and (pointer: fine) { .dialog-actions button.confirm-danger:hover { background: #9a4338; color: white; } }
+/* Labels for the day a sideways swipe on Today leads to; their opacity follows the finger. */
+.day-swipe-hint { position: fixed; z-index: 2; top: 50%; display: inline-flex; align-items: center; gap: 4px; padding: 8px 12px; border-radius: 999px; background: #edf3ee; color: var(--green); font-size: 13px; font-weight: 600; opacity: 0; pointer-events: none; transform: translateY(-50%) scale(.85); box-shadow: 0 6px 16px rgb(34 42 37 / 10%); }
+.day-swipe-hint svg { width: 16px; height: 16px; }
+.day-swipe-hint.is-prev { left: 12px; padding-left: 8px; }
+.day-swipe-hint.is-next { right: 12px; padding-right: 8px; }

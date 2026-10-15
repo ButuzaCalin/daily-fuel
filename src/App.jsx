@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronLeft, ChevronRight, Home, LoaderCircle, Menu as MenuIcon, RefreshCw, Sparkles, Trash2, Undo2 } from 'lucide-react';
 import { isStandalone } from './app/pwa.js';
 import { routeFromPath, routePaths } from './app/routes.js';
@@ -33,26 +33,21 @@ import { takeBackupReminder } from './features/settings/backup.js';
 import { WeightView } from './features/weight/WeightView.jsx';
 import { WorkoutsView } from './features/workouts/WorkoutsView.jsx';
 import { useNow } from './hooks/useNow.js';
-import { useEdgeSwipe } from './hooks/useEdgeSwipe.js';
-import { useSwipe } from './hooks/useSwipe.js';
+import { useBlockEdgeBack } from './hooks/useBlockEdgeBack.js';
+import { useDaySwipe } from './hooks/useDaySwipe.js';
 import { dateKey, formatDate, shiftDate } from './lib/date.js';
 import { loadLocal, requestPersistentStorage, saveLocal } from './lib/storage.js';
 
+function relativeDay(value) {
+  const today = dateKey(new Date());
+  if (value === today) return 'Today';
+  if (value === shiftDate(today, -1)) return 'Yesterday';
+  if (value === shiftDate(today, 1)) return 'Tomorrow';
+  return formatDate(value);
+}
+
 export function App() {
   const [selectedDate, setSelectedDate] = useState(dateKey(new Date()));
-  const daySwipe = useSwipe(() => setSelectedDate((date) => shiftDate(date, 1)), () => setSelectedDate((date) => shiftDate(date, -1)));
-  const dayContentRef = useRef(null);
-  const shownDate = useRef(selectedDate);
-  useEffect(() => {
-    const previous = shownDate.current;
-    shownDate.current = selectedDate;
-    if (previous === selectedDate || !dayContentRef.current || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const offset = selectedDate > previous ? 28 : -28;
-    dayContentRef.current.animate(
-      [{ transform: `translateX(${offset}px)`, opacity: 0 }, { transform: 'none', opacity: 1 }],
-      { duration: 260, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' },
-    );
-  }, [selectedDate]);
   const [mealsByDate, setMealsByDate] = useState(() => clearEstimating(loadLocal('daily-fuel-meals', {})));
   const [mealDraft, setMealDraft] = useState(blankDraft);
   const [editMeal, setEditMeal] = useState(null);
@@ -75,8 +70,8 @@ export function App() {
   const [newMealId, setNewMealId] = useState(null);
   const [route, setRoute] = useState(() => routeFromPath(window.location.pathname));
   const [menuOpen, setMenuOpen] = useState(false);
-  const openMenu = useCallback(() => setMenuOpen(true), []);
-  useEdgeSwipe(!menuOpen && route !== 'home' && route !== 'not-found', openMenu);
+  useBlockEdgeBack(!setupInApp);
+  const daySwipe = useDaySwipe(route === 'home', selectedDate, (amount) => setSelectedDate((date) => shiftDate(date, amount)));
   const [reportPeriod, setReportPeriod] = useState('week');
   const [scoreOpen, setScoreOpen] = useState(false);
   const scoring = scoringAvailable(goal);
@@ -484,7 +479,9 @@ export function App() {
       <SetupHandoffDialog link={handoffLink} onClose={() => setHandoffLink(null)} />
       {!aiConfigured && !setupCardHidden && isStandalone() && <SetupCard onCode={connectSetupCode} busy={connecting} notify={notify} onOpenSettings={() => navigate('ai')} onDismiss={hideSetupCard} />}
 
-      <div className="content-grid" ref={dayContentRef} {...daySwipe}>
+      <div className="day-swipe-hint is-prev" ref={daySwipe.prevHintRef} aria-hidden="true"><ChevronLeft />{relativeDay(shiftDate(selectedDate, -1))}</div>
+      <div className="day-swipe-hint is-next" ref={daySwipe.nextHintRef} aria-hidden="true">{relativeDay(shiftDate(selectedDate, 1))}<ChevronRight /></div>
+      <div className="content-grid" ref={daySwipe.contentRef}>
         <section className="journal-panel">
           <div className="section-heading">
             <h2>Meals</h2>
