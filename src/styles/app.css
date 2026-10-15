@@ -12,6 +12,9 @@
   --green: #34704d;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  /* Spacing rhythm: --gap between tiles and from the screen edges, --section-gap between sections. */
+  --gap: 12px;
+  --section-gap: 24px;
   --focus-ring: 0 0 0 3px rgb(52 112 77 / 16%);
 }
 
@@ -68,7 +71,7 @@ h2 { margin: 0; letter-spacing: -.03em; }
 .date-display strong { font-size: 15px; font-weight: 600; }
 .date-control input { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; opacity: 0; }
 .content-grid { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 32px; align-items: start; }
-.section-heading { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+.section-heading { display: flex; align-items: center; gap: 8px; margin-bottom: var(--gap); }
 .section-heading h2 { font-size: 22px; }
 .meal-count { display: grid; width: 22px; height: 22px; place-items: center; border-radius: 50%; background: #e7eee9; color: var(--green); font-size: 11px; }
 .meal-sort { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; border: 0; border-radius: 6px; padding: 6px 8px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 600; transition: transform 140ms var(--ease-out), color 140ms ease; }
@@ -90,13 +93,17 @@ textarea::placeholder { color: #9aa09b; }
 .manual-input-suggest:active { transform: scale(.96); }
 .app-shell:has(.add-meal-fab) { padding-bottom: 104px; }
 .add-meal-fab:active { transform: scale(.92) !important; }
-.add-meal-fab { position: fixed; z-index: 4; right: max(20px, calc((100vw - 900px) / 2)); bottom: 24px; display: grid; width: 54px; height: 54px; place-items: center; border: 0; border-radius: 50%; background: var(--green); color: white; box-shadow: 0 8px 20px rgb(34 42 37 / 18%); font-size: 31px; font-weight: 300; line-height: 1; }
+/* Invisible hit area around the button so a near-miss adds a meal instead of hitting a card action underneath. */
+.add-meal-fab::after { content: ''; position: absolute; inset: -16px; border-radius: 50%; }
+.add-meal-fab { position: fixed; z-index: 4; right: max(var(--gap), calc((100vw - 900px) / 2)); bottom: 24px; display: grid; width: 54px; height: 54px; place-items: center; border: 0; border-radius: 50%; background: var(--green); color: white; box-shadow: 0 8px 20px rgb(34 42 37 / 18%); font-size: 31px; font-weight: 300; line-height: 1; }
 .empty-state { padding: 32px 16px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); text-align: center; }
 .empty-state p { margin: 0; }
 .empty-add { margin-top: 12px; border: 1px solid var(--green); border-radius: 6px; padding: 8px 14px; background: white; color: var(--green); font-size: 13px; font-weight: 600; }
-.meal-card { display: grid; grid-template-columns: 55px minmax(0, 1fr) auto; gap: 6px 12px; align-items: start; padding: 16px 0; border-bottom: 1px solid var(--line); }
-.meal-time { padding-top: 11px; }
-.meal-text { display: block; width: 100%; margin: 0; padding: 8px 11px; border: 1px solid #dce7df; border-radius: 7px; background: white; font-size: 15px; color: var(--ink); line-height: 1.45; text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; }
+.meal-list { display: grid; gap: var(--gap); }
+.meal-card { display: grid; gap: 6px; padding: 10px 14px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.meal-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.meal-card .meal-time { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.meal-text { display: block; width: 100%; margin: 0 0 4px; padding: 0; border: 0; border-radius: 4px; background: transparent; font-size: 15px; color: var(--ink); line-height: 1.45; text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; }
 .meal-text:active { transform: scale(.99); }
 .meal-actions { display: flex; flex-shrink: 0; gap: 8px; }
 .estimate-button { display: grid; width: 30px; height: 30px; place-items: center; border: 1px solid var(--green); border-radius: 5px; padding: 0; background: white; color: var(--green); font-size: 12px; }
@@ -108,7 +115,7 @@ textarea::placeholder { color: #9aa09b; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .remove-button svg { width: 15px; height: 15px; stroke-width: 2; }
 .remove-button { display: grid; width: 30px; height: 30px; place-items: center; border: 1px solid #e6b7ad; border-radius: 5px; padding: 0; background: #fff8f6; color: #b34f43; font-size: 20px; line-height: 1; }
-.meal-nutrition { display: grid; grid-column: 2 / -1; grid-template-columns: 84px repeat(3, minmax(0, 1fr)); align-items: baseline; max-width: 372px; padding: 0 12px; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; transition: opacity 200ms ease; }
+.meal-nutrition { display: grid; grid-template-columns: 76px repeat(3, minmax(0, 1fr)); align-items: baseline; padding-top: 10px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; transition: opacity 200ms ease; }
 .meal-nutrition.is-empty { display: block; font-size: 12px; font-style: italic; }
 .meal-stat { display: inline-flex; align-items: baseline; gap: 3px; min-width: 0; white-space: nowrap; }
 .meal-stat strong { color: var(--ink); font-size: 13px; font-weight: 600; }
@@ -116,7 +123,7 @@ textarea::placeholder { color: #9aa09b; }
 .meal-stat[class*='macro-']::before { content: ''; flex: none; align-self: center; width: 6px; height: 6px; margin-right: 1px; border-radius: 50%; background: var(--green); }
 .meal-stat.macro-yellow::before { background: #c99b24; }
 .meal-stat.macro-coral::before { background: #c66b59; }
-.meal-card .remove-button { border-color: transparent; background: transparent; color: var(--muted); }
+.meal-card .remove-button, .meal-card .estimate-button.is-reestimate { border-color: transparent; background: transparent; color: var(--muted); }
 .meal-card[data-estimating] .meal-nutrition, .summary-panel[data-estimating] .calorie-total, .summary-panel[data-estimating] .macro-grid, .summary-panel[data-estimating] .goal-progress { opacity: .4; }
 .calorie-total, .macro-grid, .goal-progress { transition: opacity 200ms ease; }
 .meal-card.is-new { animation: rise-in 280ms var(--ease-out); }
@@ -361,17 +368,17 @@ textarea::placeholder { color: #9aa09b; }
   .dialog-actions .confirm-add:not(:disabled):hover { background: #285d3d; }
   .meal-suggestions button:hover, .suggestion-undo button:hover { background: #eef5f0; }
   .meal-suggestions .suggestion-add:hover { background: var(--green); color: white; }
-  .meal-text:hover { border-color: #b8d2bf; background: #f5f9f6; }
+  .meal-text:hover { color: var(--green); }
   .meal-card .remove-button:hover { border-color: transparent; background: #fff1ee; color: #b34f43; }
   .empty-add:hover { background: #eef5f0; }
   .toast-action:hover { background: rgb(255 255 255 / 12%); }
   .dialog-actions button:not(.confirm-add):hover,     .period-toggle button:not(.active):hover, .metric-toggle button:not(.active):hover { color: var(--ink); }
 }
 @media (max-width: 700px) {
-  .app-shell { width: min(100% - 24px, 520px); }
+  .app-shell { width: min(100% - 2 * var(--gap), 520px); }
   .topbar, .home-header { padding-inline: max(12px, calc((100% - 520px) / 2)); }
   .topbar-note { display: none; }
-  .content-grid { grid-template-columns: 1fr; gap: 28px; }
+  .content-grid { grid-template-columns: 1fr; gap: var(--section-gap); }
   .summary-panel { position: static; order: -1; }
   .reports-heading { align-items: start; flex-direction: column; }
   .report-bottom-grid { grid-template-columns: 1fr; }
@@ -384,11 +391,6 @@ textarea::placeholder { color: #9aa09b; }
   .toast { bottom: calc(92px + env(safe-area-inset-bottom)); }
   .date-control { padding-inline: 4px; }
   .dialog-layer { align-items: start; padding-top: calc(16px + env(safe-area-inset-top)); }
-  .meal-card { display: flex; flex-wrap: wrap; gap: 8px; }
-  .meal-time { flex: 0 0 48px; }
-  .meal-main { min-width: 0; flex: 1 1 0; }
-  .meal-actions { flex: 0 0 auto; }
-  .meal-nutrition { flex: 0 0 100%; grid-template-columns: 80px repeat(3, minmax(0, 1fr)); max-width: 380px; padding: 0; }
     .report-summary-grid { gap: 8px; }
   .report-stat { padding: 12px 10px; }
   .report-stat strong { font-size: 20px; }
@@ -858,7 +860,7 @@ textarea::placeholder { color: #9aa09b; }
 .setup-details summary { color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer; }
 .setup-details[open] summary { margin-bottom: 12px; }
 .setup-details label + label { margin-top: 12px; }
-.setup-card { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; border: 1px solid var(--line); border-radius: 10px; padding: 14px; background: var(--surface); }
+.setup-card { display: flex; align-items: flex-start; gap: 12px; margin-bottom: var(--gap); border: 1px solid var(--line); border-radius: 10px; padding: 14px; background: var(--surface); }
 .setup-card-icon { flex: none; width: 20px; height: 20px; margin-top: 1px; color: var(--green); }
 .setup-card-body { display: grid; flex: 1; gap: 10px; min-width: 0; }
 .setup-card-body h2 { margin: 0; font-size: 15px; }
@@ -917,7 +919,7 @@ textarea::placeholder { color: #9aa09b; }
 :root[data-nav="dock"] .topbar .menu-button { display: none; }
 :root[data-nav="dock"] .topbar { min-height: calc(59px + env(safe-area-inset-top)); }
 :root[data-nav="dock"] .home-header .menu-button { visibility: hidden; }
-:root[data-nav="dock"] .app-shell { padding-top: calc(var(--header-height) + 6px); padding-bottom: calc(48px + var(--dock-space)); }
+:root[data-nav="dock"] .app-shell { padding-top: calc(var(--header-height) + var(--gap)); padding-bottom: calc(48px + var(--dock-space)); }
 :root[data-nav="dock"] .summary-panel { top: calc(var(--header-height) + 6px); }
 :root[data-nav="dock"] .reports-heading { padding-top: 0; }
 :root[data-nav="dock"] .app-shell:has(.add-meal-fab) { padding-bottom: calc(88px + var(--dock-space)); }
@@ -926,14 +928,15 @@ textarea::placeholder { color: #9aa09b; }
 :root[data-nav="dock"] .app-shell:has(.add-meal-fab) .toast { bottom: calc(80px + var(--dock-space)); }
 :root[data-nav="dock"] .save-bar { bottom: calc(12px + var(--dock-space)); }
 
-.dock { position: fixed; z-index: 6; right: 0; bottom: var(--dock-bottom); left: 0; width: min(100% - 24px, 520px); margin: 0 auto; padding: 6px 6px 0; border: 1px solid #cfe0d4; border-radius: 24px; background: rgb(226 238 229 / 86%); box-shadow: 0 12px 30px rgb(52 112 77 / 18%); backdrop-filter: saturate(1.6) blur(14px); -webkit-backdrop-filter: saturate(1.6) blur(14px); }
+.dock { position: fixed; z-index: 6; right: 0; bottom: var(--dock-bottom); left: 0; width: min(100% - 2 * var(--gap), 520px); margin: 0 auto; padding: 6px 6px 0; border: 1px solid var(--line); border-radius: 16px; background: rgb(255 255 255 / 88%); box-shadow: 0 8px 24px rgb(34 42 37 / 10%); backdrop-filter: saturate(1.6) blur(14px); -webkit-backdrop-filter: saturate(1.6) blur(14px); }
+/* Content scrolling under the dock blurs and fades out instead of colliding with it; stops short of the + button. */
+.dock-fade { position: fixed; z-index: 3; right: 0; bottom: 0; left: 0; height: calc(var(--dock-space) + 8px); pointer-events: none; background: rgb(247 247 245 / 55%); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); -webkit-mask-image: linear-gradient(to top, black 55%, transparent); mask-image: linear-gradient(to top, black 55%, transparent); }
 .dock-items { display: flex; justify-content: space-around; }
-.dock-items button { display: grid; flex: 1 1 0; justify-items: center; gap: 3px; min-width: 0; border: 0; padding: 2px 0 6px; background: transparent; color: #5f7d69; font-size: 10.5px; font-weight: 600; -webkit-user-select: none; user-select: none; }
+.dock-items button { display: grid; flex: 1 1 0; justify-items: center; gap: 3px; min-width: 0; border: 0; padding: 2px 0 6px; background: transparent; color: var(--muted); font-size: 10.5px; font-weight: 600; -webkit-user-select: none; user-select: none; }
 .dock-icon { display: grid; width: 52px; height: 30px; place-items: center; border-radius: 999px; transition: background-color 200ms ease, color 200ms ease, transform 150ms var(--ease-out); }
 .dock-icon svg { width: 21px; height: 21px; stroke-width: 2; }
 .dock-items button.active { color: var(--green); }
-.dock-items button.active .dock-icon { color: white; }
-.dock-items button.active .dock-icon { background: var(--green); }
+.dock-items button.active .dock-icon { background: #e7eee9; color: var(--green); }
 .dock-items button:active .dock-icon { transform: scale(.92); }
 
 .dock-sheet-layer { position: fixed; z-index: 5; inset: 0; background: rgb(34 42 37 / 20%); animation: fade-in 200ms ease; }

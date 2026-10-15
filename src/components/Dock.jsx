@@ -42,6 +42,7 @@ export function Dock({ route, goal, order, onNavigate }) {
         </nav>
       </div>
     )}
+    <div className="dock-fade" aria-hidden="true" />
     <nav className="dock" aria-label="Main">
       <div className="dock-items">
         {main.map((item) => (

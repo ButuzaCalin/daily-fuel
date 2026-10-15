@@ -531,23 +531,23 @@ export function App() {
                 </div>
               ) : shownMeals.map((meal) => (
                 <article className={`meal-card${meal.id === newMealId ? ' is-new' : ''}`} data-estimating={meal.estimating || undefined} onAnimationEnd={(event) => { if (event.target === event.currentTarget) setNewMealId(null); }} key={meal.id}>
-                  <div className="meal-time">{meal.time}</div>
-                  <div className="meal-main">
-                    <button className="meal-text" type="button" onClick={() => openEditMeal(meal)} title="Edit meal">
-                      {meal.items ? <span className="meal-card-items">{meal.items.map((item) => <span key={item.id}><span>{item.text}</span><small>{hasNutrition(item) ? `${Math.round(item.nutrition.calories)} kcal` : '—'}</small></span>)}</span> : meal.text}
-                    </button>
+                  <div className="meal-card-head">
+                    <div className="meal-time">{meal.time}</div>
+                    <div className="meal-actions">
+                      {(() => {
+                        const pending = pendingEntries(meal).length > 0;
+                        const label = pending ? (meal.items && hasNutrition(meal) ? 'Estimate items without values' : 'Estimate with AI') : meal.items ? 'Re-estimate AI values (scanned and typed values are kept)' : 'Re-estimate with AI (replaces current values)';
+                        return <button className={`estimate-button${pending ? '' : ' is-reestimate'}`} type="button" onClick={() => estimateMeal(meal)} disabled={meal.estimating || !reestimableEntries(meal).length} title={label}>
+                          {meal.estimating ? <LoaderCircle className="ai-loading" aria-hidden="true" /> : pending ? <Sparkles className="ai-icon" aria-hidden="true" /> : <RefreshCw className="ai-icon" aria-hidden="true" />}
+                          <span className="sr-only">{meal.estimating ? 'Estimating' : label}</span>
+                        </button>;
+                      })()}
+                      <button className="remove-button" type="button" onClick={() => removeMeal(meal)} aria-label={`Delete ${meal.text}`} title="Delete meal"><Trash2 /></button>
+                    </div>
                   </div>
-                  <div className="meal-actions">
-                    {(() => {
-                      const pending = pendingEntries(meal).length > 0;
-                      const label = pending ? (meal.items && hasNutrition(meal) ? 'Estimate items without values' : 'Estimate with AI') : meal.items ? 'Re-estimate AI values (scanned and typed values are kept)' : 'Re-estimate with AI (replaces current values)';
-                      return <button className={`estimate-button${pending ? '' : ' is-reestimate'}`} type="button" onClick={() => estimateMeal(meal)} disabled={meal.estimating || !reestimableEntries(meal).length} title={label}>
-                        {meal.estimating ? <LoaderCircle className="ai-loading" aria-hidden="true" /> : pending ? <Sparkles className="ai-icon" aria-hidden="true" /> : <RefreshCw className="ai-icon" aria-hidden="true" />}
-                        <span className="sr-only">{meal.estimating ? 'Estimating' : label}</span>
-                      </button>;
-                    })()}
-                    <button className="remove-button" type="button" onClick={() => removeMeal(meal)} aria-label={`Delete ${meal.text}`} title="Delete meal"><Trash2 /></button>
-                  </div>
+                  <button className="meal-text" type="button" onClick={() => openEditMeal(meal)} title="Edit meal">
+                    {meal.items ? <span className="meal-card-items">{meal.items.map((item) => <span key={item.id}><span>{item.text}</span><small>{hasNutrition(item) ? `${Math.round(item.nutrition.calories)} kcal` : '—'}</small></span>)}</span> : meal.text}
+                  </button>
                   <MealNutrition nutrition={meal.nutrition} />
                 </article>
               ))}
