@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { updateApp } from '../../app/pwa.js';
 import { normalizeGoal } from '../goal/goal.js';
+import { DockOrder } from './DockOrder.jsx';
 
-export function GeneralPanel({ goal, setGoal, notify }) {
+export function GeneralPanel({ goal, setGoal, settings, setSettings, notify }) {
   const [updating, setUpdating] = useState(false);
   // Menu switches live on the goal so existing data and backups keep working.
   const menus = normalizeGoal(goal);
@@ -17,7 +18,15 @@ export function GeneralPanel({ goal, setGoal, notify }) {
       notify(error.message || 'The update failed.', 'error');
     }
   }
+  const navigation = settings?.navigation === 'dock' ? 'dock' : 'classic';
   return <>
+    <section className="settings-form settings-navigation">
+      <div className="goal-section-heading"><h2>Navigation</h2><p>{navigation === 'dock' ? 'Pages sit in a bar at the bottom of the screen, within reach of your thumb.' : 'Pages open from the menu button in the top left corner.'}</p></div>
+      <div className="objective-toggle" role="radiogroup" aria-label="Navigation">
+        {[['classic', 'Classic menu'], ['dock', 'Bottom dock']].map(([value, label]) => <button className={navigation === value ? 'active' : ''} type="button" role="radio" aria-checked={navigation === value} onClick={() => setSettings((current) => ({ ...current, navigation: value }))} key={value}>{label}</button>)}
+      </div>
+      {navigation === 'dock' && <DockOrder goal={goal} order={settings.dockOrder} onChange={(dockOrder) => setSettings((current) => ({ ...current, dockOrder }))} />}
+    </section>
     <section className="settings-form settings-menus">
       <div className="goal-section-heading"><h2>Menus</h2><p>Turn on extra pages in the menu.</p></div>
       <label className="scoring-toggle">

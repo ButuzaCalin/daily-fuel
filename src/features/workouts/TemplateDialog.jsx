@@ -3,7 +3,7 @@ import { GripVertical, Plus, Trash2, X } from 'lucide-react';
 import { iconLabels, WorkoutIcon, workoutIcons } from './WorkoutIcon.jsx';
 import { DialogShell } from './dialogs.jsx';
 import { NameField, TypeToggle } from './fields.jsx';
-import { useDragReorder } from './useDragReorder.js';
+import { useDragReorder } from '../../hooks/useDragReorder.js';
 import { blankExercise, exerciseType } from './workouts.js';
 import { useEscape } from '../../hooks/useEscape.js';
 import { usePresence } from '../../hooks/usePresence.js';

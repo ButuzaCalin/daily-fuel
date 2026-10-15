@@ -140,3 +140,4 @@
   .routine-running:hover .routine-running-action, .routine-add-set:not(:disabled):hover, .routine-item-start:hover { background: #285d3d; color: white; }
   .routine-sets button:hover { background: #fff1ee; color: #8e3e34; }
 }
+:root[data-nav="dock"] .workouts-page:has(.workout-select-bar) { padding-bottom: calc(96px + var(--dock-space)); }

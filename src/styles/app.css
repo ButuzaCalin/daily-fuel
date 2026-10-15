@@ -906,3 +906,78 @@ textarea::placeholder { color: #9aa09b; }
 .day-swipe-hint svg { width: 16px; height: 16px; }
 .day-swipe-hint.is-prev { left: 12px; padding-left: 8px; }
 .day-swipe-hint.is-next { right: 12px; padding-right: 8px; }
+
+.settings-navigation { gap: 14px; }
+.settings-navigation .goal-section-heading { margin: 0; }
+.settings-navigation .objective-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
+.settings-navigation .objective-toggle button { grid-column: auto; }
+
+/* Bottom dock navigation (Settings → General → Navigation). Everything pinned to the bottom moves up above it. */
+:root[data-nav="dock"] { --dock-space: calc(62px + env(safe-area-inset-bottom)); }
+:root[data-nav="dock"] .topbar .menu-button { display: none; }
+:root[data-nav="dock"] .home-header .menu-button { visibility: hidden; }
+:root[data-nav="dock"] .app-shell { padding-top: calc(var(--header-height) + 6px); padding-bottom: calc(48px + var(--dock-space)); }
+:root[data-nav="dock"] .summary-panel { top: calc(var(--header-height) + 6px); }
+:root[data-nav="dock"] .reports-heading { padding-top: 0; }
+:root[data-nav="dock"] .app-shell:has(.day-bar) { padding-bottom: calc(96px + var(--dock-space)); }
+:root[data-nav="dock"] .toast { bottom: calc(16px + var(--dock-space)); }
+:root[data-nav="dock"] .app-shell:has(.day-bar) .toast { bottom: calc(80px + var(--dock-space)); }
+:root[data-nav="dock"] .save-bar { bottom: calc(12px + var(--dock-space)); }
+
+.dock { position: fixed; z-index: 6; right: 0; bottom: 0; left: 0; padding: 6px 8px env(safe-area-inset-bottom); background: rgb(255 255 255 / 92%); border-top: 1px solid var(--line); box-shadow: 0 -6px 18px rgb(34 42 37 / 6%); backdrop-filter: saturate(1.6) blur(14px); -webkit-backdrop-filter: saturate(1.6) blur(14px); }
+.dock-items { display: flex; justify-content: space-around; width: min(100%, 520px); margin: 0 auto; }
+.dock-items button { display: grid; flex: 1 1 0; justify-items: center; gap: 3px; min-width: 0; border: 0; padding: 2px 0 6px; background: transparent; color: var(--muted); font-size: 10.5px; font-weight: 600; -webkit-user-select: none; user-select: none; }
+.dock-icon { display: grid; width: 52px; height: 30px; place-items: center; border-radius: 999px; transition: background-color 200ms ease, color 200ms ease, transform 150ms var(--ease-out); }
+.dock-icon svg { width: 21px; height: 21px; stroke-width: 2; }
+.dock-items button.active { color: var(--green); }
+.dock-items button.active .dock-icon { background: #e3eee6; }
+.dock-items button:active .dock-icon { transform: scale(.92); }
+
+.dock-sheet-layer { position: fixed; z-index: 5; inset: 0; background: rgb(34 42 37 / 20%); animation: fade-in 200ms ease; }
+.dock-sheet-layer[data-closing] { animation: fade-out 200ms ease forwards; pointer-events: none; }
+.dock-sheet { position: absolute; right: 0; bottom: var(--dock-space); left: 0; width: min(100% - 16px, 520px); margin: 0 auto 8px; padding: 8px 12px 14px; border-radius: 16px; background: var(--surface); box-shadow: 0 10px 30px rgb(34 42 37 / 16%); animation: sheet-in 280ms var(--ease-out); }
+.dock-sheet-layer[data-closing] .dock-sheet { animation: sheet-out 200ms ease forwards; }
+.dock-sheet-grabber { display: block; width: 36px; height: 4px; margin: 0 auto 10px; border-radius: 999px; background: #dfe4e0; }
+.dock-sheet-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.dock-sheet-grid button { display: grid; justify-items: center; gap: 6px; border: 0; border-radius: 12px; padding: 12px 4px; background: transparent; color: var(--ink); font-size: 12px; font-weight: 600; }
+.dock-sheet-icon { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 12px; background: #edf3ee; color: var(--green); }
+.dock-sheet-icon svg { width: 20px; height: 20px; }
+.dock-sheet-grid button.active { background: #f3faf4; color: var(--green); }
+.dock-sheet-grid button.active .dock-sheet-icon { background: var(--green); color: white; }
+@keyframes sheet-in { from { opacity: 0; transform: translateY(16px) scale(.98); } }
+@keyframes sheet-out { to { opacity: 0; transform: translateY(10px) scale(.98); } }
+@media (hover: hover) and (pointer: fine) { .dock-items button:not(.active):hover { color: var(--ink); } .dock-sheet-grid button:not(.active):hover { background: #f5f7f5; } }
+@media (prefers-reduced-motion: reduce) { .dock-sheet, .dock-sheet-layer { animation: none; } }
+
+/* Dock mode on Today: the day selector and the add button share one floating bar just above the dock. */
+.day-bar { position: fixed; z-index: 4; right: 0; bottom: calc(10px + var(--dock-space, 0px)); left: 0; display: flex; align-items: center; gap: 6px; width: min(100% - 24px, 440px); margin: 0 auto; padding: 5px; border: 1px solid var(--line); border-radius: 999px; background: rgb(255 255 255 / 94%); box-shadow: 0 8px 24px rgb(34 42 37 / 12%); backdrop-filter: saturate(1.6) blur(14px); -webkit-backdrop-filter: saturate(1.6) blur(14px); }
+.day-bar .date-picker { flex: 1; justify-content: space-between; min-width: 0; }
+.day-bar .date-display { flex: 1; width: auto; gap: 1px; }
+.day-bar .date-label, .day-bar .today-button { line-height: 16px; height: 16px; }
+.day-bar .date-display strong { font-size: 14px; }
+.day-bar-add { display: grid; flex: none; width: 44px; height: 44px; place-items: center; border: 0; border-radius: 50%; padding: 0; background: var(--green); color: white; box-shadow: 0 4px 12px rgb(52 112 77 / 30%); transition: transform 150ms var(--ease-out); }
+.day-bar-add svg { width: 22px; height: 22px; stroke-width: 2.5; }
+.day-bar-add:active { transform: scale(.92); }
+@media (hover: hover) and (pointer: fine) { .day-bar-add:hover { background: #285d3d; } }
+
+.dock-order { display: grid; gap: 8px; }
+.dock-order-heading { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
+.dock-order-heading button { border: 0; border-radius: 5px; padding: 4px 8px; background: #eef5f0; color: var(--green); font-size: 12px; font-weight: 600; }
+.dock-order > small { color: var(--muted); font-size: 12px; }
+.dock-order-list { display: grid; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: white; }
+.dock-order-row { position: relative; display: grid; grid-template-columns: 32px 30px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 6px 12px 6px 4px; border-bottom: 1px solid var(--line); background: white; font-size: 14px; }
+.dock-order-row:last-child { border-bottom: 0; }
+.dock-order-row.is-locked { background: #fafbfa; }
+.dock-order-handle { display: grid; width: 32px; height: 36px; place-items: center; border: 0; border-radius: 6px; padding: 0; background: transparent; color: #a9b0aa; cursor: grab; touch-action: none; }
+.dock-order-row.is-locked .dock-order-handle { cursor: default; }
+.dock-order-handle svg { width: 16px; height: 16px; }
+.dock-order-row.is-locked .dock-order-handle svg { width: 13px; height: 13px; }
+.dock-order-icon { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 8px; background: #edf3ee; color: var(--green); }
+.dock-order-icon svg { width: 16px; height: 16px; }
+.dock-order-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.dock-order-place { border-radius: 999px; padding: 3px 8px; background: #e3eee6; color: var(--green); font-size: 11px; font-weight: 600; }
+.dock-order-place.is-more { background: #f0f2f0; color: var(--muted); }
+.dock-order-list[data-reordering] .dock-order-row { transition: transform 200ms var(--ease-out); }
+.dock-order-list[data-reordering] .dock-order-row[data-dragging] { z-index: 1; transition: none; box-shadow: 0 8px 20px rgb(34 42 37 / 14%); }
+.dock-order-list[data-reordering], .dock-order-list[data-reordering] * { cursor: grabbing; user-select: none; -webkit-user-select: none; }
+@media (hover: hover) and (pointer: fine) { .dock-order-row:not(.is-locked) .dock-order-handle:hover { background: #f3f6f3; color: var(--muted); } }

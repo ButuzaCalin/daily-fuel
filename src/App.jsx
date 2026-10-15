@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronLeft, ChevronRight, Home, LoaderCircle, Menu as MenuIcon, RefreshCw, Sparkles, Trash2, Undo2 } from 'lucide-react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronLeft, ChevronRight, Home, LoaderCircle, Menu as MenuIcon, Plus, RefreshCw, Sparkles, Trash2, Undo2 } from 'lucide-react';
 import { isStandalone } from './app/pwa.js';
 import { routeFromPath, routePaths } from './app/routes.js';
 import { HeaderQuota } from './components/HeaderQuota.jsx';
+import { Dock } from './components/Dock.jsx';
 import { Menu } from './components/Menu.jsx';
 import { Toast } from './components/Toast.jsx';
 import { GoalProgress, Macro } from './components/progress.jsx';
@@ -403,165 +404,188 @@ export function App() {
 
   function logout() { setMenuOpen(false); }
 
-  if (route === 'reports') {
-    return <ReportsView goal={goal} quota={useProxy ? proxyQuota : null} mealsByDate={mealsByDate} onOpenDay={(date) => { setSelectedDate(date); navigate('home'); }} report={report} period={reportPeriod} setPeriod={setReportPeriod} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
-  }
-  if (route === 'scores' && scoring) {
-    return <ScoresView goal={goal} quota={useProxy ? proxyQuota : null} mealsByDate={mealsByDate} onOpenDay={(date) => { setSelectedDate(date); navigate('home'); }} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
-  }
-  if (route === 'weight' && weightTracking) {
-    return <WeightView goal={goal} quota={useProxy ? proxyQuota : null} mealsByDate={mealsByDate} weights={weights} setWeights={setWeights} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
-  }
-  if (route === 'workouts' && workoutsEnabled) {
-    const chrome = <>
-      <header className="topbar">
-        <button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button>
-        <button className="brand" type="button" onClick={() => navigate('home')} aria-label="Daily Fuel home"><span>Daily Fuel</span></button>
-        <HeaderQuota quota={useProxy ? proxyQuota : null} />
-      </header>
-      <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={navigate} onLogout={logout} username="Local device" goal={goal} />
-      <Toast toast={toast} />
-    </>;
-    return <WorkoutsView chrome={chrome} templates={workoutTemplates} setTemplates={setWorkoutTemplates} logs={workoutLogs} setLogs={setWorkoutLogs} notify={notify} />;
-  }
-  if (route === 'goal') {
-    return <GoalView goal={goal} quota={useProxy ? proxyQuota : null} setGoal={setGoal} onEstimateGoal={estimateGoal} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
-  }
-  if (['settings', 'ai', 'usage', 'data-handling'].includes(route)) {
-    return <SettingsView tab={route} goal={goal} setGoal={setGoal} proxyQuota={useProxy ? proxyQuota : null} settings={settings} setSettings={setSettings} usage={usage} setUsage={setUsage} mealsByDate={mealsByDate} setMealsByDate={setMealsByDate} weights={weights} setWeights={setWeights} workoutTemplates={workoutTemplates} setWorkoutTemplates={setWorkoutTemplates} workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
-  }
-  if (route === 'invites') {
-    return <InvitesView settings={settings} goal={goal} quota={useProxy ? proxyQuota : null} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
-  }
-  if (route === 'help') {
-    return <HelpView goal={goal} quota={useProxy ? proxyQuota : null} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
-  }
-  if (route === 'not-found') {
-    return (
-      <main className="app-shell not-found-page">
+  useLayoutEffect(() => { document.documentElement.dataset.nav = settings.navigation === 'dock' ? 'dock' : 'classic'; }, [settings.navigation]);
+
+  const dockNav = settings.navigation === 'dock';
+  const dock = dockNav && route !== 'not-found' ? <Dock route={route} goal={goal} order={settings.dockOrder} onNavigate={navigate} /> : null;
+  return <>{renderPage()}{dock}</>;
+
+  function renderPage() {
+    if (route === 'reports') {
+      return <ReportsView goal={goal} quota={useProxy ? proxyQuota : null} mealsByDate={mealsByDate} onOpenDay={(date) => { setSelectedDate(date); navigate('home'); }} report={report} period={reportPeriod} setPeriod={setReportPeriod} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
+    }
+    if (route === 'scores' && scoring) {
+      return <ScoresView goal={goal} quota={useProxy ? proxyQuota : null} mealsByDate={mealsByDate} onOpenDay={(date) => { setSelectedDate(date); navigate('home'); }} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
+    }
+    if (route === 'weight' && weightTracking) {
+      return <WeightView goal={goal} quota={useProxy ? proxyQuota : null} mealsByDate={mealsByDate} weights={weights} setWeights={setWeights} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
+    }
+    if (route === 'workouts' && workoutsEnabled) {
+      const chrome = <>
         <header className="topbar">
-          <button className="brand" type="button" onClick={() => navigate('home')} aria-label="Daily Fuel home">
-            <span>Daily Fuel</span>
-          </button>
+          <button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button>
+          <button className="brand" type="button" onClick={() => navigate('home')} aria-label="Daily Fuel home"><span>Daily Fuel</span></button>
           <HeaderQuota quota={useProxy ? proxyQuota : null} />
         </header>
-        <section className="not-found-content">
-          <p className="not-found-code">404</p>
-          <h1>Page not found</h1>
-          <p>This page may have moved or the address may be incorrect.</p>
-          <button className="auth-submit" type="button" onClick={() => navigate('home')}><Home aria-hidden="true" />Back to today</button>
-        </section>
+        <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={navigate} onLogout={logout} username="Local device" goal={goal} />
+        <Toast toast={toast} />
+      </>;
+      return <WorkoutsView chrome={chrome} templates={workoutTemplates} setTemplates={setWorkoutTemplates} logs={workoutLogs} setLogs={setWorkoutLogs} notify={notify} />;
+    }
+    if (route === 'goal') {
+      return <GoalView goal={goal} quota={useProxy ? proxyQuota : null} setGoal={setGoal} onEstimateGoal={estimateGoal} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
+    }
+    if (['settings', 'ai', 'usage', 'data-handling'].includes(route)) {
+      return <SettingsView tab={route} goal={goal} setGoal={setGoal} proxyQuota={useProxy ? proxyQuota : null} settings={settings} setSettings={setSettings} usage={usage} setUsage={setUsage} mealsByDate={mealsByDate} setMealsByDate={setMealsByDate} weights={weights} setWeights={setWeights} workoutTemplates={workoutTemplates} setWorkoutTemplates={setWorkoutTemplates} workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
+    }
+    if (route === 'invites') {
+      return <InvitesView settings={settings} goal={goal} quota={useProxy ? proxyQuota : null} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} notify={notify} />;
+    }
+    if (route === 'help') {
+      return <HelpView goal={goal} quota={useProxy ? proxyQuota : null} onNavigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} username="Local device" onLogout={logout} toast={toast} />;
+    }
+    if (route === 'not-found') {
+      return (
+        <main className="app-shell not-found-page">
+          <header className="topbar">
+            <button className="brand" type="button" onClick={() => navigate('home')} aria-label="Daily Fuel home">
+              <span>Daily Fuel</span>
+            </button>
+            <HeaderQuota quota={useProxy ? proxyQuota : null} />
+          </header>
+          <section className="not-found-content">
+            <p className="not-found-code">404</p>
+            <h1>Page not found</h1>
+            <p>This page may have moved or the address may be incorrect.</p>
+            <button className="auth-submit" type="button" onClick={() => navigate('home')}><Home aria-hidden="true" />Back to today</button>
+          </section>
+        </main>
+      );
+    }
+
+    const datePicker = (
+      <section className="date-picker" aria-label="Choose a day">
+        <button className="arrow-button" type="button" onClick={() => setSelectedDate(shiftDate(selectedDate, -1))} aria-label="Previous day"><ChevronLeft aria-hidden="true" /></button>
+        <div className="date-display">
+          {selectedDate === dateKey(new Date())
+            ? <span className="date-label">Today</span>
+            : <button className="today-button" type="button" onClick={() => setSelectedDate(dateKey(new Date()))} title="Back to today"><Undo2 aria-hidden="true" />Back to today</button>}
+          <label className="date-control">
+            <strong>{formatDate(selectedDate)}</strong>
+            <input aria-label="Select date" type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} />
+          </label>
+        </div>
+        <button className="arrow-button" type="button" onClick={() => setSelectedDate(shiftDate(selectedDate, 1))} aria-label="Next day"><ChevronRight aria-hidden="true" /></button>
+      </section>
+    );
+    return (
+      <main className="app-shell">
+        {dockNav ? (
+          <header className="topbar">
+            <button className="brand" type="button" onClick={() => setSelectedDate(dateKey(new Date()))} aria-label="Daily Fuel, back to today"><span>Daily Fuel</span></button>
+            <HeaderQuota quota={useProxy ? proxyQuota : null} />
+          </header>
+        ) : (
+          <header className="home-header">
+            <button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button>
+            {datePicker}
+            <HeaderQuota quota={useProxy ? proxyQuota : null} />
+          </header>
+        )}
+        <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={navigate} onLogout={logout} username="Local device" goal={goal} />
+        <Toast toast={toast} />
+        <SetupHandoffDialog link={handoffLink} onClose={() => setHandoffLink(null)} />
+        {!aiConfigured && !setupCardHidden && isStandalone() && <SetupCard onCode={connectSetupCode} busy={connecting} notify={notify} onOpenSettings={() => navigate('ai')} onDismiss={hideSetupCard} />}
+
+        <div className="day-swipe-hint is-prev" ref={daySwipe.prevHintRef} aria-hidden="true"><ChevronLeft />{relativeDay(shiftDate(selectedDate, -1))}</div>
+        <div className="day-swipe-hint is-next" ref={daySwipe.nextHintRef} aria-hidden="true">{relativeDay(shiftDate(selectedDate, 1))}<ChevronRight /></div>
+        <div className="content-grid" ref={daySwipe.contentRef}>
+          <section className="journal-panel">
+            <div className="section-heading">
+              <h2>Meals</h2>
+              <span className="meal-count">{meals.length}</span>
+              {meals.length > 1 && (
+                <button className="meal-sort" type="button" onClick={() => setSettings((current) => ({ ...current, mealOrder: current.mealOrder === 'desc' ? 'asc' : 'desc' }))} title={mealOrder === 'desc' ? 'Newest first' : 'Oldest first'} aria-label={`Sorted ${mealOrder === 'desc' ? 'newest' : 'oldest'} first. Change order`}>
+                  {mealOrder === 'desc' ? <ArrowDownWideNarrow aria-hidden="true" /> : <ArrowUpNarrowWide aria-hidden="true" />}{mealOrder === 'desc' ? 'Newest first' : 'Oldest first'}
+                </button>
+              )}
+            </div>
+
+            <div className="meal-list">
+              {meals.length === 0 ? (
+                <div className="empty-state">
+                  <p>No meals logged {selectedDate === dateKey(new Date()) ? 'today' : 'on this day'}</p>
+                  <button className="empty-add" type="button" onClick={openAddMeal}>Add a meal</button>
+                </div>
+              ) : shownMeals.map((meal) => (
+                <article className={`meal-card${meal.id === newMealId ? ' is-new' : ''}`} data-estimating={meal.estimating || undefined} onAnimationEnd={(event) => { if (event.target === event.currentTarget) setNewMealId(null); }} key={meal.id}>
+                  <div className="meal-time">{meal.time}</div>
+                  <div className="meal-main">
+                    <button className="meal-text" type="button" onClick={() => openEditMeal(meal)} title="Edit meal">
+                      {meal.items ? <span className="meal-card-items">{meal.items.map((item) => <span key={item.id}><span>{item.text}</span><small>{hasNutrition(item) ? `${Math.round(item.nutrition.calories)} kcal` : '—'}</small></span>)}</span> : meal.text}
+                    </button>
+                  </div>
+                  <div className="meal-actions">
+                    {(() => {
+                      const pending = pendingEntries(meal).length > 0;
+                      const label = pending ? (meal.items && hasNutrition(meal) ? 'Estimate items without values' : 'Estimate with AI') : meal.items ? 'Re-estimate AI values (scanned and typed values are kept)' : 'Re-estimate with AI (replaces current values)';
+                      return <button className={`estimate-button${pending ? '' : ' is-reestimate'}`} type="button" onClick={() => estimateMeal(meal)} disabled={meal.estimating || !reestimableEntries(meal).length} title={label}>
+                        {meal.estimating ? <LoaderCircle className="ai-loading" aria-hidden="true" /> : pending ? <Sparkles className="ai-icon" aria-hidden="true" /> : <RefreshCw className="ai-icon" aria-hidden="true" />}
+                        <span className="sr-only">{meal.estimating ? 'Estimating' : label}</span>
+                      </button>;
+                    })()}
+                    <button className="remove-button" type="button" onClick={() => removeMeal(meal)} aria-label={`Delete ${meal.text}`} title="Delete meal"><Trash2 /></button>
+                  </div>
+                  <MealNutrition nutrition={meal.nutrition} />
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <aside className="summary-panel" data-estimating={meals.some((meal) => meal.estimating) || undefined}>
+            <div className="summary-heading">
+              <p className="eyebrow">Daily total</p>
+              <span className="summary-date">{selectedDate === dateKey(new Date()) ? 'Today' : formatDate(selectedDate)}</span>
+              {scoring && <DayScore total={total} goal={dayGoal} meals={meals} status={dayStatus(selectedDate, dateKey(now), now)} onOpen={() => setScoreOpen(true)} />}
+              <button className="estimate-button daily-estimate-button" type="button" onClick={estimateDay} disabled={!pendingCount || meals.some((meal) => meal.estimating)} aria-label={dayEstimateLabel} title={dayEstimateLabel}>
+                {meals.some((meal) => meal.estimating) ? <LoaderCircle className="ai-loading" aria-hidden="true" /> : <Sparkles className="ai-icon" aria-hidden="true" />}
+                <span className="daily-estimate-label">{pendingCount ? 'Estimate all' : 'Up to date'}</span>
+                {pendingCount > 0 && <span className="daily-estimate-count">{pendingCount}</span>}
+              </button>
+            </div>
+            <div className="calorie-total"><div><strong>{Math.round(total.calories)}</strong><span>kcal</span></div>{dayGoal?.calories > 0 && <strong className="calorie-goal">/ {Math.round(dayGoal.calories)}<small> kcal</small></strong>}</div>
+            {dayGoal?.calories > 0 && <GoalProgress value={total.calories} goal={dayGoal.calories} color="neutral" />}
+            <div className="macro-grid">
+              <Macro label="Protein" value={total.proteins} goal={dayGoal?.proteins} color="green" />
+              <Macro label="Carbs" value={total.carbs} goal={dayGoal?.carbs} color="yellow" />
+              <Macro label="Fat" value={total.fats} goal={dayGoal?.fats} color="coral" />
+            </div>
+          </aside>
+        </div>
+        {dockNav ? (
+          <div className="day-bar">
+            {datePicker}
+            <button className="day-bar-add" type="button" onClick={openAddMeal} aria-label="Add meal"><Plus aria-hidden="true" /></button>
+          </div>
+        ) : <button className="add-meal-fab" type="button" onClick={openAddMeal} aria-label="Add meal">+</button>}
+        <MealDialog
+          draft={addMealOpen ? mealDraft : null}
+          collapsibleNutrition
+          suggestions={previousMeals}
+          clearable
+          scannable
+          onQuickAdd={addPastMeal}
+          title={selectedDate === dateKey(new Date()) ? 'Add meal' : `Add meal · ${loggedLabel(selectedDate)}`}
+          submitLabel="Add meal"
+          onChange={(patch) => setMealDraft((current) => mergeDraft(current, patch))}
+          onClose={() => setAddMealOpen(false)}
+          onSubmit={addMeal}
+        />
+        <ScoreDialog open={scoring && scoreOpen} total={total} goal={dayGoal} meals={meals} pendingCount={pendingCount} status={dayStatus(selectedDate, dateKey(now), now)} now={now} onClose={() => setScoreOpen(false)} />
+        <MealDialog draft={editMeal} title="Edit meal" submitLabel="Save" onChange={(patch) => setEditMeal((current) => mergeDraft(current, patch))} onClose={() => setEditMeal(null)} onSubmit={saveMealEdit} onReestimate={reestimateEdit} />
       </main>
     );
   }
-
-  return (
-    <main className="app-shell">
-      <header className="home-header">
-        <button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button>
-        <section className="date-picker" aria-label="Choose a day">
-          <button className="arrow-button" type="button" onClick={() => setSelectedDate(shiftDate(selectedDate, -1))} aria-label="Previous day"><ChevronLeft aria-hidden="true" /></button>
-          <div className="date-display">
-            {selectedDate === dateKey(new Date())
-              ? <span className="date-label">Today</span>
-              : <button className="today-button" type="button" onClick={() => setSelectedDate(dateKey(new Date()))} title="Back to today"><Undo2 aria-hidden="true" />Back to today</button>}
-            <label className="date-control">
-              <strong>{formatDate(selectedDate)}</strong>
-              <input aria-label="Select date" type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} />
-            </label>
-          </div>
-          <button className="arrow-button" type="button" onClick={() => setSelectedDate(shiftDate(selectedDate, 1))} aria-label="Next day"><ChevronRight aria-hidden="true" /></button>
-        </section>
-        <HeaderQuota quota={useProxy ? proxyQuota : null} />
-      </header>
-      <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={navigate} onLogout={logout} username="Local device" goal={goal} />
-      <Toast toast={toast} />
-      <SetupHandoffDialog link={handoffLink} onClose={() => setHandoffLink(null)} />
-      {!aiConfigured && !setupCardHidden && isStandalone() && <SetupCard onCode={connectSetupCode} busy={connecting} notify={notify} onOpenSettings={() => navigate('ai')} onDismiss={hideSetupCard} />}
-
-      <div className="day-swipe-hint is-prev" ref={daySwipe.prevHintRef} aria-hidden="true"><ChevronLeft />{relativeDay(shiftDate(selectedDate, -1))}</div>
-      <div className="day-swipe-hint is-next" ref={daySwipe.nextHintRef} aria-hidden="true">{relativeDay(shiftDate(selectedDate, 1))}<ChevronRight /></div>
-      <div className="content-grid" ref={daySwipe.contentRef}>
-        <section className="journal-panel">
-          <div className="section-heading">
-            <h2>Meals</h2>
-            <span className="meal-count">{meals.length}</span>
-            {meals.length > 1 && (
-              <button className="meal-sort" type="button" onClick={() => setSettings((current) => ({ ...current, mealOrder: current.mealOrder === 'desc' ? 'asc' : 'desc' }))} title={mealOrder === 'desc' ? 'Newest first' : 'Oldest first'} aria-label={`Sorted ${mealOrder === 'desc' ? 'newest' : 'oldest'} first. Change order`}>
-                {mealOrder === 'desc' ? <ArrowDownWideNarrow aria-hidden="true" /> : <ArrowUpNarrowWide aria-hidden="true" />}{mealOrder === 'desc' ? 'Newest first' : 'Oldest first'}
-              </button>
-            )}
-          </div>
-
-          <div className="meal-list">
-            {meals.length === 0 ? (
-              <div className="empty-state">
-                <p>No meals logged {selectedDate === dateKey(new Date()) ? 'today' : 'on this day'}</p>
-                <button className="empty-add" type="button" onClick={openAddMeal}>Add a meal</button>
-              </div>
-            ) : shownMeals.map((meal) => (
-              <article className={`meal-card${meal.id === newMealId ? ' is-new' : ''}`} data-estimating={meal.estimating || undefined} onAnimationEnd={(event) => { if (event.target === event.currentTarget) setNewMealId(null); }} key={meal.id}>
-                <div className="meal-time">{meal.time}</div>
-                <div className="meal-main">
-                  <button className="meal-text" type="button" onClick={() => openEditMeal(meal)} title="Edit meal">
-                    {meal.items ? <span className="meal-card-items">{meal.items.map((item) => <span key={item.id}><span>{item.text}</span><small>{hasNutrition(item) ? `${Math.round(item.nutrition.calories)} kcal` : '—'}</small></span>)}</span> : meal.text}
-                  </button>
-                </div>
-                <div className="meal-actions">
-                  {(() => {
-                    const pending = pendingEntries(meal).length > 0;
-                    const label = pending ? (meal.items && hasNutrition(meal) ? 'Estimate items without values' : 'Estimate with AI') : meal.items ? 'Re-estimate AI values (scanned and typed values are kept)' : 'Re-estimate with AI (replaces current values)';
-                    return <button className={`estimate-button${pending ? '' : ' is-reestimate'}`} type="button" onClick={() => estimateMeal(meal)} disabled={meal.estimating || !reestimableEntries(meal).length} title={label}>
-                      {meal.estimating ? <LoaderCircle className="ai-loading" aria-hidden="true" /> : pending ? <Sparkles className="ai-icon" aria-hidden="true" /> : <RefreshCw className="ai-icon" aria-hidden="true" />}
-                      <span className="sr-only">{meal.estimating ? 'Estimating' : label}</span>
-                    </button>;
-                  })()}
-                  <button className="remove-button" type="button" onClick={() => removeMeal(meal)} aria-label={`Delete ${meal.text}`} title="Delete meal"><Trash2 /></button>
-                </div>
-                <MealNutrition nutrition={meal.nutrition} />
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <aside className="summary-panel" data-estimating={meals.some((meal) => meal.estimating) || undefined}>
-          <div className="summary-heading">
-            <p className="eyebrow">Daily total</p>
-            <span className="summary-date">{selectedDate === dateKey(new Date()) ? 'Today' : formatDate(selectedDate)}</span>
-            {scoring && <DayScore total={total} goal={dayGoal} meals={meals} status={dayStatus(selectedDate, dateKey(now), now)} onOpen={() => setScoreOpen(true)} />}
-            <button className="estimate-button daily-estimate-button" type="button" onClick={estimateDay} disabled={!pendingCount || meals.some((meal) => meal.estimating)} aria-label={dayEstimateLabel} title={dayEstimateLabel}>
-              {meals.some((meal) => meal.estimating) ? <LoaderCircle className="ai-loading" aria-hidden="true" /> : <Sparkles className="ai-icon" aria-hidden="true" />}
-              <span className="daily-estimate-label">{pendingCount ? 'Estimate all' : 'Up to date'}</span>
-              {pendingCount > 0 && <span className="daily-estimate-count">{pendingCount}</span>}
-            </button>
-          </div>
-          <div className="calorie-total"><div><strong>{Math.round(total.calories)}</strong><span>kcal</span></div>{dayGoal?.calories > 0 && <strong className="calorie-goal">/ {Math.round(dayGoal.calories)}<small> kcal</small></strong>}</div>
-          {dayGoal?.calories > 0 && <GoalProgress value={total.calories} goal={dayGoal.calories} color="neutral" />}
-          <div className="macro-grid">
-            <Macro label="Protein" value={total.proteins} goal={dayGoal?.proteins} color="green" />
-            <Macro label="Carbs" value={total.carbs} goal={dayGoal?.carbs} color="yellow" />
-            <Macro label="Fat" value={total.fats} goal={dayGoal?.fats} color="coral" />
-          </div>
-        </aside>
-      </div>
-      <button className="add-meal-fab" type="button" onClick={openAddMeal} aria-label="Add meal">+</button>
-      <MealDialog
-        draft={addMealOpen ? mealDraft : null}
-        collapsibleNutrition
-        suggestions={previousMeals}
-        clearable
-        scannable
-        onQuickAdd={addPastMeal}
-        title={selectedDate === dateKey(new Date()) ? 'Add meal' : `Add meal · ${loggedLabel(selectedDate)}`}
-        submitLabel="Add meal"
-        onChange={(patch) => setMealDraft((current) => mergeDraft(current, patch))}
-        onClose={() => setAddMealOpen(false)}
-        onSubmit={addMeal}
-      />
-      <ScoreDialog open={scoring && scoreOpen} total={total} goal={dayGoal} meals={meals} pendingCount={pendingCount} status={dayStatus(selectedDate, dateKey(now), now)} now={now} onClose={() => setScoreOpen(false)} />
-      <MealDialog draft={editMeal} title="Edit meal" submitLabel="Save" onChange={(patch) => setEditMeal((current) => mergeDraft(current, patch))} onClose={() => setEditMeal(null)} onSubmit={saveMealEdit} onReestimate={reestimateEdit} />
-    </main>
-  );
 }
 
 function blankDraft() {
