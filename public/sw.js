@@ -1,5 +1,5 @@
-const CACHE_NAME = 'daily-fuel-v3';
-const APP_SHELL = ['/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/apple-touch-icon.png'];
+const CACHE_NAME = 'daily-fuel-v4';
+const APP_SHELL = ['/manifest.webmanifest', '/icon.svg', '/flame.svg', '/icon-192.png', '/apple-touch-icon.png'];
 const IS_DEVELOPMENT = ['localhost', '127.0.0.1'].includes(self.location.hostname);
 
 // The first visit loads its JS/CSS before this worker controls the page, so fetch the bundle

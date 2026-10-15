@@ -15,7 +15,7 @@ export function SharePoster({ ref, month, days, leading, scores, average }) {
   days.forEach((day) => { run = day.score !== null && day.score >= 75 ? run + 1 : 0; streak = Math.max(streak, run); });
   return (
     <div className={`share-poster day-score-${tone}`} ref={ref}>
-      <header className="poster-brand"><span className="brand-mark">DF</span><span>Daily Fuel</span></header>
+      <header className="poster-brand"><img className="brand-mark" src="/flame.svg" alt="" /><span>Daily Fuel</span></header>
       <div className="poster-title"><p>Daily score</p><h2>{new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' }).format(month)}</h2></div>
       <div className="poster-hero">
         <svg viewBox="0 0 560 560" aria-hidden="true">

@@ -10,7 +10,7 @@ export function ScoresView({ goal, quota, mealsByDate, onOpenDay, onNavigate, me
       <header className="topbar">
         <button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button>
         <button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home">
-          <span className="brand-mark">DF</span>
+          <img className="brand-mark" src="/flame.svg" alt="" />
           <span>Daily Fuel</span>
         </button>
         <HeaderQuota quota={quota} />

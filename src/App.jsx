@@ -404,7 +404,7 @@ export function App() {
     const chrome = <>
       <header className="topbar">
         <button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button>
-        <button className="brand" type="button" onClick={() => navigate('home')} aria-label="Daily Fuel home"><span className="brand-mark">DF</span><span>Daily Fuel</span></button>
+        <button className="brand" type="button" onClick={() => navigate('home')} aria-label="Daily Fuel home"><img className="brand-mark" src="/flame.svg" alt="" /><span>Daily Fuel</span></button>
         <HeaderQuota quota={useProxy ? proxyQuota : null} />
       </header>
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={navigate} onLogout={logout} username="Local device" goal={goal} />
@@ -429,7 +429,7 @@ export function App() {
       <main className="app-shell not-found-page">
         <header className="topbar">
           <button className="brand" type="button" onClick={() => navigate('home')} aria-label="Daily Fuel home">
-            <span className="brand-mark">DF</span>
+            <img className="brand-mark" src="/flame.svg" alt="" />
             <span>Daily Fuel</span>
           </button>
           <HeaderQuota quota={useProxy ? proxyQuota : null} />

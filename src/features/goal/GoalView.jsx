@@ -81,7 +81,7 @@ export function GoalView({ goal, quota, setGoal, onEstimateGoal, onNavigate, men
     <main className="app-shell goal-page">
       <header className="topbar">
         <button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button>
-        <button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home"><span className="brand-mark">DF</span><span>Daily Fuel</span></button>
+        <button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home"><img className="brand-mark" src="/flame.svg" alt="" /><span>Daily Fuel</span></button>
         <HeaderQuota quota={quota} />
       </header>
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} />

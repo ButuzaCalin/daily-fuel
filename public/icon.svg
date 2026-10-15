@@ -1,4 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#34704d"/>
-  <path d="M158 144h196v42H158zM158 235h196v42H158zM158 326h122v42H158z" fill="#fff"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3a7a53"/>
+      <stop offset="1" stop-color="#1d4a31"/>
+    </linearGradient>
+    <linearGradient id="fire" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4f98a"/>
+      <stop offset="1" stop-color="#7fe08a"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.62" r="0.45">
+      <stop offset="0" stop-color="#b8f27a" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#b8f27a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="112" fill="url(#glow)"/>
+  <path d="M256 76C300 140 384 190 384 296C384 370 326 428 256 428C186 428 128 370 128 296C128 238 160 198 196 170C192 214 208 244 236 256C224 190 230 128 256 76Z" fill="url(#fire)"/>
+  <path d="M262 236C288 276 326 300 326 350C326 390 296 414 256 414C216 414 186 390 186 354C186 322 204 300 222 288C222 312 230 326 246 332C240 296 246 262 262 236Z" fill="#245a3c"/>
 </svg>

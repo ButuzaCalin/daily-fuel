@@ -48,7 +48,7 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--focus-ring); }
 .menu-button { width: 34px; height: 34px; border-radius: 6px; font-size: 20px; line-height: 1; }
 .menu-button svg { width: 18px; height: 18px; display: block; margin: auto; }
 .brand { display: flex; align-items: center; gap: 9px; padding: 0; font-size: 15px; font-weight: 700; }
-.brand-mark { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 6px; background: var(--green); color: white; font-size: 10px; }
+.brand-mark { display: block; width: 21px; height: 28px; flex: none; }
 .topbar-note, .eyebrow, .date-label, .meal-time, .summary-date { color: var(--muted); font-size: 11px; }
 .eyebrow { margin: 0 0 8px; text-transform: uppercase; letter-spacing: .08em; }
 h2 { margin: 0; letter-spacing: -.03em; }
@@ -202,6 +202,8 @@ textarea::placeholder { color: #9aa09b; }
 .menu-layer[data-closing]::before { animation: fade-out 200ms ease forwards; }
 .menu-panel { position: relative; display: flex; flex-direction: column; overflow-y: auto; animation: drawer-in 320ms var(--ease-drawer); width: min(280px, 82vw); height: 100%; padding: 20px; background: var(--surface); box-shadow: 8px 0 24px rgb(34 42 37 / 10%); }
 .menu-header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 20px; border-bottom: 1px solid var(--line); }
+.menu-brand { display: inline-flex; align-items: center; gap: 10px; font-size: 16px; }
+.menu-flame { display: block; width: 22px; height: 30px; }
 .menu-header button { border: 0; background: transparent; color: var(--muted); font-size: 24px; line-height: 1; }
 .menu-user { margin: 16px 10px 0; color: var(--muted); font-size: 12px; }
 .menu-links { display: flex; flex: 1; flex-direction: column; gap: 4px; padding-top: 18px; }
@@ -479,7 +481,7 @@ textarea::placeholder { color: #9aa09b; }
 .share-poster-stage { position: fixed; top: 0; left: -10000px; pointer-events: none; }
 .share-poster { --score-color: var(--muted); display: flex; box-sizing: border-box; width: 1080px; height: 1920px; flex-direction: column; gap: 44px; padding: 90px 90px 80px; background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--score-color) 22%, white) 0%, #f7f7f5 55%, #eef1ed 100%); color: var(--ink); font-family: 'DM Sans', sans-serif; }
 .poster-brand { display: flex; align-items: center; gap: 18px; font-size: 34px; font-weight: 700; }
-.poster-brand .brand-mark { width: 60px; height: 60px; border-radius: 14px; font-size: 22px; }
+.poster-brand .brand-mark { width: 44px; height: 60px; }
 .poster-title p { margin: 0 0 8px; color: var(--muted); font-size: 30px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
 .poster-title h2 { margin: 0; font-size: 76px; font-weight: 700; letter-spacing: -.03em; line-height: 1; }
 .poster-hero { position: relative; display: grid; width: 500px; height: 500px; margin: 0 auto; place-items: center; }

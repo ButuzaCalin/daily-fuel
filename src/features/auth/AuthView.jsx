@@ -32,7 +32,7 @@ function AuthView({ onAuthenticated, onNotify }) {
     <main className="auth-page">
       <Toast toast={error ? { message: error, type: 'error' } : null} />
       <section className="auth-card">
-        <div className="brand auth-brand"><span className="brand-mark">DF</span><span>Daily Fuel</span></div>
+        <div className="brand auth-brand"><img className="brand-mark" src="/flame.svg" alt="" /><span>Daily Fuel</span></div>
         <h1>{mode === 'login' ? 'Welcome back' : 'Create your account'}</h1>
         <p className="auth-subtitle">Your meals, saved privately.</p>
         <form className="auth-form" onSubmit={submit}>
