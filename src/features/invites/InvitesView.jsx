@@ -133,7 +133,7 @@ export function InvitesView({ settings, goal, quota, onNavigate, menuOpen, setMe
     <main className="app-shell invites-page">
       <header className="topbar">
         <button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button>
-        <button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home"><img className="brand-mark" src="/flame.svg" alt="" /><span>Daily Fuel</span></button>
+        <button className="brand" type="button" onClick={() => onNavigate('home')} aria-label="Daily Fuel home"><span>Daily Fuel</span></button>
         <HeaderQuota quota={quota} />
       </header>
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} onLogout={onLogout} username={username} goal={goal} />

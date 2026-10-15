@@ -10,6 +10,21 @@ export function NameField({ value, onChange, ...props }) {
     field.style.height = 'auto';
     field.style.height = `${field.scrollHeight}px`;
   }, [value]);
+  // Width changes (dialog opening, fonts loading, rotation) rewrap the text, so the height is fitted again.
+  useLayoutEffect(() => {
+    const field = ref.current;
+    if (!field || typeof ResizeObserver === 'undefined') return undefined;
+    const fit = () => { field.style.height = 'auto'; field.style.height = `${field.scrollHeight}px`; };
+    let width = field.offsetWidth;
+    const observer = new ResizeObserver(() => {
+      if (field.offsetWidth === width) return;
+      width = field.offsetWidth;
+      fit();
+    });
+    observer.observe(field);
+    document.fonts?.ready.then(() => { if (field.isConnected) fit(); });
+    return () => observer.disconnect();
+  }, []);
   return <textarea ref={ref} rows="1" value={value} onChange={(event) => onChange(event.target.value.replace(/\s*\n\s*/g, ' '))} {...props} />;
 }
 

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDownWideNarrow, ArrowUpNarrowWide, Home, LoaderCircle, Menu as MenuIcon, RefreshCw, Sparkles, Trash2, Undo2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronLeft, ChevronRight, Home, LoaderCircle, Menu as MenuIcon, RefreshCw, Sparkles, Trash2, Undo2 } from 'lucide-react';
 import { isStandalone } from './app/pwa.js';
 import { routeFromPath, routePaths } from './app/routes.js';
 import { HeaderQuota } from './components/HeaderQuota.jsx';
@@ -33,11 +33,26 @@ import { takeBackupReminder } from './features/settings/backup.js';
 import { WeightView } from './features/weight/WeightView.jsx';
 import { WorkoutsView } from './features/workouts/WorkoutsView.jsx';
 import { useNow } from './hooks/useNow.js';
+import { useEdgeSwipe } from './hooks/useEdgeSwipe.js';
+import { useSwipe } from './hooks/useSwipe.js';
 import { dateKey, formatDate, shiftDate } from './lib/date.js';
 import { loadLocal, requestPersistentStorage, saveLocal } from './lib/storage.js';
 
 export function App() {
   const [selectedDate, setSelectedDate] = useState(dateKey(new Date()));
+  const daySwipe = useSwipe(() => setSelectedDate((date) => shiftDate(date, 1)), () => setSelectedDate((date) => shiftDate(date, -1)));
+  const dayContentRef = useRef(null);
+  const shownDate = useRef(selectedDate);
+  useEffect(() => {
+    const previous = shownDate.current;
+    shownDate.current = selectedDate;
+    if (previous === selectedDate || !dayContentRef.current || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const offset = selectedDate > previous ? 28 : -28;
+    dayContentRef.current.animate(
+      [{ transform: `translateX(${offset}px)`, opacity: 0 }, { transform: 'none', opacity: 1 }],
+      { duration: 260, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' },
+    );
+  }, [selectedDate]);
   const [mealsByDate, setMealsByDate] = useState(() => clearEstimating(loadLocal('daily-fuel-meals', {})));
   const [mealDraft, setMealDraft] = useState(blankDraft);
   const [editMeal, setEditMeal] = useState(null);
@@ -60,6 +75,8 @@ export function App() {
   const [newMealId, setNewMealId] = useState(null);
   const [route, setRoute] = useState(() => routeFromPath(window.location.pathname));
   const [menuOpen, setMenuOpen] = useState(false);
+  const openMenu = useCallback(() => setMenuOpen(true), []);
+  useEdgeSwipe(!menuOpen && route !== 'home' && route !== 'not-found', openMenu);
   const [reportPeriod, setReportPeriod] = useState('week');
   const [scoreOpen, setScoreOpen] = useState(false);
   const scoring = scoringAvailable(goal);
@@ -404,7 +421,7 @@ export function App() {
     const chrome = <>
       <header className="topbar">
         <button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button>
-        <button className="brand" type="button" onClick={() => navigate('home')} aria-label="Daily Fuel home"><img className="brand-mark" src="/flame.svg" alt="" /><span>Daily Fuel</span></button>
+        <button className="brand" type="button" onClick={() => navigate('home')} aria-label="Daily Fuel home"><span>Daily Fuel</span></button>
         <HeaderQuota quota={useProxy ? proxyQuota : null} />
       </header>
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={navigate} onLogout={logout} username="Local device" goal={goal} />
@@ -429,7 +446,6 @@ export function App() {
       <main className="app-shell not-found-page">
         <header className="topbar">
           <button className="brand" type="button" onClick={() => navigate('home')} aria-label="Daily Fuel home">
-            <img className="brand-mark" src="/flame.svg" alt="" />
             <span>Daily Fuel</span>
           </button>
           <HeaderQuota quota={useProxy ? proxyQuota : null} />
@@ -449,7 +465,7 @@ export function App() {
       <header className="home-header">
         <button className="menu-button" type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu"><MenuIcon /></button>
         <section className="date-picker" aria-label="Choose a day">
-          <button className="arrow-button" type="button" onClick={() => setSelectedDate(shiftDate(selectedDate, -1))} aria-label="Previous day">&larr;</button>
+          <button className="arrow-button" type="button" onClick={() => setSelectedDate(shiftDate(selectedDate, -1))} aria-label="Previous day"><ChevronLeft aria-hidden="true" /></button>
           <div className="date-display">
             {selectedDate === dateKey(new Date())
               ? <span className="date-label">Today</span>
@@ -459,7 +475,7 @@ export function App() {
               <input aria-label="Select date" type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} />
             </label>
           </div>
-          <button className="arrow-button" type="button" onClick={() => setSelectedDate(shiftDate(selectedDate, 1))} aria-label="Next day">&rarr;</button>
+          <button className="arrow-button" type="button" onClick={() => setSelectedDate(shiftDate(selectedDate, 1))} aria-label="Next day"><ChevronRight aria-hidden="true" /></button>
         </section>
         <HeaderQuota quota={useProxy ? proxyQuota : null} />
       </header>
@@ -468,7 +484,7 @@ export function App() {
       <SetupHandoffDialog link={handoffLink} onClose={() => setHandoffLink(null)} />
       {!aiConfigured && !setupCardHidden && isStandalone() && <SetupCard onCode={connectSetupCode} busy={connecting} notify={notify} onOpenSettings={() => navigate('ai')} onDismiss={hideSetupCard} />}
 
-      <div className="content-grid">
+      <div className="content-grid" ref={dayContentRef} {...daySwipe}>
         <section className="journal-panel">
           <div className="section-heading">
             <h2>Meals</h2>

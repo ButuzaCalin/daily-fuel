@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Plus, Trash2, X } from 'lucide-react';
+import { GripVertical, Plus, Trash2, X } from 'lucide-react';
 import { iconLabels, WorkoutIcon, workoutIcons } from './WorkoutIcon.jsx';
 import { DialogShell } from './dialogs.jsx';
 import { NameField, TypeToggle } from './fields.jsx';
+import { useDragReorder } from './useDragReorder.js';
 import { blankExercise, exerciseType } from './workouts.js';
 import { useEscape } from '../../hooks/useEscape.js';
 import { usePresence } from '../../hooks/usePresence.js';
@@ -11,6 +12,7 @@ export function TemplateDialog({ draft, onChange, onDelete, onClose, onSubmit })
   const [shown, closing] = usePresence(draft, 150);
   // The exercise row added last, so its name field gets focus when it mounts.
   const [focusId, setFocusId] = useState(null);
+  const reorder = useDragReorder(draft?.exercises || [], (exercises) => onChange({ exercises }));
   useEscape(Boolean(draft), onClose);
   if (!shown) return null;
   function addExercise(afterIndex = shown.exercises.length - 1) {
@@ -31,9 +33,10 @@ export function TemplateDialog({ draft, onChange, onDelete, onClose, onSubmit })
         </fieldset>
         <fieldset className="workout-field">
           <legend>Exercises</legend>
-          <div className="exercise-list">
+          <div className="exercise-list" data-reordering={reorder.dragging || undefined}>
             {shown.exercises.map((exercise, index) => (
-              <div className="exercise-row" key={exercise.id}>
+              <div className="exercise-row" key={exercise.id} {...reorder.rowProps(exercise.id, index)}>
+                <button className="exercise-handle" type="button" {...reorder.handleProps(exercise.id, index)} aria-label={`Move exercise ${index + 1}`} title="Drag to reorder"><GripVertical aria-hidden="true" /></button>
                 <span className="exercise-number">{index + 1}</span>
                 {/* Enter adds the next exercise, so a list can be typed without reaching for the button. */}
                 <NameField value={exercise.name} onChange={(value) => updateExercise(exercise.id, { name: value })} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); if (exercise.name.trim()) addExercise(index); } }} placeholder="Exercise name" maxLength={60} autoFocus={exercise.id === focusId} enterKeyHint="next" aria-label={`Exercise ${index + 1}`} />

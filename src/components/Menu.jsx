@@ -12,7 +12,7 @@ export function Menu({ open, onClose, onNavigate, onLogout, username, goal }) {
   return (
     <div className="menu-layer" data-closing={closing || undefined} role="presentation" onClick={onClose}>
       <aside className="menu-panel" role="dialog" aria-label="Navigation" onClick={(event) => event.stopPropagation()}>
-        <div className="menu-header"><strong className="menu-brand"><img className="menu-flame" src="/flame.svg" alt="" />Daily Fuel</strong><button type="button" onClick={onClose} aria-label="Close menu"><X /></button></div>
+        <div className="menu-header"><strong className="menu-brand"><img className="menu-flame" src="/flame-green.svg" alt="" /><span>Daily Fuel</span></strong><button type="button" onClick={onClose} aria-label="Close menu"><X /></button></div>
         <p className="menu-user">{username}</p>
         <nav className="menu-links">
           <div className="menu-group">

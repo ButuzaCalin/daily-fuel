@@ -47,8 +47,8 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--focus-ring); }
 .menu-button, .brand { border: 0; background: transparent; color: var(--ink); }
 .menu-button { width: 34px; height: 34px; border-radius: 6px; font-size: 20px; line-height: 1; }
 .menu-button svg { width: 18px; height: 18px; display: block; margin: auto; }
-.brand { display: flex; align-items: center; gap: 9px; padding: 0; font-size: 15px; font-weight: 700; }
-.brand-mark { display: block; width: 21px; height: 28px; flex: none; }
+.brand { display: flex; align-items: center; gap: 2px; padding: 0; font-size: 15px; font-weight: 700; }
+.menu-brand > span { position: relative; top: 3px; }
 .topbar-note, .eyebrow, .date-label, .meal-time, .summary-date { color: var(--muted); font-size: 11px; }
 .eyebrow { margin: 0 0 8px; text-transform: uppercase; letter-spacing: .08em; }
 h2 { margin: 0; letter-spacing: -.03em; }
@@ -57,7 +57,9 @@ h2 { margin: 0; letter-spacing: -.03em; }
 .home-header .header-quota-label { display: none; }
 .topbar .menu-button, .home-header .menu-button { width: 38px; height: 38px; }
 .date-picker { display: flex; align-items: center; justify-content: center; gap: 4px; justify-self: center; }
-.arrow-button { width: 38px; height: 38px; border: 1px solid var(--line); border-radius: 6px; background: white; color: var(--ink); font-size: 20px; line-height: 1; }
+.arrow-button { display: grid; flex: none; width: 34px; height: 34px; place-items: center; padding: 0; border: 0; border-radius: 50%; background: #edf3ee; color: var(--green); transition: background-color 150ms ease, transform 150ms var(--ease-out); }
+.arrow-button svg { width: 18px; height: 18px; stroke-width: 2.25; }
+.arrow-button:active { transform: scale(.92); }
 .today-button { display: inline-flex; align-items: center; gap: 4px; height: 18px; padding: 0 8px; border: 0; border-radius: 999px; background: #eaf0eb; color: var(--green); font-size: 11px; font-weight: 600; }
 .today-button svg { width: 12px; height: 12px; }
 .date-display { display: grid; justify-items: center; gap: 3px; width: 150px; text-align: center; }
@@ -202,8 +204,8 @@ textarea::placeholder { color: #9aa09b; }
 .menu-layer[data-closing]::before { animation: fade-out 200ms ease forwards; }
 .menu-panel { position: relative; display: flex; flex-direction: column; overflow-y: auto; animation: drawer-in 320ms var(--ease-drawer); width: min(280px, 82vw); height: 100%; padding: 20px; background: var(--surface); box-shadow: 8px 0 24px rgb(34 42 37 / 10%); }
 .menu-header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 20px; border-bottom: 1px solid var(--line); }
-.menu-brand { display: inline-flex; align-items: center; gap: 10px; font-size: 16px; }
-.menu-flame { display: block; width: 22px; height: 30px; }
+.menu-brand { display: inline-flex; align-items: center; gap: 2px; padding-left: 10px; font-size: 16px; line-height: 1; }
+.menu-flame { display: block; flex: none; width: 18px; height: 24px; margin: -2px 2px 0; }
 .menu-header button { border: 0; background: transparent; color: var(--muted); font-size: 24px; line-height: 1; }
 .menu-user { margin: 16px 10px 0; color: var(--muted); font-size: 12px; }
 .menu-links { display: flex; flex: 1; flex-direction: column; gap: 4px; padding-top: 18px; }
@@ -341,7 +343,7 @@ textarea::placeholder { color: #9aa09b; }
 }
 @media (hover: hover) and (pointer: fine) {
   .menu-button:hover { background: #eaf0eb; color: var(--green); }
-  .arrow-button:hover { border-color: var(--green); color: var(--green); }
+  .arrow-button:hover { background: #dce8df; }
   .today-button:hover { background: #dce8df; }
   .date-control:hover { background: #f1f5f2; }
   .time-picker:hover { border-color: var(--green); background: #f8fbf8; }
@@ -480,8 +482,7 @@ textarea::placeholder { color: #9aa09b; }
 
 .share-poster-stage { position: fixed; top: 0; left: -10000px; pointer-events: none; }
 .share-poster { --score-color: var(--muted); display: flex; box-sizing: border-box; width: 1080px; height: 1920px; flex-direction: column; gap: 44px; padding: 90px 90px 80px; background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--score-color) 22%, white) 0%, #f7f7f5 55%, #eef1ed 100%); color: var(--ink); font-family: 'DM Sans', sans-serif; }
-.poster-brand { display: flex; align-items: center; gap: 18px; font-size: 34px; font-weight: 700; }
-.poster-brand .brand-mark { width: 44px; height: 60px; }
+.poster-brand { display: flex; align-items: center; gap: 8px; font-size: 34px; font-weight: 700; }
 .poster-title p { margin: 0 0 8px; color: var(--muted); font-size: 30px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
 .poster-title h2 { margin: 0; font-size: 76px; font-weight: 700; letter-spacing: -.03em; line-height: 1; }
 .poster-hero { position: relative; display: grid; width: 500px; height: 500px; margin: 0 auto; place-items: center; }
