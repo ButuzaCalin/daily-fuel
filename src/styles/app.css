@@ -913,7 +913,7 @@ textarea::placeholder { color: #9aa09b; }
 .settings-navigation .objective-toggle button { grid-column: auto; }
 
 /* Bottom dock navigation (Settings → General → Navigation). Everything pinned to the bottom moves up above it. */
-:root[data-nav="dock"] { --dock-bottom: max(12px, env(safe-area-inset-bottom)); --dock-space: calc(66px + var(--dock-bottom)); }
+:root[data-nav="dock"] { --dock-bottom: max(18px, calc(env(safe-area-inset-bottom) + 6px)); --dock-space: calc(66px + var(--dock-bottom)); }
 :root[data-nav="dock"] .topbar .menu-button { display: none; }
 :root[data-nav="dock"] .home-header .menu-button { visibility: hidden; }
 :root[data-nav="dock"] .app-shell { padding-top: calc(var(--header-height) + 6px); padding-bottom: calc(48px + var(--dock-space)); }
@@ -950,8 +950,8 @@ textarea::placeholder { color: #9aa09b; }
 @media (prefers-reduced-motion: reduce) { .dock-sheet, .dock-sheet-layer { animation: none; } }
 
 /* Dock mode on Today: the day selector and the add button share one floating bar just above the dock. */
-.day-bar { position: fixed; z-index: 4; right: 0; bottom: calc(10px + var(--dock-space, 0px)); left: 0; display: flex; align-items: center; width: min(100% - 24px, 440px); margin: 0 auto; padding: 5px 5px 5px 10px; gap: 12px; border: 1px solid var(--line); border-radius: 999px; background: rgb(255 255 255 / 94%); box-shadow: 0 8px 24px rgb(34 42 37 / 12%); backdrop-filter: saturate(1.6) blur(14px); -webkit-backdrop-filter: saturate(1.6) blur(14px); }
-.day-bar .date-picker { flex: 1; justify-content: center; gap: 2px; min-width: 0; }
+.day-bar { position: fixed; z-index: 4; right: 0; bottom: calc(6px + var(--dock-space, 0px)); left: 0; display: flex; align-items: center; width: min(100% - 24px, 440px); margin: 0 auto; padding: 5px 5px 5px 10px; gap: 12px; border: 1px solid var(--line); border-radius: 999px; background: rgb(255 255 255 / 94%); box-shadow: 0 8px 24px rgb(34 42 37 / 12%); backdrop-filter: saturate(1.6) blur(14px); -webkit-backdrop-filter: saturate(1.6) blur(14px); }
+.day-bar .date-picker { flex: 1; justify-content: center; gap: 26px; min-width: 0; }
 .day-bar .date-display { flex: 0 1 140px; width: auto; gap: 1px; }
 .day-bar .date-label, .day-bar .today-button { line-height: 16px; height: 16px; }
 .day-bar .date-display strong { font-size: 14px; }
